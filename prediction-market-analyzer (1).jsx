@@ -2,7 +2,15 @@ import { useState, useEffect, useRef } from "react";
 
 const SYSTEM_PROMPT = `You are a prediction market analyst. The user will give you a URL to a prediction market event (from Kalshi, Polymarket, Coinbase, Gemini, Manifold, etc.).
 
-Use the web_search tool to fetch and analyze the page at that URL. Extract ALL of the following information and return ONLY a valid JSON object — no markdown fences, no explanation, just raw JSON.
+Use the web_search tool to fetch and analyze the page at that URL.
+
+IMPORTANT - Finding Rules:
+1. After fetching the main market page, look carefully for any links to rules, contract terms, or PDF documents on the page.
+2. For Kalshi markets, there is almost always a link to a PDF contract terms document (e.g. on kalshi-public-docs.s3.amazonaws.com). You MUST use web_search to fetch that PDF URL directly to get the full rules.
+3. Search for the rules PDF by constructing the likely URL if needed (e.g. for market ticker KXPRESPERSON, try fetching https://kalshi-public-docs.s3.amazonaws.com/contract_terms/PRESPERSON.pdf).
+4. Do NOT skip rule extraction — always attempt to find and read the rules document.
+
+Extract ALL of the following information and return ONLY a valid JSON object — no markdown fences, no explanation, just raw JSON.
 
 Return this exact structure:
 {
@@ -117,30 +125,30 @@ export default function App() {
         .c-reveal:nth-child(3){transition-delay:.17s}.c-reveal:nth-child(4){transition-delay:.24s}
         .c-reveal:nth-child(5){transition-delay:.31s}.c-reveal:nth-child(6){transition-delay:.38s}
         .c-reveal:nth-child(7){transition-delay:.45s}
-        .url-inp{flex:1;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:#E8E2DA;font-family:'DM Mono',monospace;font-size:12px;border-radius:7px;height:42px;padding:0 14px;outline:none;transition:border-color .15s}
-        .url-inp::placeholder{color:rgba(232,226,218,.28)}
+        .url-inp{flex:1;background:rgba(255,255,255,.09);border:0.5px solid rgba(255,255,255,.18);color:#F0EBE3;font-family:'DM Mono',monospace;font-size:12px;border-radius:7px;height:42px;padding:0 14px;outline:none;transition:border-color .15s}
+        .url-inp::placeholder{color:rgba(232,226,218,.42)}
         .url-inp:focus{border-color:rgba(217,119,87,.5)}
         .url-inp:disabled{opacity:.4}
         .go-btn{background:#D97757;border:none;color:#1C1612;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.09em;padding:0 22px;border-radius:7px;height:42px;cursor:pointer;transition:background .15s,opacity .15s;white-space:nowrap}
         .go-btn:hover:not(:disabled){background:#E8906A}
         .go-btn:disabled{opacity:.35;cursor:default}
-        .hdivider{border:none;border-top:0.5px solid rgba(255,255,255,.07);margin:0}
-        .trow{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:0.5px solid rgba(255,255,255,.07)}
+        .hdivider{border:none;border-top:0.5px solid rgba(255,255,255,.12);margin:0}
+        .trow{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:0.5px solid rgba(255,255,255,.1)}
         .trow:last-child{border-bottom:none}
-        .src-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid rgba(255,255,255,.06)}
+        .src-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid rgba(255,255,255,.09)}
         .src-row:last-child{border-bottom:none}
         .bar-fill{transition:width .85s cubic-bezier(.16,1,.3,1)}
         .pulse-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#D97757;animation:pulse 1.4s ease-in-out infinite;flex-shrink:0}
       `}</style>
 
-      <div style={{background:"#1B1612",minHeight:"100vh",padding:"26px 22px",fontFamily:"'DM Mono',monospace"}}>
+      <div style={{background:"#252018",minHeight:"100vh",padding:"26px 22px",fontFamily:"'DM Mono',monospace"}}>
 
         {/* Header */}
         <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:26}}>
           <ClaudeMark />
           <div>
             <div style={{fontFamily:"'Crimson Pro',serif",fontSize:"19px",fontWeight:400,color:"#E8E2DA",letterSpacing:".01em",lineHeight:1}}>Market Intelligence</div>
-            <div style={{fontSize:"9px",color:"rgba(232,226,218,.28)",letterSpacing:".13em",marginTop:3}}>PREDICTION ANALYZER · CLAUDE BY ANTHROPIC</div>
+            <div style={{fontSize:"9px",color:"rgba(232,226,218,.45)",letterSpacing:".13em",marginTop:3}}>PREDICTION ANALYZER · CLAUDE BY ANTHROPIC</div>
           </div>
         </div>
 
@@ -179,22 +187,22 @@ export default function App() {
             <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(217,119,87,.07)",border:"0.5px solid rgba(217,119,87,.22)",borderRadius:10,padding:"18px 20px"}}>
               <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:10}}>
                 {data.platform && <span style={{fontSize:"9px",letterSpacing:".13em",color:"#D97757",background:"rgba(217,119,87,.14)",padding:"3px 8px",borderRadius:4}}>{data.platform.toUpperCase()}</span>}
-                {data.category && <span style={{fontSize:"9px",color:"rgba(232,226,218,.35)",letterSpacing:".1em"}}>{data.category.toUpperCase()}</span>}
+                {data.category && <span style={{fontSize:"9px",color:"rgba(232,226,218,.55)",letterSpacing:".1em"}}>{data.category.toUpperCase()}</span>}
                 {data.status && (
-                  <span style={{display:"flex",alignItems:"center",gap:5,fontSize:"9px",color:"rgba(232,226,218,.35)",letterSpacing:".1em"}}>
+                  <span style={{display:"flex",alignItems:"center",gap:5,fontSize:"9px",color:"rgba(232,226,218,.55)",letterSpacing:".1em"}}>
                     <span style={{width:5,height:5,borderRadius:"50%",background:statusColor(data.status),display:"inline-block"}}/>
                     {data.status.toUpperCase()}
                   </span>
                 )}
               </div>
               <div style={{fontFamily:"'Crimson Pro',serif",fontSize:"20px",fontWeight:400,color:"#E8E2DA",lineHeight:1.35,marginBottom:8}}>{data.title}</div>
-              {data.summary&&<div style={{fontSize:"11px",color:"rgba(232,226,218,.48)",lineHeight:1.7,letterSpacing:".02em"}}>{data.summary}</div>}
+              {data.summary&&<div style={{fontSize:"11px",color:"rgba(232,226,218,.65)",lineHeight:1.7,letterSpacing:".02em"}}>{data.summary}</div>}
             </div>
 
             {/* Outcomes */}
             {data.sides?.length>0&&(
-              <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.03)",border:"0.5px solid rgba(255,255,255,.08)",borderRadius:10,padding:"18px 20px"}}>
-                <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.3)",marginBottom:16}}>OUTCOMES & PROBABILITY</div>
+              <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.06)",border:"0.5px solid rgba(255,255,255,.14)",borderRadius:10,padding:"18px 20px"}}>
+                <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.5)",marginBottom:16}}>OUTCOMES & PROBABILITY</div>
                 <div style={{display:"flex",flexDirection:"column",gap:16}}>
                   {data.sides.map((side,i)=>{
                     const col=sideColors[i]||sideColors[1];
@@ -204,10 +212,10 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
                           <div style={{display:"flex",flexDirection:"column",gap:2}}>
                             <span style={{fontSize:"13px",fontWeight:500,color:col.label,letterSpacing:".02em"}}>{side.name}</span>
-                            {side.description&&<span style={{fontSize:"10px",color:"rgba(232,226,218,.3)"}}>{side.description}</span>}
+                            {side.description&&<span style={{fontSize:"10px",color:"rgba(232,226,218,.5)"}}>{side.description}</span>}
                           </div>
                           <div style={{display:"flex",gap:12,alignItems:"baseline",flexShrink:0,marginLeft:16}}>
-                            {side.odds&&<span style={{fontSize:"10px",color:"rgba(232,226,218,.35)",fontFamily:"'DM Mono',monospace"}}>{side.odds}</span>}
+                            {side.odds&&<span style={{fontSize:"10px",color:"rgba(232,226,218,.55)",fontFamily:"'DM Mono',monospace"}}>{side.odds}</span>}
                             <span style={{fontFamily:"'Crimson Pro',serif",fontSize:"22px",fontWeight:300,color:col.bar}}>{prob}%</span>
                           </div>
                         </div>
@@ -224,9 +232,9 @@ export default function App() {
             {/* Market stats */}
             <div className={`c-reveal${revealed?" on":""}`} style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
               {[{l:"VOLUME TRADED",v:data.volume_traded},{l:"LIQUIDITY",v:data.liquidity},{l:"OPEN INTEREST",v:data.open_interest}].map(({l,v})=>(
-                <div key={l} style={{background:"rgba(255,255,255,.03)",border:"0.5px solid rgba(255,255,255,.08)",borderRadius:10,padding:"14px 15px"}}>
+                <div key={l} style={{background:"rgba(255,255,255,.06)",border:"0.5px solid rgba(255,255,255,.14)",borderRadius:10,padding:"14px 15px"}}>
                   <div style={{fontSize:"9px",letterSpacing:".13em",color:"rgba(232,226,218,.28)",marginBottom:8}}>{l}</div>
-                  <div style={{fontFamily:"'Crimson Pro',serif",fontSize:"19px",fontWeight:300,color:v&&v!=="Not available"?"#E8E2DA":"rgba(232,226,218,.2)"}}>
+                  <div style={{fontFamily:"'Crimson Pro',serif",fontSize:"19px",fontWeight:300,color:v&&v!=="Not available"?"#E8E2DA":"rgba(232,226,218,.35)"}}>
                     {v&&v!=="Not available"?v:"—"}
                   </div>
                 </div>
@@ -234,35 +242,35 @@ export default function App() {
             </div>
 
             {/* Timeline */}
-            <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.03)",border:"0.5px solid rgba(255,255,255,.08)",borderRadius:10,padding:"18px 20px"}}>
-              <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.3)",marginBottom:14}}>TIMELINE</div>
+            <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.06)",border:"0.5px solid rgba(255,255,255,.14)",borderRadius:10,padding:"18px 20px"}}>
+              <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.5)",marginBottom:14}}>TIMELINE</div>
               {[{label:"Start date",value:data.start_date},{label:"End / expiry",value:data.end_date},{label:"Resolution date",value:data.resolution_date}].map(({label,value})=>(
                 <div key={label} className="trow">
-                  <span style={{fontSize:"11px",color:"rgba(232,226,218,.35)",letterSpacing:".03em"}}>{label}</span>
-                  <span style={{fontSize:"11px",color:value&&value!=="Not specified"?"#E8E2DA":"rgba(232,226,218,.2)",fontFamily:"'DM Mono',monospace",textAlign:"right"}}>{value||"—"}</span>
+                  <span style={{fontSize:"11px",color:"rgba(232,226,218,.55)",letterSpacing:".03em"}}>{label}</span>
+                  <span style={{fontSize:"11px",color:value&&value!=="Not specified"?"#E8E2DA":"rgba(232,226,218,.35)",fontFamily:"'DM Mono',monospace",textAlign:"right"}}>{value||"—"}</span>
                 </div>
               ))}
             </div>
 
             {/* Resolution */}
-            <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.03)",border:"0.5px solid rgba(255,255,255,.08)",borderRadius:10,padding:"18px 20px"}}>
-              <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.3)",marginBottom:14}}>RESOLUTION</div>
+            <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.06)",border:"0.5px solid rgba(255,255,255,.14)",borderRadius:10,padding:"18px 20px"}}>
+              <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.5)",marginBottom:14}}>RESOLUTION</div>
               {[{label:"Resolved by",value:data.resolved_by},{label:"Authority",value:data.resolution_authority}].map(({label,value})=>(
                 <div key={label} className="trow">
-                  <span style={{fontSize:"11px",color:"rgba(232,226,218,.35)",flexShrink:0,letterSpacing:".03em"}}>{label}</span>
-                  <span style={{fontSize:"11px",color:value&&value!=="Not specified"?"#E8E2DA":"rgba(232,226,218,.2)",textAlign:"right",lineHeight:1.55,marginLeft:20}}>{value||"—"}</span>
+                  <span style={{fontSize:"11px",color:"rgba(232,226,218,.55)",flexShrink:0,letterSpacing:".03em"}}>{label}</span>
+                  <span style={{fontSize:"11px",color:value&&value!=="Not specified"?"#E8E2DA":"rgba(232,226,218,.35)",textAlign:"right",lineHeight:1.55,marginLeft:20}}>{value||"—"}</span>
                 </div>
               ))}
             </div>
 
             {/* Verification sources */}
             {data.official_sources?.length>0&&(
-              <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.03)",border:"0.5px solid rgba(255,255,255,.08)",borderRadius:10,padding:"18px 20px"}}>
-                <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.3)",marginBottom:14}}>VERIFICATION SOURCES</div>
+              <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.06)",border:"0.5px solid rgba(255,255,255,.14)",borderRadius:10,padding:"18px 20px"}}>
+                <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.5)",marginBottom:14}}>VERIFICATION SOURCES</div>
                 {data.official_sources.map((src,i)=>(
                   <div key={i} className="src-row">
                     <span style={{fontFamily:"'DM Mono',monospace",fontSize:"9px",color:"#D97757",flexShrink:0,marginTop:2}}>{String(i+1).padStart(2,"0")}</span>
-                    <span style={{fontSize:"11px",color:"rgba(232,226,218,.68)",lineHeight:1.65}}>{src}</span>
+                    <span style={{fontSize:"11px",color:"rgba(232,226,218,.82)",lineHeight:1.65}}>{src}</span>
                   </div>
                 ))}
               </div>
@@ -270,12 +278,12 @@ export default function App() {
 
             {/* Rules */}
             {data.rules?.length>0&&(
-              <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.03)",border:"0.5px solid rgba(255,255,255,.08)",borderRadius:10,padding:"18px 20px"}}>
-                <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.3)",marginBottom:14}}>RULES & CRITERIA</div>
+              <div className={`c-reveal${revealed?" on":""}`} style={{background:"rgba(255,255,255,.06)",border:"0.5px solid rgba(255,255,255,.14)",borderRadius:10,padding:"18px 20px"}}>
+                <div style={{fontSize:"9px",letterSpacing:".14em",color:"rgba(232,226,218,.5)",marginBottom:14}}>RULES & CRITERIA</div>
                 {data.rules.map((rule,i)=>(
                   <div key={i} className="src-row">
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:"9px",color:"rgba(232,226,218,.22)",flexShrink:0,marginTop:3}}>{String(i+1).padStart(2,"0")}</span>
-                    <span style={{fontSize:"11px",color:"rgba(232,226,218,.68)",lineHeight:1.7,letterSpacing:".015em"}}>{rule}</span>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:"9px",color:"rgba(232,226,218,.4)",flexShrink:0,marginTop:3}}>{String(i+1).padStart(2,"0")}</span>
+                    <span style={{fontSize:"11px",color:"rgba(232,226,218,.82)",lineHeight:1.7,letterSpacing:".015em"}}>{rule}</span>
                   </div>
                 ))}
               </div>
@@ -287,16 +295,16 @@ export default function App() {
         {/* Empty state */}
         {!data&&!loading&&!error&&(
           <div style={{textAlign:"center",padding:"52px 0 24px"}}>
-            <div style={{marginBottom:16,opacity:.3,display:"flex",justifyContent:"center"}}><ClaudeMark /></div>
-            <div style={{fontSize:"10px",color:"rgba(232,226,218,.22)",letterSpacing:".1em",lineHeight:2.2}}>KALSHI · POLYMARKET · MANIFOLD · GEMINI · COINBASE</div>
-            <div style={{fontSize:"10px",color:"rgba(232,226,218,.14)",letterSpacing:".05em",marginTop:6}}>paste a url above to begin analysis</div>
+            <div style={{marginBottom:16,opacity:.5,display:"flex",justifyContent:"center"}}><ClaudeMark /></div>
+            <div style={{fontSize:"10px",color:"rgba(232,226,218,.5)",letterSpacing:".1em",lineHeight:2.2}}>KALSHI · POLYMARKET · MANIFOLD · GEMINI · COINBASE</div>
+            <div style={{fontSize:"10px",color:"rgba(232,226,218,.32)",letterSpacing:".05em",marginTop:6}}>paste a url above to begin analysis</div>
           </div>
         )}
 
         {/* Footer */}
         <div style={{marginTop:24,paddingTop:14,borderTop:"0.5px solid rgba(255,255,255,.06)",display:"flex",alignItems:"center",gap:8}}>
           <span style={{width:5,height:5,borderRadius:"50%",background:loading?"#D97757":"rgba(94,168,122,.6)",display:"inline-block",flexShrink:0}}/>
-          <span style={{fontSize:"9px",color:"rgba(232,226,218,.18)",letterSpacing:".1em"}}>CLAUDE · ANTHROPIC · {new Date().getFullYear()}</span>
+          <span style={{fontSize:"9px",color:"rgba(232,226,218,.35)",letterSpacing:".1em"}}>CLAUDE · ANTHROPIC · {new Date().getFullYear()}</span>
         </div>
 
       </div>
