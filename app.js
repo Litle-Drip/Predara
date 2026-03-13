@@ -75,19 +75,21 @@ async function analyze() {
 
     try {
 
-      // Support both /markets/EVENT/TICKER and /events/EVENT URL shapes
-      let ticker, type
-      const marketMatch = url.match(/\/markets\/[^/?#]+\/([^/?#]+)/)
-      const eventMatch = url.match(/\/events\/([^/?#]+)/)
+      // Extract the last path segment (before any query/hash) as the ticker
+      // Kalshi market URLs can have 2 or 3 segments after /markets/ — the last is always the ticker
+      // e.g. /markets/kxncaambgame/mens-college-basketball-mens-game/kxncaambgame-26mar13wisill
+      const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
+      const lastSegment = cleanPath.split("/").pop().toUpperCase()
 
-      if (marketMatch) {
-        ticker = marketMatch[1]
+      let ticker, type
+      if (url.includes("/markets/")) {
+        ticker = lastSegment
         type = "market"
-      } else if (eventMatch) {
-        ticker = eventMatch[1]
+      } else if (url.includes("/events/")) {
+        ticker = lastSegment
         type = "event"
       } else {
-        throw new Error("Invalid Kalshi URL. Expected: kalshi.com/markets/EVENT/TICKER or kalshi.com/events/EVENT")
+        throw new Error("Invalid Kalshi URL. Expected: kalshi.com/markets/... or kalshi.com/events/...")
       }
 
       const api = `/api/kalshi?ticker=${encodeURIComponent(ticker)}&type=${type}`
