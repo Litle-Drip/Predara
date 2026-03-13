@@ -24,16 +24,10 @@ async function analyze() {
       if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug>")
       const slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "")
 
-      const directApi = `https://gamma-api.polymarket.com/events?slug=${slug}`
+      // Use the local server proxy to avoid CORS/ad-blocker issues
+      const api = `/api/polymarket?slug=${encodeURIComponent(slug)}`
 
-      // Try direct fetch first; fall back to CORS proxy if the browser blocks it
-      let res
-      try {
-        res = await fetch(directApi)
-      } catch {
-        const proxyApi = `https://api.allorigins.win/raw?url=${encodeURIComponent(directApi)}`
-        res = await fetch(proxyApi)
-      }
+      const res = await fetch(api)
 
       if (!res.ok) throw new Error(`API request failed with status ${res.status}`)
 
