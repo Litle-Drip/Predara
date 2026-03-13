@@ -75,24 +75,15 @@ async function analyze() {
 
     try {
 
-      // Extract the last path segment (before any query/hash) as the ticker
-      // Kalshi market URLs can have 2 or 3 segments after /markets/ — the last is always the ticker
-      // e.g. /markets/kxncaambgame/mens-college-basketball-mens-game/kxncaambgame-26mar13wisill
-      const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
-      const lastSegment = cleanPath.split("/").pop().toUpperCase()
-
-      let ticker, type
-      if (url.includes("/markets/")) {
-        ticker = lastSegment
-        type = "market"
-      } else if (url.includes("/events/")) {
-        ticker = lastSegment
-        type = "event"
-      } else {
+      // Extract the last path segment as the ticker (uppercase)
+      // The proxy will try market endpoint first, then event endpoint as fallback
+      if (!url.includes("/markets/") && !url.includes("/events/")) {
         throw new Error("Invalid Kalshi URL. Expected: kalshi.com/markets/... or kalshi.com/events/...")
       }
+      const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
+      const ticker = cleanPath.split("/").pop().toUpperCase()
 
-      const api = `/api/kalshi?ticker=${encodeURIComponent(ticker)}&type=${type}`
+      const api = `/api/kalshi?ticker=${encodeURIComponent(ticker)}`
 
       const res = await fetch(api)
 

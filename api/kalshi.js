@@ -1,7 +1,39 @@
 const https = require("https")
 const crypto = require("crypto")
 
-module.exports = (req, res) => {
+function kalshiRequest(path, keyId, normalizedKey) {
+  return new Promise((resolve, reject) => {
+    const timestamp = Date.now().toString()
+    const basePath = path.split("?")[0]
+    const msgString = timestamp + "GET" + basePath
+    let signature
+    try {
+      signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
+    } catch (err) {
+      return reject(new Error(`Failed to sign request: ${err.message}`))
+    }
+
+    const options = {
+      hostname: "api.elections.kalshi.com",
+      path,
+      method: "GET",
+      headers: {
+        "KALSHI-ACCESS-KEY": keyId,
+        "KALSHI-ACCESS-TIMESTAMP": timestamp,
+        "KALSHI-ACCESS-SIGNATURE": signature,
+        "Content-Type": "application/json",
+      },
+    }
+
+    https.request(options, (apiRes) => {
+      let body = ""
+      apiRes.on("data", (chunk) => { body += chunk })
+      apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+    }).on("error", reject).end()
+  })
+}
+
+module.exports = async (req, res) => {
   const keyId = process.env.KALSHI_API_KEY_ID
   const privateKey = process.env.KALSHI_PRIVATE_KEY
 
@@ -11,62 +43,37 @@ module.exports = (req, res) => {
   }
 
   const ticker = req.query.ticker
-  const type = req.query.type  // "market" or "event" — passed explicitly from the frontend
-
   if (!ticker) {
     res.status(400).json({ error: "Missing ticker" })
     return
   }
 
-  const isMarket = type === "market"
-
-  // Path without query string is used for signing
-  const basePath = isMarket
-    ? `/trade-api/v2/markets/${encodeURIComponent(ticker)}`
-    : `/trade-api/v2/events/${encodeURIComponent(ticker)}`
-
-  const apiPath = isMarket ? basePath : `${basePath}?with_nested_markets=true`
-
-  // Normalize newlines in case Vercel stored the PEM key with literal \n
   const normalizedKey = privateKey.replace(/\\n/g, "\n")
 
-  // Sign: timestamp + "GET" + path — use SHA256 to support both RSA and EC keys
-  const timestamp = Date.now().toString()
-  const msgString = timestamp + "GET" + basePath
-  let signature
+  res.setHeader("Access-Control-Allow-Origin", "*")
+  res.setHeader("Content-Type", "application/json")
+
   try {
-    signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
+    // Try the market endpoint first
+    const marketPath = `/trade-api/v2/markets/${encodeURIComponent(ticker)}`
+    const marketRes = await kalshiRequest(marketPath, keyId, normalizedKey)
+
+    if (marketRes.status === 200) {
+      return res.status(200).send(marketRes.body)
+    }
+
+    // Fall back to the event endpoint (Kalshi game URLs often use the event ticker)
+    const eventPath = `/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`
+    const eventRes = await kalshiRequest(eventPath, keyId, normalizedKey)
+
+    if (eventRes.status === 200) {
+      return res.status(200).send(eventRes.body)
+    }
+
+    // Both failed — return the event endpoint error (more informative for game markets)
+    return res.status(eventRes.status).json({ error: eventRes.body.trim() })
+
   } catch (err) {
-    res.status(500).json({ error: `Failed to sign request: ${err.message}` })
-    return
-  }
-
-  const options = {
-    hostname: "api.elections.kalshi.com",
-    path: apiPath,
-    method: "GET",
-    headers: {
-      "KALSHI-ACCESS-KEY": keyId,
-      "KALSHI-ACCESS-TIMESTAMP": timestamp,
-      "KALSHI-ACCESS-SIGNATURE": signature,
-      "Content-Type": "application/json",
-    },
-  }
-
-  https.request(options, (apiRes) => {
-    let body = ""
-    apiRes.on("data", (chunk) => { body += chunk })
-    apiRes.on("end", () => {
-      res.setHeader("Access-Control-Allow-Origin", "*")
-      res.setHeader("Content-Type", "application/json")
-      // If Kalshi returns non-JSON (e.g. plain-text error), wrap it so the browser doesn't crash
-      if (apiRes.statusCode !== 200) {
-        res.status(apiRes.statusCode).json({ error: body.trim() })
-      } else {
-        res.status(200).send(body)
-      }
-    })
-  }).on("error", (err) => {
     res.status(502).json({ error: err.message })
-  }).end()
+  }
 }

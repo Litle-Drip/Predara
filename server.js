@@ -52,58 +52,57 @@ const server = http.createServer((req, res) => {
     }
 
     const ticker = parsed.query.ticker
-    const type = parsed.query.type  // "market" or "event"
     if (!ticker) {
       res.writeHead(400, { "Content-Type": "application/json" })
       return res.end(JSON.stringify({ error: "Missing ticker" }))
     }
 
-    const isMarket = type === "market"
-    const basePath = isMarket
-      ? `/trade-api/v2/markets/${encodeURIComponent(ticker)}`
-      : `/trade-api/v2/events/${encodeURIComponent(ticker)}`
-    const apiPath = isMarket ? basePath : `${basePath}?with_nested_markets=true`
-
     const normalizedKey = privateKey.replace(/\\n/g, "\n")
-    const timestamp = Date.now().toString()
-    const msgString = timestamp + "GET" + basePath
-    let signature
-    try {
-      signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" })
-      return res.end(JSON.stringify({ error: `Failed to sign request: ${err.message}` }))
-    }
+    const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
 
-    const options = {
-      hostname: "api.elections.kalshi.com",
-      path: apiPath,
-      method: "GET",
-      headers: {
-        "KALSHI-ACCESS-KEY": keyId,
-        "KALSHI-ACCESS-TIMESTAMP": timestamp,
-        "KALSHI-ACCESS-SIGNATURE": signature,
-        "Content-Type": "application/json",
-      },
-    }
-
-    https.request(options, (apiRes) => {
-      let body = ""
-      apiRes.on("data", (chunk) => { body += chunk })
-      apiRes.on("end", () => {
-        const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-        if (apiRes.statusCode !== 200) {
-          res.writeHead(apiRes.statusCode, headers)
-          res.end(JSON.stringify({ error: body.trim() }))
-        } else {
-          res.writeHead(200, headers)
-          res.end(body)
+    function kalshiGet(path) {
+      return new Promise((resolve, reject) => {
+        const basePath = path.split("?")[0]
+        const timestamp = Date.now().toString()
+        const msgString = timestamp + "GET" + basePath
+        let signature
+        try {
+          signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
+        } catch (err) {
+          return reject(err)
         }
+        https.request({
+          hostname: "api.elections.kalshi.com",
+          path,
+          method: "GET",
+          headers: {
+            "KALSHI-ACCESS-KEY": keyId,
+            "KALSHI-ACCESS-TIMESTAMP": timestamp,
+            "KALSHI-ACCESS-SIGNATURE": signature,
+            "Content-Type": "application/json",
+          },
+        }, (apiRes) => {
+          let body = ""
+          apiRes.on("data", (chunk) => { body += chunk })
+          apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+        }).on("error", reject).end()
       })
-    }).on("error", (err) => {
-      res.writeHead(502, { "Content-Type": "application/json" })
-      res.end(JSON.stringify({ error: err.message }))
-    }).end()
+    }
+
+    Promise.resolve()
+      .then(() => kalshiGet(`/trade-api/v2/markets/${encodeURIComponent(ticker)}`))
+      .then((r) => {
+        if (r.status === 200) return r
+        return kalshiGet(`/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`)
+      })
+      .then((r) => {
+        if (r.status === 200) { res.writeHead(200, headers); res.end(r.body) }
+        else { res.writeHead(r.status, headers); res.end(JSON.stringify({ error: r.body.trim() })) }
+      })
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json" })
+        res.end(JSON.stringify({ error: err.message }))
+      })
 
     return
   }
