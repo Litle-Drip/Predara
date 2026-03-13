@@ -27,12 +27,15 @@ module.exports = (req, res) => {
 
   const apiPath = isMarket ? basePath : `${basePath}?with_nested_markets=true`
 
-  // Build RSA signature: sign( timestamp + "GET" + path )
+  // Normalize newlines in case Vercel stored the PEM key with literal \n
+  const normalizedKey = privateKey.replace(/\\n/g, "\n")
+
+  // Sign: timestamp + "GET" + path — use SHA256 to support both RSA and EC keys
   const timestamp = Date.now().toString()
   const msgString = timestamp + "GET" + basePath
   let signature
   try {
-    signature = crypto.createSign("RSA-SHA256").update(msgString).sign(privateKey, "base64")
+    signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
   } catch (err) {
     res.status(500).json({ error: `Failed to sign request: ${err.message}` })
     return
@@ -55,7 +58,13 @@ module.exports = (req, res) => {
     apiRes.on("data", (chunk) => { body += chunk })
     apiRes.on("end", () => {
       res.setHeader("Access-Control-Allow-Origin", "*")
-      res.status(apiRes.statusCode).send(body)
+      res.setHeader("Content-Type", "application/json")
+      // If Kalshi returns non-JSON (e.g. plain-text error), wrap it so the browser doesn't crash
+      if (apiRes.statusCode !== 200) {
+        res.status(apiRes.statusCode).json({ error: body.trim() })
+      } else {
+        res.status(200).send(body)
+      }
     })
   }).on("error", (err) => {
     res.status(502).json({ error: err.message })

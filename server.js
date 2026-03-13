@@ -64,11 +64,12 @@ const server = http.createServer((req, res) => {
       : `/trade-api/v2/events/${encodeURIComponent(ticker)}`
     const apiPath = isMarket ? basePath : `${basePath}?with_nested_markets=true`
 
+    const normalizedKey = privateKey.replace(/\\n/g, "\n")
     const timestamp = Date.now().toString()
     const msgString = timestamp + "GET" + basePath
     let signature
     try {
-      signature = crypto.createSign("RSA-SHA256").update(msgString).sign(privateKey, "base64")
+      signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" })
       return res.end(JSON.stringify({ error: `Failed to sign request: ${err.message}` }))
@@ -90,11 +91,14 @@ const server = http.createServer((req, res) => {
       let body = ""
       apiRes.on("data", (chunk) => { body += chunk })
       apiRes.on("end", () => {
-        res.writeHead(apiRes.statusCode, {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        })
-        res.end(body)
+        const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        if (apiRes.statusCode !== 200) {
+          res.writeHead(apiRes.statusCode, headers)
+          res.end(JSON.stringify({ error: body.trim() }))
+        } else {
+          res.writeHead(200, headers)
+          res.end(body)
+        }
       })
     }).on("error", (err) => {
       res.writeHead(502, { "Content-Type": "application/json" })
