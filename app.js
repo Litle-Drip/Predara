@@ -65,6 +65,17 @@ function outcomeRow(label, sub, pct, color) {
     </div>`
 }
 
+function buildOutcomesHtml(visible, hidden) {
+  if (!hidden.length) return visible.join("")
+  return visible.join("") + `
+    <div class="outcomes-overflow" style="display:none">${hidden.join("")}</div>
+    <div class="show-more-row">
+      <button class="show-more-btn" onclick="this.closest('.show-more-row').previousElementSibling.style.display='block';this.closest('.show-more-row').style.display='none'">
+        + ${hidden.length} MORE UNDER 1.1%  ↓
+      </button>
+    </div>`
+}
+
 function renderKalshiEvent(ev, accent) {
   const markets = (ev.markets || []).filter(m => m.yes_sub_title)
   const first = markets[0] || {}
@@ -85,7 +96,8 @@ function renderKalshiEvent(ev, accent) {
 
   // Outcomes
   const colors = ["#22c55e", "#ef4444", "#f59e0b", "#60a5fa"]
-  const outcomesHtml = sorted.map((m, i) => {
+  const visibleKalshi = [], hiddenKalshi = []
+  sorted.forEach((m, i) => {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
     const yesBid = parseFloat(m.yes_bid_dollars || 0)
     const yesAsk = parseFloat(m.yes_ask_dollars || 0)
@@ -95,8 +107,11 @@ function renderKalshiEvent(ev, accent) {
     const label = `${m.yes_sub_title} to win`
     const sub = (m.rules_primary || "")
       .replace(/^If /, "").replace(/, then the market resolves to Yes\.?$/, "")
-    return outcomeRow(label, sub, pct, colors[i] || "#aaa")
-  }).join("")
+    const row = outcomeRow(label, sub, pct, colors[i] || "#aaa")
+    if (pct <= 1) hiddenKalshi.push(row)
+    else visibleKalshi.push(row)
+  })
+  const outcomesHtml = buildOutcomesHtml(visibleKalshi, hiddenKalshi)
 
   // Aggregate stats
   const totalVol  = fmtNum(markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0))
@@ -167,15 +182,18 @@ function renderPolymarketEvent(event, markets, accent) {
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
   const colors = ["#22c55e", "#ef4444", "#f59e0b", "#60a5fa"]
-  let outcomesHtml = ""
+  const visiblePoly = [], hiddenPoly = []
   markets.forEach((market, idx) => {
     const outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
     const prices   = typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : market.outcomePrices
     ;(outcomes || []).forEach((name, i) => {
       const pct = Math.round(parseFloat(prices ? prices[i] : 0) * 100)
-      outcomesHtml += outcomeRow(name, "", pct, colors[(idx + i) % colors.length])
+      const row = outcomeRow(name, "", pct, colors[(idx + i) % colors.length])
+      if (pct <= 1) hiddenPoly.push(row)
+      else visiblePoly.push(row)
     })
   })
+  const outcomesHtml = buildOutcomesHtml(visiblePoly, hiddenPoly)
 
   const first = markets[0] || {}
   const totalVol  = fmtNum(parseFloat(event.volume || 0))
