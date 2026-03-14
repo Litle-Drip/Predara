@@ -482,19 +482,19 @@
 
     /* ── Theme toggle ── */
     .theme-toggle {
-      background: none;
-      border: 1px solid var(--border);
+      background: var(--card);
+      border: 1px solid var(--orange);
       border-radius: 6px;
-      color: var(--muted);
+      color: var(--orange);
       cursor: pointer;
       font-size: 15px;
       line-height: 1;
       padding: 7px 11px;
       margin-left: auto;
-      transition: border-color 0.2s, color 0.2s;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
       flex-shrink: 0;
     }
-    .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
+    .theme-toggle:hover { background: var(--orange); color: var(--bg); }
 
     /* ── Footer ── */
     .footer {
@@ -639,7 +639,7 @@
     }
   </style>
 </head>
-<body>
+<body class="light">
 
 <div class="app">
 
@@ -649,7 +649,7 @@
       <div class="app-title">Predara</div>
       <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
     </div>
-    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☾</button>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
   </div>
 
   <div class="search-row">
@@ -666,9 +666,10 @@
 <script src="app.js"></script>
 <script>
   (function () {
-    if (localStorage.getItem('predara-theme') === 'light') {
-      document.body.classList.add('light')
-      document.getElementById('themeToggle').textContent = '☀'
+    // Default is light; only switch to dark if explicitly saved
+    if (localStorage.getItem('predara-theme') === 'dark') {
+      document.body.classList.remove('light')
+      document.getElementById('themeToggle').textContent = '☾'
     }
   })()
 
