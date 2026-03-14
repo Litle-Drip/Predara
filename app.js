@@ -65,10 +65,19 @@ function numList(sentences) {
     </div>`).join("")
 }
 
-function outcomeRow(label, sub, pct, color, delta = null) {
+function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const ml = toMoneyline(pct)
   const deltaHtml = delta !== null && delta !== 0
     ? `<span class="outcome-delta ${delta > 0 ? 'delta-up' : 'delta-dn'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}</span>`
+    : ""
+  const metaParts = []
+  if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask)) {
+    metaParts.push(`Bid ${Math.round(extras.bid * 100)}¢ · Ask ${Math.round(extras.ask * 100)}¢`)
+  }
+  if (extras.vol) metaParts.push(`Vol $${extras.vol}`)
+  if (extras.oi) metaParts.push(`OI $${extras.oi}`)
+  const metaHtml = metaParts.length
+    ? `<div class="outcome-meta">${metaParts.map(p => `<span>${esc(p)}</span>`).join("")}</div>`
     : ""
   return `
     <div class="outcome-row">
@@ -86,25 +95,40 @@ function outcomeRow(label, sub, pct, color, delta = null) {
       <div class="bar-wrap">
         <div class="bar-fill" style="width:${pct}%; background:${color}"></div>
       </div>
+      ${metaHtml}
     </div>`
 }
 
+// Paginated show-more: reveals PAGE_SIZE rows at a time
+const PAGE_SIZE = 10
+window._outcomePages = {}
+
+function showMoreOutcomes(uid) {
+  const pool = window._outcomePages[uid]
+  if (!pool || !pool.length) return
+  const batch = pool.splice(0, PAGE_SIZE)
+  const row = document.getElementById(uid + "_smr")
+  const tmp = document.createElement("div")
+  tmp.innerHTML = batch.join("")
+  while (tmp.firstChild) row.parentNode.insertBefore(tmp.firstChild, row)
+  const btn = row.querySelector("button")
+  if (!pool.length) {
+    row.remove()
+    delete window._outcomePages[uid]
+  } else {
+    btn.textContent = `+ ${pool.length} MORE  ↓`
+  }
+}
+
 function buildOutcomesHtml(rows) {
-  const visible = rows.slice(0, 5)
-  const hidden  = rows.slice(5)
-  if (!hidden.length) return visible.join("")
-  const count = hidden.length
-  return visible.join("") + `
-    <div class="outcomes-overflow" style="display:none">${hidden.join("")}</div>
-    <div class="show-more-row">
-      <button class="show-more-btn" data-open="false" onclick="
-        var btn = this;
-        var ov = btn.closest('.show-more-row').previousElementSibling;
-        var isOpen = btn.dataset.open === 'true';
-        ov.style.display = isOpen ? 'none' : 'block';
-        btn.dataset.open = !isOpen;
-        btn.textContent = isOpen ? '+ ${count} MORE  ↓' : '— COLLAPSE  ↑';
-      ">+ ${count} MORE  ↓</button>
+  if (rows.length <= PAGE_SIZE) return rows.join("")
+  const uid = "op" + Math.random().toString(36).slice(2, 8)
+  window._outcomePages[uid] = rows.slice(PAGE_SIZE)
+  return rows.slice(0, PAGE_SIZE).join("") + `
+    <div class="show-more-row" id="${uid}_smr">
+      <button class="show-more-btn" onclick="showMoreOutcomes('${uid}')">
+        + ${rows.length - PAGE_SIZE} MORE  ↓
+      </button>
     </div>`
 }
 
@@ -119,38 +143,29 @@ function renderKalshiEvent(ev, accent) {
 
   // Event meta
   const status     = first.status || "active"
+  const statusDot  = status === "active" ? "dot-green" : status === "closed" ? "dot-red" : "dot-muted"
+  const statusText = status.toUpperCase()
   const category   = ev.product_metadata?.competition || ev.category || "Markets"
+
+  // Clean event title — strip trailing punctuation (?, !, .)
+  const eventTitle = (ev.title || ev.event_ticker || "").replace(/[?!.]+$/, "").trim()
+  const eventSubTitle = ev.sub_title || ""
 
   // Resolution — find the winning market (result === "yes") or any resolved market
   const resolvedMarket = sorted.find(m => m.result === "yes") || sorted.find(m => m.result)
   const resolution  = resolvedMarket?.result || ""
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
-
-  // Status badge — override to RESOLVED when market has a result (Kalshi still returns status:"active")
-  const effectiveStatus = resolution ? "resolved" : status
-  const statusClass = effectiveStatus === "resolved" ? "tag-status-resolved"
-    : (effectiveStatus === "active" || effectiveStatus === "open") ? "tag-status-active"
-    : "tag-status-closed"
-  const statusDot = effectiveStatus === "resolved" ? "dot-red"
-    : (effectiveStatus === "active" || effectiveStatus === "open") ? "dot-green" : "dot-muted"
-  const statusText = effectiveStatus.toUpperCase()
-
   const resolvedBanner = resolution
-    ? `<div class="resolved-banner resolved-${resolution}">
-        <span class="res-icon">${resolution === "yes" ? "✓" : "✕"}</span>
-        <div>
-          <div class="res-label">RESOLVED</div>
-          <div class="res-value">${resolution.toUpperCase()}${expValue ? " — " + esc(expValue) : ""}</div>
-        </div>
-       </div>`
+    ? `<div class="resolved-banner resolved-${resolution}">✓ RESOLVED · ${resolution.toUpperCase()}${expValue ? " · " + expValue : ""}</div>`
     : ""
 
-  // Description: first sentence of rules_secondary
-  const descRaw = (first.rules_secondary || first.rules_primary || "")
+  // Description: only show event-level descriptions, not player-specific rules
+  const isMultiOutcome = markets.length > 2
+  const descRaw = (first.rules_secondary || (!isMultiOutcome ? first.rules_primary : "") || "")
     .split(/\.\s+/)[0].replace(/^The following market refers to/, "Prediction market on").trim()
   const desc = descRaw ? descRaw + "." : ""
 
-  // Outcomes — top 5 visible, rest in show-more
+  // Outcomes — paginated via buildOutcomesHtml
   const colors = ["#22c55e", "#60a5fa", "#f59e0b", "#a78bfa", "#34d399", "#fb923c", "#38bdf8", "#f472b6"]
   const allRows = sorted.map((m, i) => {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
@@ -160,44 +175,62 @@ function renderKalshiEvent(ev, accent) {
       ? Math.round(lastPrice * 100)
       : yesAsk > 0 ? Math.round((yesBid + yesAsk) / 2 * 100) : Math.round(yesBid * 100)
 
-    // Price movement delta vs previous close
     const prevDollars = parseFloat(m.previous_price_dollars || (m.previous_price != null ? m.previous_price / 100 : 0))
     const prevPct = prevDollars > 0 ? Math.round(prevDollars * 100) : null
     const delta = prevPct !== null ? pct - prevPct : null
 
-    const label = `${m.yes_sub_title} to win`
-    const sub = (m.rules_primary || "")
+    const label = isMultiOutcome ? m.yes_sub_title : `${m.yes_sub_title} to win`
+    const sub = isMultiOutcome ? "" : (m.rules_primary || "")
       .replace(/^If /, "").replace(/, then the market resolves to Yes\.?$/, "")
-    return outcomeRow(label, sub, pct, colors[i] || "#aaa", delta)
+
+    const extras = { bid: yesBid, ask: yesAsk }
+    if (isMultiOutcome) {
+      const mVol = parseFloat(m.volume_fp || 0) / 100
+      const mOI  = parseFloat(m.open_interest_fp || 0) / 100
+      if (mVol > 0) extras.vol = Math.round(mVol).toLocaleString()
+      if (mOI > 0)  extras.oi  = Math.round(mOI).toLocaleString()
+    }
+    return outcomeRow(label, sub, pct, colors[i % colors.length], delta, extras)
   })
   const outcomesHtml = buildOutcomesHtml(allRows)
 
-  // Aggregate stats
-  const totalVol   = fmtNum(markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0))
-  const totalVol24 = fmtNum(markets.reduce((s, m) => s + parseFloat(m.volume_24h || m.volume_24h_fp || 0), 0))
+  // Aggregate stats — volume_fp and open_interest_fp are in cents, convert to dollars
+  const totalVol   = fmtNum(markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
+  const totalVol24 = fmtNum(markets.reduce((s, m) => {
+    // volume_24h_fp is cents; volume_24h (if present) is already dollars
+    if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
+    return s + parseFloat(m.volume_24h || 0)
+  }, 0))
   const totalLiq   = fmtNum(markets.reduce((s, m) => s + parseFloat(m.liquidity_dollars || 0), 0))
-  const totalOI    = fmtNum(markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0))
-
+  const totalOI    = fmtNum(markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100)
 
   // Timeline
   const startDate     = fmtDate(first.open_time)
   const endDate       = fmtDateTime(first.close_time)
   const expDate       = fmtDateTime(first.expected_expiration_time)
   const canCloseEarly = first.can_close_early
+  const earlyCloseText = first.early_close_condition || (canCloseEarly ? "Possible" : "")
   const timelineRows  = [
     infoRow("Start date", startDate),
     infoRow("End / expiry", endDate),
     infoRow("Resolution date", expDate),
-    canCloseEarly ? `<div class="info-row"><span class="info-key">${esc("Early close")}</span><span class="info-val">Possible</span></div>` : "",
+    earlyCloseText ? `<div class="info-row"><span class="info-key">${esc("Early close")}</span><span class="info-val">${esc(earlyCloseText)}</span></div>` : "",
   ].join("")
 
-  // Rules from rules_secondary, split into sentences
-  const rulesRaw = first.rules_secondary || first.rules_primary || ""
+  // Rules: only show for non-player-specific markets (rules_secondary preferred)
+  const rulesRaw = first.rules_secondary || (!isMultiOutcome ? first.rules_primary : "") || ""
   const ruleSentences = rulesRaw
     .split(/(?<=[.!?])\s+/)
     .map(s => s.trim().replace(/\.$/, ""))
     .filter(s => s.length > 20 && !s.toLowerCase().startsWith("kalshi is not affiliated"))
     .slice(0, 6)
+
+  const exclusiveTag = ev.mutually_exclusive
+    ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : ""
+
+  const resolutionRule = (!isMultiOutcome && first.rules_primary)
+    ? first.rules_primary.split(/[.!?]\s/)[0].replace(/^If /, "Resolves YES if ").replace(/,\s*then the market resolves to Yes$/, "") + "."
+    : ""
 
   return `
     <!-- Event header -->
@@ -206,12 +239,14 @@ function renderKalshiEvent(ev, accent) {
         <div class="event-tags">
           <span class="tag-platform">${esc(PLATFORMS.kalshi.label)}</span>
           <span class="tag-cat">${esc(category.toUpperCase())}</span>
-          <span class="tag-status ${statusClass}">
+          ${exclusiveTag}
+          <span class="tag-status">
             <span class="${statusDot}">●</span> ${esc(statusText)}
           </span>
         </div>
         ${resolvedBanner}
-        <div class="event-title">${esc(ev.title)}${ev.sub_title ? " — " + esc(ev.sub_title) : ""}</div>
+        <div class="event-title">${esc(eventTitle || eventSubTitle)}${eventTitle && eventSubTitle ? " — " + esc(eventSubTitle) : ""}</div>
+        ${resolutionRule ? `<div class="resolution-rule">${esc(resolutionRule)}</div>` : ""}
         ${desc ? `<div class="event-desc">${esc(desc)}</div>` : ""}
       </div>
     </div>
@@ -247,7 +282,6 @@ function renderKalshiEvent(ev, accent) {
 }
 
 function renderPolymarketEvent(event, markets, accent) {
-  const statusClass = event.closed ? "tag-status-closed" : "tag-status-active"
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
@@ -259,11 +293,16 @@ function renderPolymarketEvent(event, markets, accent) {
       outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
       prices   = typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : market.outcomePrices
     } catch (e) {
-      return // skip malformed market
+      return
     }
     ;(outcomes || []).forEach((name, i) => {
       const pct = Math.round(parseFloat(prices ? prices[i] : 0) * 100)
-      allPolyRows.push(outcomeRow(name, "", pct, colors[(idx + i) % colors.length]))
+      const extras = {}
+      if (market.bestBid != null && market.bestAsk != null) {
+        extras.bid = parseFloat(market.bestBid)
+        extras.ask = parseFloat(market.bestAsk)
+      }
+      allPolyRows.push(outcomeRow(name, "", pct, colors[(idx + i) % colors.length], null, extras))
     })
   })
   if (!allPolyRows.length) return `<div class="mi-error">No outcome data found for this market.</div>`
@@ -273,13 +312,22 @@ function renderPolymarketEvent(event, markets, accent) {
   const totalVol  = fmtNum(parseFloat(event.volume || 0))
   const totalLiq  = fmtNum(parseFloat(event.liquidity || first.liquidity || 0))
   const totalVol24 = fmtNum(parseFloat(event.volume24hr || first.volume24hr || 0))
+  const commentCount = parseInt(event.commentCount || 0, 10)
+
+  let tags = event.tags || []
+  if (typeof tags === "string") { try { tags = JSON.parse(tags) } catch(e) { tags = [] } }
+  if (!Array.isArray(tags)) tags = []
+  const tagsHtml = tags
+    .filter(t => t != null)
+    .map(t => `<span class="tag-topic">${esc(String(t).toUpperCase())}</span>`).join("")
 
   return `
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
           <span class="tag-platform" style="background:${accent}">${esc(PLATFORMS.polymarket.label)}</span>
-          <span class="tag-status ${statusClass}"><span class="${statusDot}">●</span> ${esc(statusText)}</span>
+          ${tagsHtml}
+          <span class="tag-status"><span class="${statusDot}">●</span> ${esc(statusText)}</span>
         </div>
         <div class="event-title">${esc(event.title)}</div>
         ${event.description ? `<div class="event-desc">${esc(event.description)}</div>` : ""}
@@ -295,12 +343,14 @@ function renderPolymarketEvent(event, markets, accent) {
       ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
       ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
       ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
+      ${commentCount > 0 ? statCard("COMMENTS", commentCount.toLocaleString()) : ""}
     </div>
 
     ${event.endDate ? `
     <div class="mi-card">
       <div class="section-label">TIMELINE</div>
-      <div class="info-row"><span class="info-key">End date</span><span class="info-val">${fmtDate(event.endDate)}</span></div>
+      ${infoRow("Start date", fmtDate(event.startDate))}
+      ${infoRow("End date", fmtDate(event.endDate))}
     </div>` : ""}
   `
 }
@@ -310,16 +360,36 @@ function showError(msg) {
     `<div class="mi-error"><span>${esc(msg)}</span><button class="retry-btn" onclick="document.getElementById('urlInput').select();document.getElementById('urlInput').focus()">TRY AGAIN ↺</button></div>`
 }
 
+let _analyzing = false
+
 async function analyze() {
+  if (_analyzing) return
+
   const url = document.getElementById("urlInput").value.trim()
   const result = document.getElementById("result")
+  const btn = document.querySelector(".search-row button")
 
   if (!url) {
     showError("Paste a Kalshi or Polymarket URL to analyze.")
     return
   }
 
+  _analyzing = true
+  window._outcomePages = {}
+  btn.disabled = true
+  btn.textContent = "ANALYZING\u2026"
+  btn.style.opacity = "0.6"
+  btn.style.cursor = "not-allowed"
+
   result.innerHTML = `<div class="mi-loading">ANALYZING</div>`
+
+  function resetBtn() {
+    _analyzing = false
+    btn.disabled = false
+    btn.textContent = "ANALYZE \u2197"
+    btn.style.opacity = ""
+    btn.style.cursor = ""
+  }
 
   const lowerUrl = url.toLowerCase()
   let platform = "unknown"
@@ -349,6 +419,8 @@ async function analyze() {
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
+    } finally {
+      resetBtn()
     }
 
   } else if (platform === "kalshi") {
@@ -366,7 +438,6 @@ async function analyze() {
       if (data.event) {
         result.innerHTML = renderKalshiEvent(data.event, accent)
       } else if (data.market) {
-        // Single market — wrap in minimal event structure
         const m = data.market
         const fakeEvent = {
           title: m.title,
@@ -382,9 +453,12 @@ async function analyze() {
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
+    } finally {
+      resetBtn()
     }
 
   } else {
     showError("Unrecognized URL · Paste a Kalshi or Polymarket link.")
+    resetBtn()
   }
 }

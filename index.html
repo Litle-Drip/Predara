@@ -27,7 +27,7 @@
       --card:    #1d1c18;
       --border:  #2e2c26;
       --text:    #c8c7bc;
-      --muted:   #8a8878;
+      --muted:   #a09e8c;
       --orange:  #d94f20;
       --green:   #22c55e;
       --red:     #ef4444;
@@ -64,7 +64,7 @@
     }
     .app-subtitle {
       font-size: 10px;
-      color: #9a9888;
+      color: var(--muted);
       letter-spacing: 2px;
       margin-top: 4px;
     }
@@ -103,7 +103,8 @@
       transition: opacity 0.15s;
       white-space: nowrap;
     }
-    .search-row button:hover { opacity: 0.85; }
+    .search-row button:hover:not(:disabled) { opacity: 0.85; }
+    .search-row button:disabled { pointer-events: none; }
 
     /* ── Section card ── */
     .mi-card {
@@ -134,26 +135,25 @@
       letter-spacing: 1.5px;
     }
     .tag-cat { color: var(--muted); letter-spacing: 1.5px; }
-    .tag-status {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 9px; border-radius: 3px;
-      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    .tag-exclusive {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #f59e0b;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 1.5px;
     }
-    .tag-status-active {
-      background: rgba(34, 197, 94, 0.12);
-      border: 1px solid rgba(34, 197, 94, 0.35);
-      color: var(--green);
-    }
-    .tag-status-closed {
-      background: rgba(160, 158, 148, 0.1);
-      border: 1px solid rgba(160, 158, 148, 0.25);
+    .tag-topic {
       color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 9px;
+      letter-spacing: 1px;
     }
-    .tag-status-resolved {
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.35);
-      color: var(--red);
-    }
+    .tag-status { display: flex; align-items: center; gap: 6px; color: var(--muted); letter-spacing: 1.5px; }
     .dot-green { color: var(--green); }
     .dot-red   { color: var(--red); }
     .dot-muted { color: var(--muted); }
@@ -167,9 +167,19 @@
       overflow-wrap: break-word;
       word-break: break-word;
     }
+    .resolution-rule {
+      font-size: 12px;
+      color: #d8d6cc;
+      background: rgba(255,255,255,0.03);
+      border-left: 3px solid var(--orange);
+      padding: 10px 16px;
+      margin-bottom: 14px;
+      line-height: 1.6;
+      letter-spacing: 0.2px;
+    }
     .event-desc {
       font-size: 13px;
-      color: #9a9888;
+      color: var(--muted);
       line-height: 1.9;
       max-width: 900px;
     }
@@ -202,7 +212,7 @@
     }
     .outcome-sub {
       font-size: 12px;
-      color: #b0ae9e;
+      color: #b8b6a8;
       margin-top: 4px;
       line-height: 1.6;
     }
@@ -232,6 +242,16 @@
     }
     .delta-up { color: var(--green); }
     .delta-dn { color: var(--red); }
+    .outcome-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 10px;
+      letter-spacing: 0.3px;
+    }
+    .outcome-meta span { white-space: nowrap; }
     .bar-wrap {
       height: 8px;
       background: #252420;
@@ -317,7 +337,7 @@
       margin-top: 60px;
       font-size: 10px;
       letter-spacing: 2.5px;
-      color: #9a9888;
+      color: var(--muted);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -326,37 +346,24 @@
 
     /* ── Resolved banner ── */
     .resolved-banner {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       border-radius: 4px;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 1.5px;
-      padding: 11px 16px;
-      margin-bottom: 20px;
-    }
-    .resolved-banner .res-icon {
-      font-size: 15px;
-      flex-shrink: 0;
-    }
-    .resolved-banner .res-label {
-      opacity: 0.6;
-      font-size: 10px;
-      letter-spacing: 2px;
-    }
-    .resolved-banner .res-value {
-      font-size: 14px;
-      font-weight: 700;
+      padding: 7px 14px;
+      margin-bottom: 16px;
     }
     .resolved-yes {
-      background: rgba(34, 197, 94, 0.12);
-      border: 1px solid rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.4);
       color: var(--green);
     }
     .resolved-no {
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
       color: var(--red);
     }
 
@@ -436,21 +443,17 @@
       .app-subtitle { font-size: 9px; letter-spacing: 1.5px; }
 
       .search-row { flex-direction: column; }
-      .search-row button { width: 100%; text-align: center; min-height: 44px; }
+      .search-row button { width: 100%; text-align: center; }
 
       .event-head { padding: 20px 18px 22px; }
       .event-title { font-size: 18px; }
-      .event-tags { flex-wrap: wrap; }
 
-      .section-label { padding: 14px 18px 12px; letter-spacing: 1px; }
+      .section-label { padding: 14px 18px 12px; }
 
-      .outcome-row  { padding: 20px 18px; min-height: 44px; }
+      .outcome-row  { padding: 18px 18px 16px; }
       .outcome-pct  { font-size: 38px; }
-      .outcome-name { font-size: 14px; overflow-wrap: break-word; word-break: break-word; }
-      .outcome-top > :first-child { min-width: 0; }
+      .outcome-name { font-size: 14px; }
       .outcome-right { gap: 12px; margin-left: 14px; }
-      .outcome-delta { font-size: 13px; }
-      .bar-wrap { height: 10px; }
 
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .stat-card  { padding: 16px 18px 18px; }
@@ -459,31 +462,8 @@
       .info-val { max-width: 100%; text-align: left; }
 
       .num-list { padding: 6px 18px 16px; }
-      .num-row { gap: 12px; }
-
-      .show-more-btn { min-height: 44px; padding: 12px 16px; width: 100%; }
-
-      .retry-btn { min-height: 44px; padding: 10px 20px; }
 
       .mi-loading, .mi-error { padding: 32px 18px; }
-
-      .empty-state { font-size: 12px; }
-
-      .footer { margin-top: 40px; font-size: 9px; }
-    }
-
-    /* ── Small mobile (≤375px) ── */
-    @media (max-width: 375px) {
-      body { padding: 20px 12px 60px; }
-
-      .event-title { font-size: 16px; }
-      .outcome-pct { font-size: 32px; }
-
-      .stats-grid { grid-template-columns: 1fr; }
-      .stat-card  { padding: 14px 16px 16px; }
-
-      .info-row { flex-direction: column; align-items: flex-start; gap: 2px; }
-      .info-val { text-align: left; }
     }
   </style>
 </head>

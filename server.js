@@ -5,7 +5,7 @@ const fs = require("fs")
 const path = require("path")
 const url = require("url")
 
-const PORT = 3000
+const PORT = process.env.PORT || 5000
 const STATIC_ROOT = __dirname
 const REQUEST_TIMEOUT_MS = 10000
 
@@ -95,7 +95,21 @@ const server = http.createServer((req, res) => {
       return res.end(JSON.stringify({ error: "Missing or invalid ticker" }))
     }
 
-    const normalizedKey = privateKey.replace(/\\n/g, "\n")
+    const normalizedKey = (function normalizePem(raw) {
+      // Replace any escaped \n sequences with real newlines
+      let pem = raw.replace(/\\n/g, "\n").trim()
+      // Detect header type (RSA PRIVATE KEY or PRIVATE KEY)
+      const headerMatch = pem.match(/-----BEGIN ([^-]+)-----/)
+      const keyType = headerMatch ? headerMatch[1] : "RSA PRIVATE KEY"
+      // Strip all headers/footers and whitespace to get raw base64
+      const b64 = pem
+        .replace(/-----BEGIN [^-]+-----/g, "")
+        .replace(/-----END [^-]+-----/g, "")
+        .replace(/\s+/g, "")
+      // Re-chunk at 64 chars and wrap with proper PEM headers
+      const body = b64.match(/.{1,64}/g).join("\n")
+      return `-----BEGIN ${keyType}-----\n${body}\n-----END ${keyType}-----`
+    })(privateKey)
     const headers = { "Content-Type": "application/json", ...CORS_HEADERS }
 
     function kalshiGet(apiPath) {
@@ -176,6 +190,15 @@ const server = http.createServer((req, res) => {
   })
 })
 
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`)
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running at http://0.0.0.0:${PORT}`)
+})
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Please stop the other process and try again.`)
+  } else {
+    console.error("Server error:", err)
+  }
+  process.exit(1)
 })
