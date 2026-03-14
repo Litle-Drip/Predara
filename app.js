@@ -355,12 +355,16 @@ function renderKalshiEvent(ev, accent) {
   const outcomesHtml = buildOutcomesHtml(allRows)
 
   // Aggregate stats — volume_fp and open_interest_fp are in cents, convert to dollars
-  const totalVol   = fmtNum(markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
-  const totalVol24 = fmtNum(markets.reduce((s, m) => {
-    // volume_24h_fp is cents; volume_24h (if present) is already dollars
-    if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
-    return s + parseFloat(m.volume_24h || 0)
-  }, 0))
+  // Prefer event-level volume_fp to avoid double-counting across sibling markets
+  const totalVol   = fmtNum(ev.volume_fp != null
+    ? parseFloat(ev.volume_fp) / 100
+    : markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
+  const totalVol24 = fmtNum(ev.volume_24h_fp != null
+    ? parseFloat(ev.volume_24h_fp) / 100
+    : markets.reduce((s, m) => {
+        if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
+        return s + parseFloat(m.volume_24h || 0)
+      }, 0))
   const totalLiq   = fmtNum(markets.reduce((s, m) => s + parseFloat(m.liquidity_dollars || 0), 0))
   const totalOI    = fmtNum(markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100)
 
