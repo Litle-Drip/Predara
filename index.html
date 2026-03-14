@@ -332,6 +332,67 @@
     }
     .num-text { color: var(--text); }
 
+    /* ── What's the Bet explainer ── */
+    .bet-explainer { border-left: 3px solid var(--orange); }
+    .bet-explainer .section-label {
+      color: var(--orange);
+      font-weight: 700;
+    }
+    .bet-explainer-body {
+      padding: 16px 32px 24px;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #e8e6dc;
+      letter-spacing: 0.1px;
+    }
+
+    /* ── Bet simulator ── */
+    .bet-sim-card { }
+    .bet-sim-body { padding: 20px 32px 24px; }
+    .bet-sim-input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+    .bet-sim-label { letter-spacing: 0.2px; }
+    .bet-sim-label strong { color: #f2f0e6; }
+    .bet-sim-dollar {
+      color: var(--orange);
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .bet-sim-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: #f2f0e6;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 8px 12px;
+      width: 90px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .bet-sim-input:focus { border-color: var(--orange); }
+    .bet-sim-input::-webkit-inner-spin-button { opacity: 0.3; }
+    .bet-sim-results {
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      padding: 16px 20px;
+    }
+    .bet-sim-win, .bet-sim-lose {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .bet-sim-win strong { color: #f2f0e6; }
+    .bet-sim-lose strong { color: #f2f0e6; }
+
     /* ── Tooltips ── */
     .tip {
       position: relative;
@@ -522,6 +583,11 @@
       .info-val { max-width: 100%; text-align: left; }
 
       .num-list { padding: 6px 18px 16px; }
+
+      .bet-explainer-body { padding: 12px 18px 18px; font-size: 13px; }
+      .bet-sim-body { padding: 16px 18px 20px; }
+      .bet-sim-input-row { font-size: 13px; }
+      .bet-sim-input { width: 80px; font-size: 15px; padding: 6px 10px; }
 
       .mi-loading, .mi-error { padding: 32px 18px; }
 

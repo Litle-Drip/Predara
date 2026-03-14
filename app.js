@@ -83,6 +83,83 @@ function fmtTimeRemaining(iso) {
   return { text, urgency }
 }
 
+function plainEnglishRules(rulesText) {
+  if (!rulesText || typeof rulesText !== "string") return []
+  return rulesText
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 15)
+    .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
+    .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
+    .filter(s => !s.toLowerCase().includes("for more information"))
+    .map(s => s
+      .replace(/the market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
+      .replace(/the market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
+      .replace(/this market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
+      .replace(/this market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
+      .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+      .replace(/^If /i, "If ")
+      .replace(/^The following market refers to /i, "This bet is about ")
+      .replace(/,\s*then you win\.?$/i, ", you win.")
+      .replace(/\.$/, "")
+    )
+    .filter(s => s.length > 10)
+    .slice(0, 6)
+}
+
+function whatsTheBetCard(text) {
+  if (!text) return ""
+  return `
+    <div class="mi-card bet-explainer">
+      <div class="section-label">WHAT'S THE BET?</div>
+      <div class="bet-explainer-body">${esc(text)}</div>
+    </div>`
+}
+
+function betSimulatorHtml(pctYes, platform) {
+  if (!pctYes || pctYes <= 0 || pctYes >= 100) return ""
+  const prob = pctYes / 100
+  const defaultBet = 10
+  const winPayout = (defaultBet / prob).toFixed(2)
+  const profit = (winPayout - defaultBet).toFixed(2)
+  return `
+    <div class="mi-card bet-sim-card">
+      <div class="section-label">BET CALCULATOR</div>
+      <div class="bet-sim-body">
+        <div class="bet-sim-input-row">
+          <span class="bet-sim-label">If you bet</span>
+          <span class="bet-sim-dollar">$</span>
+          <input type="number" class="bet-sim-input" id="betSimInput" value="${defaultBet}" min="1" max="100000" step="1"
+            oninput="updateBetSim()" />
+          <span class="bet-sim-label">on the leading outcome at <strong>${pctYes}%</strong></span>
+        </div>
+        <div class="bet-sim-results" id="betSimResults">
+          <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
+          <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${defaultBet.toFixed(2)}</strong></div>
+        </div>
+      </div>
+    </div>`
+}
+
+window._betSimPct = 0
+function updateBetSim() {
+  const input = document.getElementById("betSimInput")
+  const results = document.getElementById("betSimResults")
+  if (!input || !results) return
+  const bet = Math.max(0, parseFloat(input.value) || 0)
+  const prob = window._betSimPct / 100
+  if (prob <= 0 || prob >= 1 || bet <= 0) {
+    results.innerHTML = `<div class="bet-sim-win" style="color:var(--muted)">Enter a bet amount above</div>`
+    return
+  }
+  const winPayout = (bet / prob).toFixed(2)
+  const profit = (winPayout - bet).toFixed(2)
+  results.innerHTML = `
+    <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
+    <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${bet.toFixed(2)}</strong></div>
+  `
+}
+
 function calcAnalyticsRow(label, prob, ask, bid) {
   if (!Number.isFinite(prob) || prob <= 0 || prob >= 1) return null
   if (!Number.isFinite(ask) || ask <= 0 || ask >= 1) return null
@@ -245,11 +322,7 @@ function renderKalshiEvent(ev, accent) {
     ? `<div class="resolved-banner resolved-${resolution}">✓ RESOLVED · ${resolution.toUpperCase()}${expValue ? " · " + expValue : ""}</div>`
     : ""
 
-  // Description: only show event-level descriptions, not player-specific rules
   const isMultiOutcome = markets.length > 2
-  const descRaw = (first.rules_secondary || (!isMultiOutcome ? first.rules_primary : "") || "")
-    .split(/\.\s+/)[0].replace(/^The following market refers to/, "Prediction market on").trim()
-  const desc = descRaw ? descRaw + "." : ""
 
   // Outcomes — paginated via buildOutcomesHtml
   const colors = ["#22c55e", "#60a5fa", "#f59e0b", "#a78bfa", "#34d399", "#fb923c", "#38bdf8", "#f472b6"]
@@ -303,25 +376,39 @@ function renderKalshiEvent(ev, accent) {
     earlyCloseText ? `<div class="info-row"><span class="info-key">${esc("Early close")}</span><span class="info-val">${esc(earlyCloseText)}</span></div>` : "",
   ].join("")
 
-  // Rules: only show for non-player-specific markets (rules_secondary preferred)
   const rulesRaw = first.rules_secondary || (!isMultiOutcome ? first.rules_primary : "") || ""
-  const ruleSentences = rulesRaw
-    .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim().replace(/\.$/, ""))
-    .filter(s => s.length > 20 && !s.toLowerCase().startsWith("kalshi is not affiliated"))
-    .slice(0, 6)
+  const ruleSentences = plainEnglishRules(rulesRaw)
 
   const exclusiveTag = ev.mutually_exclusive
     ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : ""
 
-  const resolutionRule = (!isMultiOutcome && first.rules_primary)
-    ? first.rules_primary.split(/[.!?]\s/)[0].replace(/^If /, "Resolves YES if ").replace(/,\s*then the market resolves to Yes$/, "") + "."
-    : ""
+  let betExplainerText = ""
+  if (!isMultiOutcome && first.rules_primary) {
+    betExplainerText = first.rules_primary
+      .split(/[.!?]\s/)[0]
+      .replace(/^If /i, "You win if ")
+      .replace(/,\s*then the market resolves to Yes$/i, "")
+      .replace(/,\s*then you win$/i, "")
+      .trim()
+    if (betExplainerText && !betExplainerText.endsWith(".")) betExplainerText += "."
+    const noText = first.rules_primary.match(/otherwise[^.]*resolves? to "?No"?/i)
+    if (noText) {
+      betExplainerText += " Otherwise, you lose your bet."
+    } else {
+      betExplainerText += " You lose if it doesn't happen."
+    }
+  } else if (isMultiOutcome) {
+    betExplainerText = `Pick which outcome you think will happen. You win if your chosen outcome is correct. ${ev.mutually_exclusive ? "Only one outcome can win — winner takes all." : ""}`
+  }
 
   const timeLeft = fmtTimeRemaining(first.close_time)
   const urgencyHtml = timeLeft
     ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
     : ""
+
+  const leadPct = sorted[0] ? Math.round(parseFloat(sorted[0].last_price_dollars || 0) * 100) : 0
+  window._betSimPct = leadPct
+  const betSimHtml = betSimulatorHtml(leadPct, "kalshi")
 
   const analyticsRows = (isMultiOutcome ? sorted.slice(0, 3) : sorted.slice(0, 1)).map(m => {
     const prob = parseFloat(m.last_price_dollars || 0)
@@ -335,7 +422,6 @@ function renderKalshiEvent(ev, accent) {
   const analyticsHtml = analyticsCard(analyticsRows, timeLeft)
 
   return `
-    <!-- Event header -->
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
@@ -349,40 +435,38 @@ function renderKalshiEvent(ev, accent) {
         ${resolvedBanner}
         <div class="event-title">${esc(eventTitle || eventSubTitle)}${eventTitle && eventSubTitle ? " — " + esc(eventSubTitle) : ""}</div>
         ${urgencyHtml}
-        ${resolutionRule ? `<div class="resolution-rule">${esc(resolutionRule)}</div>` : ""}
-        ${desc ? `<div class="event-desc">${esc(desc)}</div>` : ""}
       </div>
     </div>
 
-    <!-- Outcomes -->
+    ${whatsTheBetCard(betExplainerText)}
+
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
     </div>
 
+    ${betSimHtml}
+
+    ${ruleSentences.length ? `
+    <div class="mi-card">
+      <div class="section-label">HOW IT RESOLVES</div>
+      <div class="num-list">${numList(ruleSentences)}</div>
+    </div>` : ""}
+
+    ${timelineRows ? `
+    <div class="mi-card">
+      <div class="section-label">TIMELINE</div>
+      ${timelineRows}
+    </div>` : ""}
+
     ${analyticsHtml}
 
-    <!-- Stats -->
     <div class="stats-grid">
       ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
       ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
       ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
       ${statCard("OPEN INTEREST", totalOI ? `$${totalOI}` : null)}
     </div>
-
-    ${timelineRows ? `
-    <!-- Timeline -->
-    <div class="mi-card">
-      <div class="section-label">TIMELINE</div>
-      ${timelineRows}
-    </div>` : ""}
-
-    ${ruleSentences.length ? `
-    <!-- Rules -->
-    <div class="mi-card">
-      <div class="section-label">RULES &amp; CRITERIA</div>
-      <div class="num-list">${numList(ruleSentences)}</div>
-    </div>` : ""}
   `
 }
 
@@ -456,6 +540,65 @@ function renderPolymarketEvent(event, markets, accent) {
   ).filter(Boolean)
   const analyticsHtml = analyticsCard(polyAnalytics, timeLeft)
 
+  let betExplainerText = ""
+  const polyDescriptions = []
+  markets.forEach(m => {
+    const desc = m.description || ""
+    const q = m.question || ""
+    if (desc) polyDescriptions.push(desc)
+    else if (q) polyDescriptions.push(q)
+  })
+  if (polyDescriptions.length === 1) {
+    betExplainerText = polyDescriptions[0]
+      .replace(/the market will resolve to "?Yes"?/gi, "you win")
+      .replace(/the market will resolve "?No"?\.?/gi, "you lose.")
+      .replace(/the market will resolve 50-50/gi, "your bet is returned (50-50 split)")
+      .replace(/the market resolves to "?Yes"?/gi, "you win")
+      .replace(/the market resolves "?No"?\.?/gi, "you lose.")
+      .split(/(?<=[.!?])\s+/)
+      .filter(s => s.trim().length > 10)
+      .slice(0, 3)
+      .join(" ")
+  } else if (polyDescriptions.length > 1) {
+    betExplainerText = `Pick which outcome you think will happen. You win if your chosen outcome is correct.`
+  } else if (event.description) {
+    betExplainerText = event.description.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ")
+  }
+
+  const polyRuleSentences = []
+  const seen = new Set()
+  markets.forEach(m => {
+    const desc = m.description || ""
+    const q = m.question || ""
+    ;[desc, q].forEach(text => {
+      if (!text || seen.has(text)) return
+      seen.add(text)
+      plainEnglishRules(text).forEach(s => {
+        if (!polyRuleSentences.includes(s)) polyRuleSentences.push(s)
+      })
+    })
+  })
+  const polyRulesLimited = polyRuleSentences.slice(0, 6)
+  let resSource = ""
+  for (const m of markets) {
+    if (m.resolutionSource && typeof m.resolutionSource === "string") {
+      try {
+        const u = new URL(m.resolutionSource)
+        if (u.protocol === "http:" || u.protocol === "https:") {
+          resSource = m.resolutionSource
+          break
+        }
+      } catch(e) {}
+    }
+  }
+  const resSourceHtml = resSource
+    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(resSource)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(resSource.replace(/^https?:\/\//, "").split("/")[0])}</a></span></div>`
+    : ""
+
+  const leadPctPoly = polyAnalyticsCandidates.length ? Math.round(polyAnalyticsCandidates[0].prob * 100) : 0
+  window._betSimPct = leadPctPoly
+  const betSimHtml = betSimulatorHtml(leadPctPoly, "polymarket")
+
   return `
     <div class="mi-card">
       <div class="event-head">
@@ -466,14 +609,31 @@ function renderPolymarketEvent(event, markets, accent) {
         </div>
         <div class="event-title">${esc(event.title)}</div>
         ${urgencyHtml}
-        ${event.description ? `<div class="event-desc">${esc(event.description)}</div>` : ""}
       </div>
     </div>
+
+    ${whatsTheBetCard(betExplainerText)}
 
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
     </div>
+
+    ${betSimHtml}
+
+    ${polyRulesLimited.length || resSourceHtml ? `
+    <div class="mi-card">
+      <div class="section-label">HOW IT RESOLVES</div>
+      ${polyRulesLimited.length ? `<div class="num-list">${numList(polyRulesLimited)}</div>` : ""}
+      ${resSourceHtml}
+    </div>` : ""}
+
+    ${event.endDate ? `
+    <div class="mi-card">
+      <div class="section-label">TIMELINE</div>
+      ${infoRow("Start date", fmtDate(event.startDate))}
+      ${infoRow("End date", fmtDate(event.endDate))}
+    </div>` : ""}
 
     ${analyticsHtml}
 
@@ -483,13 +643,6 @@ function renderPolymarketEvent(event, markets, accent) {
       ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
       ${commentCount > 0 ? statCard("COMMENTS", commentCount.toLocaleString()) : ""}
     </div>
-
-    ${event.endDate ? `
-    <div class="mi-card">
-      <div class="section-label">TIMELINE</div>
-      ${infoRow("Start date", fmtDate(event.startDate))}
-      ${infoRow("End date", fmtDate(event.endDate))}
-    </div>` : ""}
   `
 }
 
