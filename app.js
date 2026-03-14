@@ -427,19 +427,25 @@ function renderPolymarketEvent(event, markets, accent) {
     ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
     : ""
 
-  const polyAnalyticsCandidates = markets.map(m => {
+  const polyAnalyticsCandidates = []
+  markets.forEach(m => {
     let prices
-    try { prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : m.outcomePrices } catch(e) { return null }
+    try { prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : m.outcomePrices } catch(e) { return }
     let outcomes
-    try { outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : m.outcomes } catch(e) { return null }
-    if (!prices || !Number.isFinite(parseFloat(prices[0])) || parseFloat(prices[0]) <= 0) return null
-    const prob = parseFloat(prices[0])
-    let ask = Number.isFinite(parseFloat(m.bestAsk)) ? parseFloat(m.bestAsk) : prob
-    if (ask <= 0) ask = prob
-    const bid = Number.isFinite(parseFloat(m.bestBid)) ? parseFloat(m.bestBid) : prob
-    const label = outcomes && outcomes[0] ? String(outcomes[0]) : m.question || "YES"
-    return { prob, label, ask, bid }
-  }).filter(Boolean)
+    try { outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : m.outcomes } catch(e) { return }
+    if (!prices || !Array.isArray(prices)) return
+    const bestAsk = Number.isFinite(parseFloat(m.bestAsk)) ? parseFloat(m.bestAsk) : null
+    const bestBid = Number.isFinite(parseFloat(m.bestBid)) ? parseFloat(m.bestBid) : null
+    prices.forEach((p, i) => {
+      const prob = parseFloat(p)
+      if (!Number.isFinite(prob) || prob <= 0) return
+      let ask = bestAsk != null ? bestAsk : prob
+      if (ask <= 0) ask = prob
+      const bid = bestBid != null ? bestBid : prob
+      const label = outcomes && outcomes[i] ? String(outcomes[i]) : m.question || "YES"
+      polyAnalyticsCandidates.push({ prob, label, ask, bid })
+    })
+  })
   polyAnalyticsCandidates.sort((a, b) => b.prob - a.prob)
   const polyAnalytics = polyAnalyticsCandidates.slice(0, 3).map(c =>
     calcAnalyticsRow(c.label, c.prob, c.ask, c.bid)
