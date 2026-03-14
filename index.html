@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Market Intelligence</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Predara</title>
   <link rel="icon" href="data:,">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -285,6 +286,38 @@
       letter-spacing: 2px;
     }
     .mi-error { color: var(--red); }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      body { padding: 28px 16px 72px; }
+
+      .app-header { margin-bottom: 28px; }
+      .app-title  { font-size: 18px; }
+      .app-subtitle { font-size: 9px; letter-spacing: 1.5px; }
+
+      .search-row { flex-direction: column; }
+      .search-row button { width: 100%; text-align: center; }
+
+      .event-head { padding: 20px 18px 22px; }
+      .event-title { font-size: 18px; }
+
+      .section-label { padding: 14px 18px 12px; }
+
+      .outcome-row  { padding: 18px 18px 16px; }
+      .outcome-pct  { font-size: 34px; }
+      .outcome-name { font-size: 14px; }
+      .outcome-right { gap: 12px; margin-left: 14px; }
+
+      .stats-grid { grid-template-columns: 1fr; }
+      .stat-card  { padding: 16px 18px 18px; }
+
+      .info-row { padding: 12px 18px; flex-wrap: wrap; gap: 4px; }
+      .info-val { max-width: 100%; text-align: left; }
+
+      .num-list { padding: 6px 18px 16px; }
+
+      .mi-loading, .mi-error { padding: 32px 18px; }
+    }
   </style>
 </head>
 <body>
@@ -294,8 +327,8 @@
   <div class="app-header">
     <div class="app-logo">✦</div>
     <div>
-      <div class="app-title">Market Intelligence</div>
-      <div class="app-subtitle">PREDICTION ANALYZER · EDISON LABS LLC</div>
+      <div class="app-title">Predara</div>
+      <div class="app-subtitle">PREDICTION ANALYZER · PREDARA</div>
     </div>
   </div>
 
@@ -306,7 +339,7 @@
 
   <div id="result"></div>
 
-  <div class="footer"><span class="dot-sm">●</span> EDISON LABS LLC · 2026</div>
+  <div class="footer"><span class="dot-sm">●</span> PREDARA · EDISON LABS LLC · 2026</div>
 
 </div>
 
