@@ -125,7 +125,7 @@ function analyticsCard(rows, timeLeft) {
     : ""
   return `
     <div class="mi-card">
-      <div class="section-label">TRADER ANALYTICS</div>
+      <div class="section-label">BET CALCULATOR</div>
       ${timeRow}
       ${lines}
     </div>`
@@ -187,7 +187,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
 }
 
 // Paginated show-more: reveals PAGE_SIZE rows at a time
-const PAGE_SIZE = 10
+const PAGE_SIZE = 5
 window._outcomePages = {}
 
 function showMoreOutcomes(uid) {
@@ -350,18 +350,23 @@ function renderKalshiEvent(ev, accent) {
         ${resolvedBanner}
         <div class="event-title">${esc(eventTitle || eventSubTitle)}${eventTitle && eventSubTitle ? " — " + esc(eventSubTitle) : ""}</div>
         ${urgencyHtml}
-        ${resolutionRule ? `<div class="resolution-rule">${esc(resolutionRule)}</div>` : ""}
-        ${desc ? `<div class="event-desc">${esc(desc)}</div>` : ""}
       </div>
     </div>
+
+    ${(desc || resolutionRule) ? `
+    <div class="mi-card">
+      <div class="section-label">WHAT'S THE BET?</div>
+      <div class="event-body">
+        ${resolutionRule ? `<div class="resolution-rule" style="margin:20px 32px 0">${esc(resolutionRule)}</div>` : ""}
+        ${desc ? `<div class="event-desc" style="padding:16px 32px 24px">${esc(desc)}</div>` : ""}
+      </div>
+    </div>` : ""}
 
     <!-- Outcomes -->
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
     </div>
-
-    ${analyticsHtml}
 
     <!-- Stats -->
     <div class="stats-grid">
@@ -372,18 +377,18 @@ function renderKalshiEvent(ev, accent) {
     </div>
 
     ${timelineRows ? `
-    <!-- Timeline -->
     <div class="mi-card">
       <div class="section-label">TIMELINE</div>
       ${timelineRows}
     </div>` : ""}
 
     ${ruleSentences.length ? `
-    <!-- Rules -->
     <div class="mi-card">
-      <div class="section-label">RULES &amp; CRITERIA</div>
+      <div class="section-label">HOW IT RESOLVES</div>
       <div class="num-list">${numList(ruleSentences)}</div>
     </div>` : ""}
+
+    ${analyticsHtml}
   `
 }
 
@@ -461,16 +466,19 @@ function renderPolymarketEvent(event, markets, accent) {
         </div>
         <div class="event-title">${esc(event.title)}</div>
         ${urgencyHtml}
-        ${event.description ? `<div class="event-desc">${esc(event.description)}</div>` : ""}
       </div>
     </div>
+
+    ${event.description ? `
+    <div class="mi-card">
+      <div class="section-label">WHAT'S THE BET?</div>
+      <div class="event-desc" style="padding:16px 32px 24px">${esc(event.description)}</div>
+    </div>` : ""}
 
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
     </div>
-
-    ${analyticsHtml}
 
     <div class="stats-grid">
       ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
@@ -485,6 +493,8 @@ function renderPolymarketEvent(event, markets, accent) {
       ${infoRow("Start date", fmtDate(event.startDate))}
       ${infoRow("End date", fmtDate(event.endDate))}
     </div>` : ""}
+
+    ${analyticsHtml}
   `
 }
 
