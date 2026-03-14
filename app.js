@@ -717,11 +717,31 @@ async function analyze() {
         throw new Error("Invalid Kalshi URL.")
       }
       const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
-      const ticker = cleanPath.split("/").pop().toUpperCase()
+      const pathParts = cleanPath.split("/")
+      const marketsIdx = pathParts.findIndex(p => p === "markets" || p === "events")
+      // For /markets/{eventTicker}/{slug}/{marketTicker}, prefer the event ticker
+      // so we always show the full event status, not just a single sub-market
+      const eventTicker = marketsIdx !== -1 && pathParts[marketsIdx + 1]
+        ? pathParts[marketsIdx + 1].toUpperCase()
+        : null
+      const ticker = pathParts[pathParts.length - 1].toUpperCase()
 
-      const res = await fetch(`/api/kalshi?ticker=${encodeURIComponent(ticker)}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || `API error ${res.status}`)
+      // Try event ticker first (gives full event with all markets and correct status)
+      let data = null
+      if (eventTicker && eventTicker !== ticker) {
+        const eventRes = await fetch(`/api/kalshi?ticker=${encodeURIComponent(eventTicker)}`)
+        if (eventRes.ok) data = await eventRes.json()
+      }
+
+      // Fall back to the specific market/event ticker in the URL
+      if (!data || (!data.event && !data.market)) {
+        const res = await fetch(`/api/kalshi?ticker=${encodeURIComponent(ticker)}`)
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || `API error ${res.status}`)
+        }
+        data = await res.json()
+      }
 
       if (data.event) {
         result.innerHTML = renderKalshiEvent(data.event, accent)
