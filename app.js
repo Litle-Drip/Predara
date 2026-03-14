@@ -5,21 +5,35 @@ const PLATFORMS = {
   coinbase:   { label: "COINBASE",   accent: "#1652F0" },
 }
 
+// Escape user-supplied data before injecting into HTML to prevent XSS
+function esc(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function toMoneyline(pct) {
-  if (pct <= 1 || pct >= 99) return "—"
+  if (pct <= 0 || pct >= 100) return "—"
   return pct >= 50
     ? `-${Math.round(pct / (100 - pct) * 100)}`
     : `+${Math.round((100 - pct) / pct * 100)}`
 }
 
 function fmtDate(iso) {
-  if (!iso || iso.startsWith("0001")) return "—"
-  return new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+  if (!iso || typeof iso !== "string" || iso.startsWith("0001")) return "—"
+  const d = new Date(iso)
+  if (isNaN(d)) return "—"
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
 }
 
 function fmtDateTime(iso) {
-  if (!iso || iso.startsWith("0001")) return "—"
-  return new Date(iso).toLocaleString("en-US", {
+  if (!iso || typeof iso !== "string" || iso.startsWith("0001")) return "—"
+  const d = new Date(iso)
+  if (isNaN(d)) return "—"
+  return d.toLocaleString("en-US", {
     month: "long", day: "numeric", year: "numeric",
     hour: "numeric", minute: "2-digit", timeZoneName: "short"
   })
@@ -54,11 +68,11 @@ function outcomeRow(label, sub, pct, color, delta = null) {
     <div class="outcome-row">
       <div class="outcome-top">
         <div>
-          <div class="outcome-name" style="color:${color}">${label}</div>
-          ${sub ? `<div class="outcome-sub">${sub}</div>` : ""}
+          <div class="outcome-name" style="color:${color}">${esc(label)}</div>
+          ${sub ? `<div class="outcome-sub">${esc(sub)}</div>` : ""}
         </div>
         <div class="outcome-right">
-          <span class="outcome-ml">${ml}</span>
+          <span class="outcome-ml">${esc(ml)}</span>
           <span class="outcome-pct" style="color:${color}">${pct}%</span>
           ${deltaHtml}
         </div>
@@ -84,6 +98,7 @@ function buildOutcomesHtml(rows) {
 
 function renderKalshiEvent(ev, accent) {
   const markets = (ev.markets || []).filter(m => m.yes_sub_title)
+  if (!markets.length) return `<div class="mi-error">No outcome data available for this market.</div>`
   const first = markets[0] || {}
 
   // Sort highest probability first
@@ -105,8 +120,9 @@ function renderKalshiEvent(ev, accent) {
     : ""
 
   // Description: first sentence of rules_secondary
-  const desc = (first.rules_secondary || first.rules_primary || "")
-    .split(/\.\s+/)[0].replace(/^The following market refers to/, "Prediction market on") + "."
+  const descRaw = (first.rules_secondary || first.rules_primary || "")
+    .split(/\.\s+/)[0].replace(/^The following market refers to/, "Prediction market on").trim()
+  const desc = descRaw ? descRaw + "." : ""
 
   // Outcomes — top 5 visible, rest in show-more
   const colors = ["#22c55e", "#ef4444", "#f59e0b", "#60a5fa"]
@@ -155,15 +171,15 @@ function renderKalshiEvent(ev, accent) {
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
-          <span class="tag-platform">${PLATFORMS.kalshi.label}</span>
-          <span class="tag-cat">${category.toUpperCase()}</span>
+          <span class="tag-platform">${esc(PLATFORMS.kalshi.label)}</span>
+          <span class="tag-cat">${esc(category.toUpperCase())}</span>
           <span class="tag-status">
-            <span class="${statusDot}">●</span> ${statusText}
+            <span class="${statusDot}">●</span> ${esc(statusText)}
           </span>
         </div>
         ${resolvedBanner}
-        <div class="event-title">${ev.title}${ev.sub_title ? " — " + ev.sub_title : ""}</div>
-        <div class="event-desc">${desc}</div>
+        <div class="event-title">${esc(ev.title)}${ev.sub_title ? " — " + esc(ev.sub_title) : ""}</div>
+        ${desc ? `<div class="event-desc">${esc(desc)}</div>` : ""}
       </div>
     </div>
 
@@ -206,8 +222,13 @@ function renderPolymarketEvent(event, markets, accent) {
   const colors = ["#22c55e", "#ef4444", "#f59e0b", "#60a5fa"]
   const allPolyRows = []
   markets.forEach((market, idx) => {
-    const outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
-    const prices   = typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : market.outcomePrices
+    let outcomes, prices
+    try {
+      outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
+      prices   = typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : market.outcomePrices
+    } catch (e) {
+      return // skip malformed market
+    }
     ;(outcomes || []).forEach((name, i) => {
       const pct = Math.round(parseFloat(prices ? prices[i] : 0) * 100)
       allPolyRows.push(outcomeRow(name, "", pct, colors[(idx + i) % colors.length]))
@@ -224,11 +245,11 @@ function renderPolymarketEvent(event, markets, accent) {
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
-          <span class="tag-platform" style="background:${accent}">${PLATFORMS.polymarket.label}</span>
-          <span class="tag-status"><span class="${statusDot}">●</span> ${statusText}</span>
+          <span class="tag-platform" style="background:${accent}">${esc(PLATFORMS.polymarket.label)}</span>
+          <span class="tag-status"><span class="${statusDot}">●</span> ${esc(statusText)}</span>
         </div>
-        <div class="event-title">${event.title}</div>
-        ${event.description ? `<div class="event-desc">${event.description}</div>` : ""}
+        <div class="event-title">${esc(event.title)}</div>
+        ${event.description ? `<div class="event-desc">${esc(event.description)}</div>` : ""}
       </div>
     </div>
 
@@ -258,10 +279,10 @@ async function analyze() {
 
   const lowerUrl = url.toLowerCase()
   let platform = "unknown"
-  if (lowerUrl.includes("kalshi"))     platform = "kalshi"
-  if (lowerUrl.includes("polymarket")) platform = "polymarket"
-  if (lowerUrl.includes("gemini"))     platform = "gemini"
-  if (lowerUrl.includes("coinbase"))   platform = "coinbase"
+  if      (lowerUrl.includes("kalshi"))     platform = "kalshi"
+  else if (lowerUrl.includes("polymarket")) platform = "polymarket"
+  else if (lowerUrl.includes("gemini"))     platform = "gemini"
+  else if (lowerUrl.includes("coinbase"))   platform = "coinbase"
 
   const accent = (PLATFORMS[platform] || {}).accent || "#555"
 
@@ -320,6 +341,6 @@ async function analyze() {
     }
 
   } else {
-    result.innerHTML = `<div class="mi-loading">PLATFORM NOT YET SUPPORTED</div>`
+    result.innerHTML = `<div class="mi-error">PLATFORM NOT YET SUPPORTED · USE A KALSHI OR POLYMARKET URL</div>`
   }
 }

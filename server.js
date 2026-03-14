@@ -6,63 +6,101 @@ const path = require("path")
 const url = require("url")
 
 const PORT = 3000
+const STATIC_ROOT = __dirname
+const REQUEST_TIMEOUT_MS = 10000
 
 const MIME = {
-  ".html": "text/html",
-  ".js":   "application/javascript",
+  ".html": "text/html; charset=utf-8",
+  ".js":   "application/javascript; charset=utf-8",
+  ".css":  "text/css; charset=utf-8",
+  ".json": "application/json",
+  ".png":  "image/png",
+  ".jpg":  "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg":  "image/svg+xml",
+  ".ico":  "image/x-icon",
+  ".webp": "image/webp",
+}
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+}
+
+// Only allow alphanumeric, hyphen, underscore, dot in tickers/slugs
+function isSafeParam(str) {
+  return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
+}
+
+function httpsGetWithTimeout(targetUrl, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(targetUrl, (apiRes) => {
+      let body = ""
+      apiRes.on("data", (chunk) => { body += chunk })
+      apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+    })
+    req.setTimeout(timeoutMs, () => {
+      req.destroy()
+      reject(new Error("Upstream request timed out"))
+    })
+    req.on("error", reject)
+  })
 }
 
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url, true)
 
-  // Proxy endpoint — avoids browser CORS restrictions entirely
+  // Handle CORS preflight for all API routes
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, CORS_HEADERS)
+    return res.end()
+  }
+
+  // ── Polymarket proxy ──
   if (parsed.pathname === "/api/polymarket") {
     const slug = parsed.query.slug
-    if (!slug) {
-      res.writeHead(400, { "Content-Type": "application/json" })
-      return res.end(JSON.stringify({ error: "Missing slug" }))
+    if (!slug || !isSafeParam(slug)) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Missing or invalid slug" }))
     }
 
     const target = `https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}`
 
-    https.get(target, (apiRes) => {
-      let body = ""
-      apiRes.on("data", (chunk) => { body += chunk })
-      apiRes.on("end", () => {
-        res.writeHead(apiRes.statusCode, {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        })
+    httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
+      .then(({ status, body }) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(body)
       })
-    }).on("error", (err) => {
-      res.writeHead(502, { "Content-Type": "application/json" })
-      res.end(JSON.stringify({ error: err.message }))
-    })
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
 
     return
   }
 
+  // ── Kalshi proxy ──
   if (parsed.pathname === "/api/kalshi") {
     const keyId = process.env.KALSHI_API_KEY_ID
     const privateKey = process.env.KALSHI_PRIVATE_KEY
     if (!keyId || !privateKey) {
-      res.writeHead(503, { "Content-Type": "application/json" })
+      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
       return res.end(JSON.stringify({ error: "Kalshi credentials not configured. Set KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY." }))
     }
 
     const ticker = parsed.query.ticker
-    if (!ticker) {
-      res.writeHead(400, { "Content-Type": "application/json" })
-      return res.end(JSON.stringify({ error: "Missing ticker" }))
+    if (!ticker || !isSafeParam(ticker)) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Missing or invalid ticker" }))
     }
 
     const normalizedKey = privateKey.replace(/\\n/g, "\n")
-    const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    const headers = { "Content-Type": "application/json", ...CORS_HEADERS }
 
-    function kalshiGet(path) {
+    function kalshiGet(apiPath) {
       return new Promise((resolve, reject) => {
-        const basePath = path.split("?")[0]
+        const basePath = apiPath.split("?")[0]
         const timestamp = Date.now().toString()
         const msgString = timestamp + "GET" + basePath
         let signature
@@ -71,9 +109,9 @@ const server = http.createServer((req, res) => {
         } catch (err) {
           return reject(err)
         }
-        https.request({
+        const req = https.request({
           hostname: "api.elections.kalshi.com",
-          path,
+          path: apiPath,
           method: "GET",
           headers: {
             "KALSHI-ACCESS-KEY": keyId,
@@ -85,7 +123,12 @@ const server = http.createServer((req, res) => {
           let body = ""
           apiRes.on("data", (chunk) => { body += chunk })
           apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
-        }).on("error", reject).end()
+        })
+        req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+          req.destroy()
+          reject(new Error("Kalshi API request timed out"))
+        })
+        req.on("error", reject).end()
       })
     }
 
@@ -96,28 +139,39 @@ const server = http.createServer((req, res) => {
         return kalshiGet(`/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`)
       })
       .then((r) => {
-        if (r.status === 200) { res.writeHead(200, headers); res.end(r.body) }
-        else { res.writeHead(r.status, headers); res.end(JSON.stringify({ error: r.body.trim() })) }
+        if (r.status === 200) {
+          res.writeHead(200, headers)
+          res.end(r.body)
+        } else {
+          res.writeHead(r.status, headers)
+          res.end(JSON.stringify({ error: `API returned ${r.status}` }))
+        }
       })
       .catch((err) => {
-        res.writeHead(502, { "Content-Type": "application/json" })
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify({ error: err.message }))
       })
 
     return
   }
 
-  // Serve static files
-  let filePath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
-  filePath = path.join(__dirname, filePath)
+  // ── Static file server (path traversal safe) ──
+  let reqPath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
+  const filePath = path.resolve(STATIC_ROOT, "." + reqPath)
+
+  // Reject anything that escapes the static root
+  if (!filePath.startsWith(STATIC_ROOT + path.sep) && filePath !== STATIC_ROOT) {
+    res.writeHead(403, { "Content-Type": "text/plain" })
+    return res.end("Forbidden")
+  }
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(404)
+      res.writeHead(404, { "Content-Type": "text/plain" })
       return res.end("Not found")
     }
-    const ext = path.extname(filePath)
-    res.writeHead(200, { "Content-Type": MIME[ext] || "text/plain" })
+    const ext = path.extname(filePath).toLowerCase()
+    res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" })
     res.end(data)
   })
 })

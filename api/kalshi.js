@@ -1,21 +1,33 @@
 const https = require("https")
 const crypto = require("crypto")
 
-function kalshiRequest(path, keyId, normalizedKey) {
+const REQUEST_TIMEOUT_MS = 10000
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+}
+
+function isSafeParam(str) {
+  return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
+}
+
+function kalshiRequest(apiPath, keyId, normalizedKey) {
   return new Promise((resolve, reject) => {
     const timestamp = Date.now().toString()
-    const basePath = path.split("?")[0]
+    const basePath = apiPath.split("?")[0]
     const msgString = timestamp + "GET" + basePath
     let signature
     try {
       signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
     } catch (err) {
-      return reject(new Error(`Failed to sign request: ${err.message}`))
+      return reject(new Error("Failed to sign request"))
     }
 
-    const options = {
+    const req = https.request({
       hostname: "api.elections.kalshi.com",
-      path,
+      path: apiPath,
       method: "GET",
       headers: {
         "KALSHI-ACCESS-KEY": keyId,
@@ -23,57 +35,74 @@ function kalshiRequest(path, keyId, normalizedKey) {
         "KALSHI-ACCESS-SIGNATURE": signature,
         "Content-Type": "application/json",
       },
-    }
-
-    https.request(options, (apiRes) => {
+    }, (apiRes) => {
       let body = ""
       apiRes.on("data", (chunk) => { body += chunk })
       apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
-    }).on("error", reject).end()
+    })
+
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy()
+      reject(new Error("Kalshi API request timed out"))
+    })
+    req.on("error", reject).end()
   })
 }
 
 module.exports = async (req, res) => {
-  const keyId = process.env.KALSHI_API_KEY_ID
-  const privateKey = process.env.KALSHI_PRIVATE_KEY
-
-  if (!keyId || !privateKey) {
-    res.status(503).json({ error: "Kalshi API credentials not configured. Add KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY to Vercel environment variables." })
-    return
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, CORS_HEADERS)
+    return res.end()
   }
-
-  const ticker = req.query.ticker
-  if (!ticker) {
-    res.status(400).json({ error: "Missing ticker" })
-    return
-  }
-
-  const normalizedKey = privateKey.replace(/\\n/g, "\n")
 
   res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Content-Type", "application/json")
 
+  const keyId = process.env.KALSHI_API_KEY_ID
+  const privateKey = process.env.KALSHI_PRIVATE_KEY
+  if (!keyId || !privateKey) {
+    return res.status(503).json({ error: "Kalshi API credentials not configured. Add KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY to Vercel environment variables." })
+  }
+
+  const ticker = req.query.ticker
+  if (!ticker || !isSafeParam(ticker)) {
+    return res.status(400).json({ error: "Missing or invalid ticker" })
+  }
+
+  const normalizedKey = privateKey.replace(/\\n/g, "\n")
+
   try {
-    // Try the market endpoint first
-    const marketPath = `/trade-api/v2/markets/${encodeURIComponent(ticker)}`
-    const marketRes = await kalshiRequest(marketPath, keyId, normalizedKey)
+    // Try market endpoint first
+    const marketRes = await kalshiRequest(
+      `/trade-api/v2/markets/${encodeURIComponent(ticker)}`,
+      keyId, normalizedKey
+    )
 
     if (marketRes.status === 200) {
+      // Validate it's JSON before forwarding
+      try { JSON.parse(marketRes.body) } catch {
+        return res.status(502).json({ error: "Invalid response from Kalshi API" })
+      }
       return res.status(200).send(marketRes.body)
     }
 
-    // Fall back to the event endpoint (Kalshi game URLs often use the event ticker)
-    const eventPath = `/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`
-    const eventRes = await kalshiRequest(eventPath, keyId, normalizedKey)
+    // Fall back to event endpoint
+    const eventRes = await kalshiRequest(
+      `/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`,
+      keyId, normalizedKey
+    )
 
     if (eventRes.status === 200) {
+      try { JSON.parse(eventRes.body) } catch {
+        return res.status(502).json({ error: "Invalid response from Kalshi API" })
+      }
       return res.status(200).send(eventRes.body)
     }
 
-    // Both failed — return the event endpoint error (more informative for game markets)
-    return res.status(eventRes.status).json({ error: eventRes.body.trim() })
+    return res.status(eventRes.status).json({ error: `Kalshi API returned ${eventRes.status}` })
 
   } catch (err) {
-    res.status(502).json({ error: err.message })
+    return res.status(502).json({ error: err.message })
   }
 }

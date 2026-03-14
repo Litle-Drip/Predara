@@ -1,7 +1,13 @@
 {
-  "name": "predictions-analyzer",
+  "name": "predara",
   "version": "1.0.0",
+  "description": "Prediction market analyzer for Kalshi and Polymarket",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   }
 }
