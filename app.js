@@ -432,9 +432,11 @@ function renderKalshiEvent(ev, accent) {
   const betSimHtml = betSimulatorHtml(leadPct)
 
   const analyticsRows = (isMultiOutcome ? sorted.slice(0, 3) : sorted.slice(0, 1)).map(m => {
-    const prob = parseFloat(m.last_price_dollars || 0)
-    let ask  = parseFloat(m.yes_ask_dollars || 0)
-    const bid  = parseFloat(m.yes_bid_dollars || 0)
+    const lp  = parseFloat(m.last_price_dollars || 0)
+    const bid = parseFloat(m.yes_bid_dollars || 0)
+    let ask   = parseFloat(m.yes_ask_dollars || 0)
+    // Match the same fallback chain used for outcome probability display
+    const prob = lp > 0 ? lp : (ask > 0 ? (bid + ask) / 2 : bid)
     if (!Number.isFinite(ask) || ask <= 0) {
       ask = Number.isFinite(bid) && bid > 0 ? (bid + prob) / 2 : prob
     }
