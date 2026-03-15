@@ -47,7 +47,11 @@ function toMoneyline(pct) {
 
 function fmtDate(iso) {
   if (!iso || typeof iso !== "string" || iso.startsWith("0001")) return "—"
-  const d = new Date(iso)
+  // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS spec, which shifts them
+  // one day back in any negative-offset timezone (all of the Americas). Append local noon
+  // so the date renders correctly regardless of the user's timezone.
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso + "T12:00:00" : iso
+  const d = new Date(normalized)
   if (isNaN(d)) return "—"
   return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
 }
