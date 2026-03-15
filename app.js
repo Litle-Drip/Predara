@@ -712,9 +712,14 @@ async function analyze() {
         if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug>")
         slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "")
       } else {
+        if (!lowerUrl.includes("/event/") && !lowerUrl.includes("/markets/") && !lowerUrl.includes("/predictions/")) {
+          throw new Error("Invalid Coinbase URL. Expected: predict.coinbase.com/markets/<slug> or coinbase.com/predictions/<slug>")
+        }
         const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
         slug = cleanPath.split("/").pop()
-        if (!slug) throw new Error("Invalid Coinbase URL. Could not extract market slug.")
+        if (!slug || slug === "markets" || slug === "predictions" || slug === "event") {
+          throw new Error("Invalid Coinbase URL. Expected: predict.coinbase.com/markets/<slug>")
+        }
       }
 
       const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
@@ -739,14 +744,19 @@ async function analyze() {
       let ticker = ""
       if (platform === "kalshi") {
         if (!url.includes("/markets/") && !url.includes("/events/")) {
-          throw new Error("Invalid Kalshi URL.")
+          throw new Error("Invalid Kalshi URL. Expected: kalshi.com/markets/<ticker> or kalshi.com/events/<ticker>")
         }
         const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
         ticker = cleanPath.split("/").pop().toUpperCase()
       } else {
+        if (!lowerUrl.includes("/prediction-markets/") && !lowerUrl.includes("/predictions/")) {
+          throw new Error("Invalid Gemini URL. Expected: gemini.com/prediction-markets/<ticker>")
+        }
         const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
         ticker = cleanPath.split("/").pop().toUpperCase()
-        if (!ticker) throw new Error("Invalid Gemini URL. Could not extract market ticker.")
+        if (!ticker || ticker === "PREDICTION-MARKETS" || ticker === "PREDICTIONS") {
+          throw new Error("Invalid Gemini URL. Expected: gemini.com/prediction-markets/<ticker>")
+        }
       }
 
       const res = await fetch(`/api/kalshi?ticker=${encodeURIComponent(ticker)}`)
