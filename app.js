@@ -368,7 +368,11 @@ function renderKalshiEvent(ev, accent) {
         if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
         return s + parseFloat(m.volume_24h || 0)
       }, 0))
-  const totalLiq   = fmtNum(markets.reduce((s, m) => s + parseFloat(m.liquidity_dollars || 0), 0))
+  const totalLiq   = fmtNum(markets.reduce((s, m) => {
+    // Kalshi returns liquidity_dollars (float) or liquidity (int, cents)
+    if (m.liquidity_dollars != null) return s + parseFloat(m.liquidity_dollars)
+    return s + parseFloat(m.liquidity || 0) / 100
+  }, 0))
   const totalOI    = fmtNum(markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100)
 
   // Timeline
@@ -466,6 +470,12 @@ function renderKalshiEvent(ev, accent) {
 
     ${whatsTheBetCard(betExplainerText)}
 
+    ${timelineRows ? `
+    <div class="mi-card">
+      <div class="section-label">TIMELINE</div>
+      ${timelineRows}
+    </div>` : ""}
+
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
@@ -477,12 +487,6 @@ function renderKalshiEvent(ev, accent) {
       ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
       ${statCard("OPEN INTEREST", totalOI ? `$${totalOI}` : null)}
     </div>
-
-    ${timelineRows ? `
-    <div class="mi-card">
-      <div class="section-label">TIMELINE</div>
-      ${timelineRows}
-    </div>` : ""}
 
     ${ruleSentences.length ? `
     <div class="mi-card">
@@ -625,6 +629,13 @@ function renderPolymarketEvent(event, markets, accent) {
 
     ${whatsTheBetCard(betExplainerText)}
 
+    ${event.endDate ? `
+    <div class="mi-card">
+      <div class="section-label">TIMELINE</div>
+      ${infoRow("Start date", fmtDate(event.startDate))}
+      ${infoRow("End date", fmtDate(event.endDate))}
+    </div>` : ""}
+
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
@@ -636,13 +647,6 @@ function renderPolymarketEvent(event, markets, accent) {
       ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
       ${commentCount > 0 ? statCard("COMMENTS", commentCount.toLocaleString()) : ""}
     </div>
-
-    ${event.endDate ? `
-    <div class="mi-card">
-      <div class="section-label">TIMELINE</div>
-      ${infoRow("Start date", fmtDate(event.startDate))}
-      ${infoRow("End date", fmtDate(event.endDate))}
-    </div>` : ""}
 
     ${polyRulesLimited.length || resSourceHtml ? `
     <div class="mi-card">
