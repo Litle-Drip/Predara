@@ -542,6 +542,147 @@ function renderKalshiEvent(ev, accent) {
   `
 }
 
+function renderGeminiEvent(event, accent) {
+  const status = (event.status || "").toLowerCase()
+  const isOpen = status === "active"
+  const statusDot  = isOpen ? "dot-green" : "dot-red"
+  const statusText = isOpen ? "OPEN" : status.toUpperCase() || "CLOSED"
+
+  const contracts = Array.isArray(event.contracts) ? event.contracts : []
+  const isBinary = event.type === "binary"
+
+  // Build outcome rows from contracts
+  const allRows = []
+  const analyticsCandidates = []
+
+  if (isBinary && contracts.length === 1) {
+    // Binary: show YES and NO from a single contract price
+    const c = contracts[0]
+    const price = parseFloat(c.lastPrice || c.price || c.bestAsk || 0)
+    const bid   = parseFloat(c.bestBid || c.bid || price)
+    const ask   = parseFloat(c.bestAsk || c.ask || price)
+    const pctYes = Math.round(price * 100)
+    const pctNo  = 100 - pctYes
+    const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0
+      ? { bid, ask }
+      : {}
+    allRows.push(outcomeRow("YES", "", pctYes, OUTCOME_COLORS[0], null, extras))
+    allRows.push(outcomeRow("NO",  "", pctNo,  OUTCOME_COLORS[1], null, {}))
+    if (ask > 0) analyticsCandidates.push({ prob: price, label: "YES", ask, bid: bid || price })
+  } else {
+    contracts.forEach((c, idx) => {
+      const name  = c.title || c.name || c.instrumentSymbol || `Outcome ${idx + 1}`
+      const price = parseFloat(c.lastPrice || c.price || c.bestAsk || 0)
+      const bid   = parseFloat(c.bestBid || c.bid || price)
+      const ask   = parseFloat(c.bestAsk || c.ask || price)
+      const pct   = Math.round(price * 100)
+      const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0
+        ? { bid, ask }
+        : {}
+      allRows.push(outcomeRow(name, "", pct, OUTCOME_COLORS[idx % OUTCOME_COLORS.length], null, extras))
+      if (price > 0 && ask > 0) {
+        analyticsCandidates.push({ prob: price, label: String(name), ask, bid: bid || price })
+      }
+    })
+  }
+
+  if (!allRows.length) return `<div class="mi-error">No outcome data found for this event.</div>`
+  const outcomesHtml = buildOutcomesHtml(allRows)
+
+  // Stats
+  const totalVol = fmtNum(parseFloat(event.volume || 0))
+  const totalLiq = fmtNum(parseFloat(event.liquidity || 0))
+
+  // Tags
+  let tags = event.tags || []
+  if (!Array.isArray(tags)) tags = []
+  const cat = event.category || ""
+  if (cat && !tags.includes(cat)) tags = [cat, ...tags]
+  const tagsHtml = tags
+    .filter(t => t != null)
+    .map(t => {
+      const col = categoryColor(String(t))
+      return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${esc(String(t).toUpperCase())}</span>`
+    }).join("")
+
+  // Urgency
+  const expiryIso = event.expiryDate || event.resolvedAt || ""
+  const timeLeft = fmtTimeRemaining(expiryIso)
+  const urgencyHtml = timeLeft
+    ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
+    : ""
+
+  // Analytics
+  analyticsCandidates.sort((a, b) => b.prob - a.prob)
+  const analyticsRows = analyticsCandidates.slice(0, 3)
+    .map(c => calcAnalyticsRow(c.label, c.prob, c.ask, c.bid))
+    .filter(Boolean)
+  const analyticsHtml = analyticsCard(analyticsRows, timeLeft)
+
+  // Bet explainer from description
+  const desc = event.description || ""
+  let betExplainerText = ""
+  if (desc) {
+    betExplainerText = applyResolveText(desc)
+      .split(/(?<=[.!?])\s+/)
+      .filter(s => s.trim().length > 10)
+      .slice(0, 3)
+      .join(" ")
+  }
+
+  // Resolution rules
+  const ruleSentences = desc ? plainEnglishRules(desc).slice(0, 8) : []
+
+  // Bet sim
+  const leadPct = analyticsCandidates.length ? Math.round(analyticsCandidates[0].prob * 100) : 0
+  window._simMarket = { amount: window._simMarket?.amount || 10, pct: leadPct, platform: "gemini" }
+  const betSimHtml = betSimulatorHtml(leadPct)
+
+  return `
+    <div class="mi-card">
+      <div class="event-head">
+        <div class="event-tags">
+          <span class="tag-platform" style="background:${accent}">${esc(PLATFORMS.gemini.label)}</span>
+          ${tagsHtml}
+          <span class="tag-status"><span class="${statusDot}">●</span> ${esc(statusText)}</span>
+        </div>
+        <div class="event-title">${esc(event.title || "Gemini Prediction Market")}</div>
+        ${urgencyHtml}
+      </div>
+    </div>
+
+    ${whatsTheBetCard(betExplainerText)}
+
+    ${(event.effectiveDate || expiryIso) ? `
+    <div class="mi-card">
+      <div class="section-label">TIMELINE</div>
+      ${infoRow("Start date", fmtDate(event.effectiveDate || event.createdAt))}
+      ${infoRow("End date", fmtDate(expiryIso))}
+      ${event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : ""}
+    </div>` : ""}
+
+    <div class="mi-card">
+      <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
+      ${outcomesHtml}
+    </div>
+
+    <div class="stats-grid">
+      ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
+      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
+    </div>
+
+    ${ruleSentences.length ? `
+    <div class="mi-card">
+      <div class="section-label">HOW IT RESOLVES</div>
+      <div class="num-list">${numList(ruleSentences)}</div>
+    </div>` : ""}
+
+    ${betSimHtml}
+
+    ${analyticsHtml}
+  `
+}
+
 function renderPolymarketEvent(event, markets, accent) {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
@@ -839,8 +980,31 @@ async function analyze() {
       resetBtn()
     }
 
+  } else if (platform === "gemini") {
+    try {
+      const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
+      const pathParts = cleanPath.split("/").filter(Boolean)
+      const ticker = pathParts[pathParts.length - 1]
+      if (!ticker) throw new Error("Invalid Gemini URL — could not find event ticker.")
+
+      const res = await fetch(`/api/gemini?ticker=${encodeURIComponent(ticker)}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `API error ${res.status}`)
+      }
+      const data = await res.json()
+      if (!data || !data.title) throw new Error("No event data returned.")
+
+      result.innerHTML = renderGeminiEvent(data, accent)
+    } catch (err) {
+      console.error(err)
+      showError(`ERROR: ${err.message}`)
+    } finally {
+      resetBtn()
+    }
+
   } else {
-    showError("Unrecognized URL · Paste a Kalshi or Polymarket link.")
+    showError("Unrecognized URL · Paste a Kalshi, Polymarket, or Gemini link.")
     resetBtn()
   }
 }

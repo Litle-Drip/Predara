@@ -94,6 +94,29 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Gemini proxy ──
+  if (parsed.pathname === "/api/gemini") {
+    const ticker = parsed.query.ticker
+    if (!ticker || !isSafeParam(ticker)) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Missing or invalid ticker" }))
+    }
+
+    const target = `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`
+
+    httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
+      .then(({ status, body }) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(body)
+      })
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
+
+    return
+  }
+
   // ── Kalshi proxy ──
   if (parsed.pathname === "/api/kalshi") {
     const keyId = process.env.KALSHI_API_KEY_ID
