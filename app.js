@@ -1,5 +1,5 @@
 const PLATFORMS = {
-  kalshi:     { label: "KALSHI",     accent: "#d94f20" },
+  kalshi:     { label: "KALSHI",     accent: "#00C805" },
   polymarket: { label: "POLYMARKET", accent: "#7B3FE4" },
   gemini:     { label: "GEMINI",     accent: "#00DCFA" },
   coinbase:   { label: "COINBASE",   accent: "#1652F0" },
@@ -306,7 +306,7 @@ function renderKalshiEvent(ev, accent) {
     parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
 
   // Event meta
-  const status     = ev.status || first.status || "active"
+  const status     = first.status || "active"
   const statusDot  = status === "active" ? "dot-green" : status === "closed" ? "dot-red" : "dot-muted"
   const statusText = status.toUpperCase()
   const category   = ev.product_metadata?.competition || ev.category || "Markets"
@@ -448,7 +448,7 @@ function renderKalshiEvent(ev, accent) {
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
-          <span class="tag-platform">${esc(PLATFORMS.kalshi.label)}</span>
+          <span class="tag-platform" style="background:${accent}">${esc(PLATFORMS.kalshi.label)}</span>
           <span class="tag-cat">${esc(category.toUpperCase())}</span>
           ${exclusiveTag}
           <span class="tag-status">
@@ -755,6 +755,12 @@ async function analyze() {
       }
 
       if (data.event) {
+        // When URL specifies a specific sub-market, filter to only that market
+        // to avoid showing resolved/closed status from other games in the event
+        if (ticker !== eventTicker && data.event.markets) {
+          const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
+          if (specific.length > 0) data.event.markets = specific
+        }
         result.innerHTML = renderKalshiEvent(data.event, accent)
       } else if (data.market) {
         const m = data.market
