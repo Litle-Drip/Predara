@@ -1,7 +1,7 @@
 {
   "name": "predara",
   "version": "1.0.0",
-  "description": "Prediction market analyzer for Kalshi and Polymarket",
+  "description": "Prediction market analyzer for Kalshi, Polymarket, Gemini, and Coinbase",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=18"

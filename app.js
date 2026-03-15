@@ -20,6 +20,11 @@ const GLOSSARY = {
   "SPREAD":           "Gap between the bid and ask price. Tighter spread = more liquid market.",
   "MONEYLINE":        "American odds format. -150 means bet $150 to win $100. +200 means bet $100 to win $200.",
   "BID / ASK":        "Bid = highest price a buyer will pay. Ask = lowest price a seller will accept.",
+  "TRADING OPENS":    "When this market first became available for trading — not necessarily when the real-world event starts.",
+  "BETTING CLOSES":   "The deadline to place or exit bets. After this time, no more trading is allowed. This is not necessarily when the real-world event happens.",
+  "EXPECTED RESOLUTION": "When the market is expected to be settled and payouts distributed, based on the exchange's schedule.",
+  "START DATE":       "When this market or event was created on the platform.",
+  "END DATE":         "The scheduled end date for this event on the platform — trading may close before or after the real-world event.",
   "PROJECTED PAYOUT": "If the current leader wins, how much each contract pays. Kalshi contracts always pay $1 on a win — profit depends on what you paid.",
 }
 
@@ -248,10 +253,10 @@ function statCard(label, value, sub = "") {
   return `<div class="stat-card"><div class="stat-label">${tip(label)}</div>${inner}</div>`
 }
 
-// Only render a timeline row if the value is a real date (not "—")
 function infoRow(key, val) {
   if (!val || val === "—") return ""
-  return `<div class="info-row"><span class="info-key">${esc(key)}</span><span class="info-val">${esc(val)}</span></div>`
+  const keyHtml = GLOSSARY[key.toUpperCase()] ? tip(key, key.toUpperCase()) : esc(key)
+  return `<div class="info-row"><span class="info-key">${keyHtml}</span><span class="info-val">${esc(val)}</span></div>`
 }
 
 function numList(sentences) {
@@ -267,6 +272,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const deltaHtml = delta !== null && delta !== 0
     ? `<span class="outcome-delta ${delta > 0 ? 'delta-up' : 'delta-dn'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}</span>`
     : ""
+  const estTag = extras.isEstimate ? `<span class="est-tag">(est.)</span>` : ""
   const metaParts = []
   if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask)) {
     metaParts.push(`${tip("Bid", "BID / ASK")} ${Math.round(extras.bid * 100)}¢ · ${tip("Ask", "BID / ASK")} ${Math.round(extras.ask * 100)}¢`)
@@ -285,7 +291,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
         </div>
         <div class="outcome-right">
           <span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>
-          <span class="outcome-pct" style="color:${color}">${pct}%</span>
+          <span class="outcome-pct" style="color:${color}">${pct}%${estTag}</span>
           ${deltaHtml}
         </div>
       </div>
@@ -329,9 +335,7 @@ function buildOutcomesHtml(rows) {
     </div>`
 }
 
-function renderKalshiEvent(ev, accent) {
-  // markets = outcomes shown to user (may be filtered to a specific sub-market)
-  // allMarkets = full event market list, used for aggregate stats (volume, OI, liquidity, start date)
+function renderKalshiEvent(ev, accent, platformKey = "kalshi") {
   const markets    = (ev.markets || []).filter(m => m.yes_sub_title)
   const allMarkets = (ev._allMarkets || ev.markets || []).filter(m => m.yes_sub_title)
   if (!markets.length) return `<div class="mi-error">No outcome data available for this market.</div>`
@@ -371,6 +375,7 @@ function renderKalshiEvent(ev, accent) {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
     const yesBid    = parseFloat(m.yes_bid_dollars || 0)
     const yesAsk    = parseFloat(m.yes_ask_dollars || 0)
+    const isEstimate = lastPrice <= 0
     const pct = lastPrice > 0
       ? Math.round(lastPrice * 100)
       : yesAsk > 0 ? Math.round((yesBid + yesAsk) / 2 * 100) : Math.round(yesBid * 100)
@@ -383,7 +388,7 @@ function renderKalshiEvent(ev, accent) {
     const sub = isMultiOutcome ? "" : (m.rules_primary || "")
       .replace(/^If /, "").replace(/, then the market resolves to Yes\.?$/, "")
 
-    const extras = { bid: yesBid, ask: yesAsk }
+    const extras = { bid: yesBid, ask: yesAsk, isEstimate }
     if (isMultiOutcome) {
       const mVol = parseFloat(m.volume_fp || 0) / 100
       const mOI  = parseFloat(m.open_interest_fp || 0) / 100
@@ -428,9 +433,9 @@ function renderKalshiEvent(ev, accent) {
   const earlyCloseText = first.early_close_condition || (canCloseEarly ? "Possible" : "")
 
   const timelineRows  = [
-    infoRow("Start date", startDate),
-    infoRow("End / expiry", endDate),
-    infoRow("Resolution date", expDate),
+    infoRow("Trading opens", startDate),
+    infoRow("Betting closes", endDate),
+    infoRow("Expected resolution", expDate),
     earlyCloseText ? `<div class="info-row"><span class="info-key">${esc("Early close")}</span><span class="info-val">${esc(earlyCloseText)}</span></div>` : "",
   ].join("")
 
@@ -501,7 +506,7 @@ function renderKalshiEvent(ev, accent) {
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
-          <span class="tag-platform" style="background:${accent}">${esc(PLATFORMS.kalshi.label)}</span>
+          <span class="tag-platform" style="background:${accent}">${esc((PLATFORMS[platformKey] || PLATFORMS.kalshi).label)}</span>
           <span class="tag-cat" style="color:${catColor};border-color:${catColor};background:${catColor}1a">${esc(category.toUpperCase())}</span>
           ${exclusiveTag}
           <span class="tag-status">
@@ -528,10 +533,10 @@ function renderKalshiEvent(ev, accent) {
     </div>
 
     <div class="stats-grid">
-      ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
-      ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
-      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
-      ${statCard("OPEN INTEREST", totalOI ? `$${totalOI}` : null)}
+      ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : "—")}
+      ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : "—")}
+      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : "—")}
+      ${statCard("OPEN INTEREST", totalOI ? `$${totalOI}` : "—")}
     </div>
 
     ${ruleSentences.length ? `
@@ -775,7 +780,7 @@ function renderGeminiEvent(event, accent) {
   `
 }
 
-function renderPolymarketEvent(event, markets, accent) {
+function renderPolymarketEvent(event, markets, accent, platformKey = "polymarket") {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
@@ -862,6 +867,9 @@ function renderPolymarketEvent(event, markets, accent) {
   if (!betExplainerText && markets.length > 1) {
     betExplainerText = `Pick which outcome you think will happen. You win if your chosen outcome is correct.`
   }
+  if (!betExplainerText && event.title) {
+    betExplainerText = `This market is about: ${event.title}. Check the outcomes below to see the options and their current odds.`
+  }
 
   const polyRuleSentences = []
   const seenTexts = new Set()
@@ -905,7 +913,7 @@ function renderPolymarketEvent(event, markets, accent) {
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
-          <span class="tag-platform" style="background:${accent}">${esc(PLATFORMS.polymarket.label)}</span>
+          <span class="tag-platform" style="background:${accent}">${esc((PLATFORMS[platformKey] || PLATFORMS.polymarket).label)}</span>
           ${tagsHtml}
           <span class="tag-status"><span class="${statusDot}">●</span> ${esc(statusText)}</span>
         </div>
@@ -916,23 +924,9 @@ function renderPolymarketEvent(event, markets, accent) {
 
     ${whatsTheBetCard(betExplainerText)}
 
-    ${event.endDate ? `
-    <div class="mi-card">
-      <div class="section-label">TIMELINE</div>
-      ${infoRow("Start date", fmtDate(event.startDate))}
-      ${infoRow("End date", fmtDate(event.endDate))}
-    </div>` : ""}
-
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
-    </div>
-
-    <div class="stats-grid">
-      ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
-      ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
-      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
-      ${commentCount > 0 ? statCard("COMMENTS", commentCount.toLocaleString()) : ""}
     </div>
 
     ${polyRulesLimited.length || resSourceHtml ? `
@@ -942,9 +936,24 @@ function renderPolymarketEvent(event, markets, accent) {
       ${resSourceHtml}
     </div>` : ""}
 
+    ${event.endDate ? `
+    <div class="mi-card">
+      <div class="section-label">TIMELINE</div>
+      ${infoRow("Start date", fmtDate(event.startDate))}
+      ${infoRow("End date", fmtDate(event.endDate))}
+      ${infoRow("Expected resolution", fmtDate(event.resolutionDate))}
+    </div>` : ""}
+
     ${betSimHtml}
 
     ${analyticsHtml}
+
+    <div class="stats-grid">
+      ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : "—")}
+      ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : "—")}
+      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : "—")}
+      ${statCard("COMMENTS", commentCount > 0 ? commentCount.toLocaleString() : "—")}
+    </div>
   `
 }
 
@@ -963,7 +972,7 @@ async function analyze() {
   const btn = document.querySelector(".search-row button")
 
   if (!url) {
-    showError("Paste a Kalshi or Polymarket URL to analyze.")
+    showError("Paste a Kalshi, Polymarket, Gemini, or Coinbase URL to analyze.")
     return
   }
 
@@ -988,15 +997,28 @@ async function analyze() {
   let platform = "unknown"
   if      (lowerUrl.includes("kalshi"))     platform = "kalshi"
   else if (lowerUrl.includes("polymarket")) platform = "polymarket"
+  else if (lowerUrl.includes("coinbase"))   platform = "coinbase"
   else if (lowerUrl.includes("gemini"))     platform = "gemini"
 
   const accent = (PLATFORMS[platform] || {}).accent || "#555"
 
-  if (platform === "polymarket") {
+  if (platform === "polymarket" || platform === "coinbase") {
     try {
-      const eventPart = url.split("/event/")[1]
-      if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug>")
-      const slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "")
+      let slug = ""
+      if (platform === "polymarket") {
+        const eventPart = url.split("/event/")[1]
+        if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug>")
+        slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "")
+      } else {
+        if (!lowerUrl.includes("/event/") && !lowerUrl.includes("/markets/") && !lowerUrl.includes("/predictions/")) {
+          throw new Error("Invalid Coinbase URL. Expected: predict.coinbase.com/markets/<slug> or coinbase.com/predictions/<slug>")
+        }
+        const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
+        slug = cleanPath.split("/").pop()
+        if (!slug || slug === "markets" || slug === "predictions" || slug === "event") {
+          throw new Error("Invalid Coinbase URL. Expected: predict.coinbase.com/markets/<slug>")
+        }
+      }
 
       const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
       if (!res.ok) throw new Error(`API error ${res.status}`)
@@ -1007,7 +1029,7 @@ async function analyze() {
       const markets = event.markets || []
       if (!markets.length) throw new Error("No market data found.")
 
-      result.innerHTML = renderPolymarketEvent(event, markets, accent)
+      result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
@@ -1018,26 +1040,22 @@ async function analyze() {
   } else if (platform === "kalshi") {
     try {
       if (!url.includes("/markets/") && !url.includes("/events/")) {
-        throw new Error("Invalid Kalshi URL.")
+        throw new Error("Invalid Kalshi URL. Expected: kalshi.com/markets/<ticker> or kalshi.com/events/<ticker>")
       }
       const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
       const pathParts = cleanPath.split("/")
       const marketsIdx = pathParts.findIndex(p => p === "markets" || p === "events")
-      // For /markets/{eventTicker}/{slug}/{marketTicker}, prefer the event ticker
-      // so we always show the full event status, not just a single sub-market
       const eventTicker = marketsIdx !== -1 && pathParts[marketsIdx + 1]
         ? pathParts[marketsIdx + 1].toUpperCase()
         : null
       const ticker = pathParts[pathParts.length - 1].toUpperCase()
 
-      // Try event ticker first (gives full event with all markets and correct status)
       let data = null
       if (eventTicker && eventTicker !== ticker) {
         const eventRes = await fetch(`/api/kalshi?ticker=${encodeURIComponent(eventTicker)}`)
         if (eventRes.ok) data = await eventRes.json()
       }
 
-      // Fall back to the specific market/event ticker in the URL
       if (!data || (!data.event && !data.market)) {
         const res = await fetch(`/api/kalshi?ticker=${encodeURIComponent(ticker)}`)
         if (!res.ok) {
@@ -1048,13 +1066,8 @@ async function analyze() {
       }
 
       if (data.event) {
-        // Save full market list before any filtering — needed for aggregate stats
-        // (volume, OI, liquidity, start date, true leader)
         data.event._allMarkets = [...(data.event.markets || [])]
 
-        // When URL specifies a specific sub-market, filter outcomes display to that market
-        // to avoid showing resolved/closed status from other unrelated markets in the event.
-        // Do NOT filter winner-takes-all events — all candidates belong to the same question.
         if (ticker !== eventTicker && data.event.markets && !data.event.mutually_exclusive) {
           const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
           if (specific.length > 0) data.event.markets = specific
@@ -1082,11 +1095,18 @@ async function analyze() {
 
   } else if (platform === "gemini") {
     try {
+      if (!lowerUrl.includes("/prediction-markets/") && !lowerUrl.includes("/predictions/")) {
+        throw new Error("Invalid Gemini URL. Expected: gemini.com/prediction-markets/<ticker>")
+      }
       const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
       const pathParts = cleanPath.split("/").filter(Boolean)
-      const predictionsIdx = pathParts.findIndex(p => p.toLowerCase() === "predictions")
-      const ticker = predictionsIdx !== -1 ? pathParts[predictionsIdx + 1] : pathParts[pathParts.length - 1]
-      if (!ticker) throw new Error("Invalid Gemini URL — could not find event ticker.")
+      const predictionsIdx = pathParts.findIndex(p => p.toLowerCase() === "predictions" || p.toLowerCase() === "prediction-markets")
+      const ticker = predictionsIdx !== -1 && pathParts[predictionsIdx + 1]
+        ? pathParts[predictionsIdx + 1]
+        : pathParts[pathParts.length - 1]
+      if (!ticker || ticker.toLowerCase() === "prediction-markets" || ticker.toLowerCase() === "predictions") {
+        throw new Error("Invalid Gemini URL. Expected: gemini.com/prediction-markets/<ticker>")
+      }
 
       const res = await fetch(`/api/gemini?ticker=${encodeURIComponent(ticker)}`)
       if (!res.ok) {
@@ -1105,7 +1125,7 @@ async function analyze() {
     }
 
   } else {
-    showError("Unrecognized URL — paste a Kalshi, Polymarket, or Gemini prediction market link.")
+    showError("Unrecognized URL · Paste a Kalshi, Polymarket, Gemini, or Coinbase link.")
     resetBtn()
   }
 }
