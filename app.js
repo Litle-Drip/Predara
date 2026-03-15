@@ -58,7 +58,7 @@ function fmtDateTime(iso) {
   if (isNaN(d)) return "—"
   return d.toLocaleString("en-US", {
     month: "long", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit", timeZoneName: "short"
+    hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short"
   })
 }
 
@@ -620,7 +620,7 @@ function renderGeminiEvent(event, accent) {
     }).join("")
 
   // Urgency
-  const expiryIso = event.expiryDate || event.resolvedAt || ""
+  const expiryIso = event.closeDate || event.expiryDate || event.endDate || event.resolvedAt || ""
   const timeLeft = fmtTimeRemaining(expiryIso)
   const urgencyHtml = timeLeft
     ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
@@ -670,7 +670,7 @@ function renderGeminiEvent(event, accent) {
     ${(event.effectiveDate || expiryIso) ? `
     <div class="mi-card">
       <div class="section-label">TIMELINE</div>
-      ${infoRow("Start date", fmtDate(event.effectiveDate || event.createdAt))}
+      ${infoRow("Start date", fmtDate(event.openDate || event.startDate || event.effectiveDate || event.createdAt))}
       ${infoRow("End date", fmtDate(expiryIso))}
       ${event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : ""}
     </div>` : ""}
