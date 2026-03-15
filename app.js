@@ -298,7 +298,10 @@ function buildOutcomesHtml(rows) {
 }
 
 function renderKalshiEvent(ev, accent) {
-  const markets = (ev.markets || []).filter(m => m.yes_sub_title)
+  // markets = outcomes shown to user (may be filtered to a specific sub-market)
+  // allMarkets = full event market list, used for aggregate stats (volume, OI, liquidity, start date)
+  const markets    = (ev.markets || []).filter(m => m.yes_sub_title)
+  const allMarkets = (ev._allMarkets || ev.markets || []).filter(m => m.yes_sub_title)
   if (!markets.length) return `<div class="mi-error">No outcome data available for this market.</div>`
   const first = markets[0] || {}
 
@@ -359,34 +362,45 @@ function renderKalshiEvent(ev, accent) {
   const outcomesHtml = buildOutcomesHtml(allRows)
 
   // Aggregate stats — all *_fp fields are in cents (fixed-point); divide by 100 for dollars
-  // Prefer event-level volume_fp to avoid double-counting across sibling markets
+  // Aggregate stats — always use allMarkets (full event) not filtered display markets
+  // Prefer event-level volume_fp; fall back to summing all markets
   const totalVol   = fmtNum(ev.volume_fp != null
     ? parseFloat(ev.volume_fp) / 100
-    : markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
+    : allMarkets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
   const totalVol24 = fmtNum(ev.volume_24h_fp != null
     ? parseFloat(ev.volume_24h_fp) / 100
-    : markets.reduce((s, m) => {
+    : allMarkets.reduce((s, m) => {
         if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
         return s + parseFloat(m.volume_24h || 0)
       }, 0))
-  const totalLiq   = fmtNum(markets.reduce((s, m) => {
-    // Kalshi returns liquidity_dollars (float) or liquidity (int, cents)
+  // FIX: liquidity field name is unconfirmed — Kalshi may return liquidity_dollars, liquidity_fp (cents),
+  // or liquidity (cents). Trying all known variants; if all are 0 the card will be blank.
+  const totalLiq   = fmtNum(allMarkets.reduce((s, m) => {
     if (m.liquidity_dollars != null) return s + parseFloat(m.liquidity_dollars)
-    return s + parseFloat(m.liquidity || 0) / 100
+    if (m.liquidity_fp      != null) return s + parseFloat(m.liquidity_fp) / 100
+    if (m.liquidity         != null) return s + parseFloat(m.liquidity) / 100
+    return s
   }, 0))
-  const totalOI    = fmtNum(markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100)
+  const totalOI    = fmtNum(allMarkets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100)
 
-  // Timeline
-  const startDate     = fmtDate(first.open_time)
+  // Timeline — use event-level open_time; fall back to earliest market open_time across all markets
+  const eventOpenTime = ev.open_time ||
+    allMarkets.reduce((earliest, m) => {
+      if (!m.open_time) return earliest
+      return !earliest || m.open_time < earliest ? m.open_time : earliest
+    }, null)
+  const startDate     = fmtDate(eventOpenTime)
   const endDate       = fmtDateTime(first.close_time)
   const expDate       = fmtDateTime(first.expected_expiration_time)
   const canCloseEarly = first.can_close_early
   const earlyCloseText = first.early_close_condition || (canCloseEarly ? "Possible" : "")
 
-  // Projected payout — based on leader's current ask; each contract pays $1
+  // Projected payout — based on true leader across ALL markets (not filtered display subset)
+  const allSorted = [...allMarkets].sort((a, b) =>
+    parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
   let projectedPayoutHtml = ""
-  if (sorted[0]) {
-    const leader    = sorted[0]
+  if (allSorted[0]) {
+    const leader    = allSorted[0]
     const askRaw    = parseFloat(leader.yes_ask_dollars || 0)
     const lastRaw   = parseFloat(leader.last_price_dollars || 0)
     const ask       = askRaw > 0 ? askRaw : lastRaw
@@ -507,7 +521,7 @@ function renderKalshiEvent(ev, accent) {
     <div class="stats-grid">
       ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
       ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
-      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
+      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : "FIX: field not in API response")}
       ${statCard("OPEN INTEREST", totalOI ? `$${totalOI}` : null)}
     </div>
 
@@ -785,9 +799,14 @@ async function analyze() {
       }
 
       if (data.event) {
-        // When URL specifies a specific sub-market, filter to only that market
-        // to avoid showing resolved/closed status from other games in the event
-        if (ticker !== eventTicker && data.event.markets) {
+        // Save full market list before any filtering — needed for aggregate stats
+        // (volume, OI, liquidity, start date, true leader)
+        data.event._allMarkets = [...(data.event.markets || [])]
+
+        // When URL specifies a specific sub-market, filter outcomes display to that market
+        // to avoid showing resolved/closed status from other unrelated markets in the event.
+        // Do NOT filter winner-takes-all events — all candidates belong to the same question.
+        if (ticker !== eventTicker && data.event.markets && !data.event.mutually_exclusive) {
           const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
           if (specific.length > 0) data.event.markets = specific
         }
