@@ -75,6 +75,26 @@ function categoryColor(cat) {
   return "#6b7280"
 }
 
+// Shared outcome color palette used by both Kalshi and Polymarket renderers
+const OUTCOME_COLORS = ["#22c55e", "#60a5fa", "#f59e0b", "#a78bfa", "#34d399", "#fb923c", "#38bdf8", "#f472b6"]
+
+// volume_fp unit detection: Kalshi event-level fp fields can be in cents (very large, >1e8) or dollars.
+// Market-level m.volume_fp is consistently cents — callers divide by 100 directly.
+function parseEventFP(val) {
+  const n = parseFloat(val || 0)
+  return n > 1e8 ? n / 100 : n
+}
+
+// Shared resolve-text cleaner used in both plainEnglishRules and betExplainer derivation
+function applyResolveText(text) {
+  return text
+    .replace(/the market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
+    .replace(/the market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
+    .replace(/this market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
+    .replace(/this market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
+    .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+}
+
 function fmtNum(val) {
   const n = Math.round(parseFloat(val || 0))
   return n > 0 ? n.toLocaleString() : null
@@ -106,12 +126,7 @@ function plainEnglishRules(rulesText) {
     .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
-    .map(s => s
-      .replace(/the market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
-      .replace(/the market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
-      .replace(/this market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
-      .replace(/this market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
-      .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+    .map(s => applyResolveText(s)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")
       .replace(/,\s*then you win\.?$/i, ", you win.")
@@ -238,7 +253,7 @@ function infoRow(key, val) {
 function numList(sentences) {
   return sentences.map((s, i) => `
     <div class="num-row">
-      <span class="num-idx">0${i + 1}</span>
+      <span class="num-idx">${String(i + 1).padStart(2, "0")}</span>
       <span class="num-text">${s}</span>
     </div>`).join("")
 }
@@ -348,7 +363,6 @@ function renderKalshiEvent(ev, accent) {
   const isMultiOutcome = markets.length > 2
 
   // Outcomes — paginated via buildOutcomesHtml
-  const colors = ["#22c55e", "#60a5fa", "#f59e0b", "#a78bfa", "#34d399", "#fb923c", "#38bdf8", "#f472b6"]
   const allRows = sorted.map((m, i) => {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
     const yesBid    = parseFloat(m.yes_bid_dollars || 0)
@@ -372,25 +386,12 @@ function renderKalshiEvent(ev, accent) {
       if (mVol > 0) extras.vol = Math.round(mVol).toLocaleString()
       if (mOI > 0)  extras.oi  = Math.round(mOI).toLocaleString()
     }
-    return outcomeRow(label, sub, pct, colors[i % colors.length], delta, extras)
+    return outcomeRow(label, sub, pct, OUTCOME_COLORS[i % OUTCOME_COLORS.length], delta, extras)
   })
   const outcomesHtml = buildOutcomesHtml(allRows)
 
   // Aggregate stats — always use allMarkets (full event) not filtered display markets
-  //
-  // volume_fp unit detection: Kalshi is inconsistent.
-  // Event-level ev.volume_fp can be:
-  //   - fixed-point cents (very large, e.g. 6,753,558,700 for $67.5M) → divide by 100
-  //   - already dollars (smaller, e.g. 21,900,451 for $21.9M) → use directly
-  // Heuristic: values > 1e8 are almost certainly cents; otherwise treat as dollars.
-  // Market-level m.volume_fp is consistently in cents → always divide by 100.
-  function parseEventFP(val) {
-    const n = parseFloat(val || 0)
-    return n > 1e8 ? n / 100 : n
-  }
-  console.debug("[Predara] volume_fp ev:", ev.volume_fp, "allMarkets count:", allMarkets.length,
-    "sample market volume_fp:", allMarkets[0]?.volume_fp)
-
+  // parseEventFP handles event-level fp inconsistency (see module-scope definition above)
   const totalVol   = fmtNum(ev.volume_fp != null
     ? parseEventFP(ev.volume_fp)
     : allMarkets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
@@ -422,23 +423,11 @@ function renderKalshiEvent(ev, accent) {
   const canCloseEarly = first.can_close_early
   const earlyCloseText = first.early_close_condition || (canCloseEarly ? "Possible" : "")
 
-  // allSorted — true probability-ranked leaders across the full event (used by analytics)
-  const allSorted = [...allMarkets].sort((a, b) =>
-    parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
-
-  // Projected payout date — Kalshi's "projected payout" is when winners receive funds after resolution.
-  // Kalshi exposes this as expected_expiration_time (same field shown on their timeline as "Projected payout").
-  // Fall back to settlement_time or latest_expiration_time if present.
-  const payoutDate = fmtDateTime(
-    first.settlement_time || first.latest_expiration_time || first.expected_expiration_time
-  )
-
   const timelineRows  = [
     infoRow("Start date", startDate),
     infoRow("End / expiry", endDate),
     infoRow("Resolution date", expDate),
     earlyCloseText ? `<div class="info-row"><span class="info-key">${esc("Early close")}</span><span class="info-val">${esc(earlyCloseText)}</span></div>` : "",
-    infoRow("Projected payout", payoutDate),
   ].join("")
 
   const rulesRaw = first.rules_secondary || (!isMultiOutcome ? first.rules_primary : "") || ""
@@ -537,7 +526,7 @@ function renderKalshiEvent(ev, accent) {
     <div class="stats-grid">
       ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
       ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
-      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : "FIX: field not in API response")}
+      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
       ${statCard("OPEN INTEREST", totalOI ? `$${totalOI}` : null)}
     </div>
 
@@ -557,7 +546,6 @@ function renderPolymarketEvent(event, markets, accent) {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
-  const colors = ["#22c55e", "#60a5fa", "#f59e0b", "#a78bfa", "#34d399", "#fb923c", "#38bdf8", "#f472b6"]
   const allPolyRows = []
   const polyAnalyticsCandidates = []
   markets.forEach((market, idx) => {
@@ -580,7 +568,7 @@ function renderPolymarketEvent(event, markets, accent) {
         extras.bid = bestBid
         extras.ask = bestAsk
       }
-      allPolyRows.push(outcomeRow(name, "", pct, colors[(idx + i) % colors.length], null, extras))
+      allPolyRows.push(outcomeRow(name, "", pct, OUTCOME_COLORS[(idx + i) % OUTCOME_COLORS.length], null, extras))
 
       const prob = parseFloat(prices[i])
       if (!Number.isFinite(prob) || prob <= 0) return
@@ -623,10 +611,7 @@ function renderPolymarketEvent(event, markets, accent) {
   let betExplainerText = ""
   const firstDesc = first.description || first.question || event.description || ""
   if (firstDesc) {
-    betExplainerText = firstDesc
-      .replace(/the market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
-      .replace(/the market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
-      .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+    betExplainerText = applyResolveText(firstDesc)
       .split(/(?<=[.!?])\s+/)
       .filter(s => s.trim().length > 10)
       .slice(0, 3)
@@ -637,19 +622,23 @@ function renderPolymarketEvent(event, markets, accent) {
   }
 
   const polyRuleSentences = []
-  const seen = new Set()
+  const seenTexts = new Set()
+  const seenSentences = new Set()
   markets.forEach(m => {
     const desc = m.description || ""
     const q = m.question || ""
     ;[desc, q].forEach(text => {
-      if (!text || seen.has(text)) return
-      seen.add(text)
+      if (!text || seenTexts.has(text)) return
+      seenTexts.add(text)
       plainEnglishRules(text).forEach(s => {
-        if (!polyRuleSentences.includes(s)) polyRuleSentences.push(s)
+        if (!seenSentences.has(s)) {
+          seenSentences.add(s)
+          polyRuleSentences.push(s)
+        }
       })
     })
   })
-  const polyRulesLimited = polyRuleSentences
+  const polyRulesLimited = polyRuleSentences.slice(0, 8)
   let resSource = ""
   for (const m of markets) {
     if (m.resolutionSource && typeof m.resolutionSource === "string") {
