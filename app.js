@@ -315,8 +315,11 @@ function renderKalshiEvent(ev, accent) {
   const eventTitle = (ev.title || ev.event_ticker || "").replace(/[?!.]+$/, "").trim()
   const eventSubTitle = ev.sub_title || ""
 
-  // Resolution — only show banner for explicitly settled yes/no results
-  const resolvedMarket = sorted.find(m => m.result === "yes") || sorted.find(m => m.result === "no")
+  // Resolution — show banner only when winner found (yes), or market is closed/finalized with a no result
+  // In multi-outcome markets, individual outcomes get result:"no" while the market is still live — ignore those
+  const isFinished = status === "finalized" || status === "closed"
+  const resolvedMarket = sorted.find(m => m.result === "yes") ||
+    (isFinished ? sorted.find(m => m.result === "no") : null)
   const resolution  = resolvedMarket?.result || ""
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
   const resolvedBanner = resolution
