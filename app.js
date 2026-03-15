@@ -572,7 +572,8 @@ function renderGeminiEvent(event, accent) {
     if (ask > 0) analyticsCandidates.push({ prob: price, label: "YES", ask, bid: bid || price })
   } else {
     contracts.forEach((c, idx) => {
-      const rawName = String(c.title || c.description || c.name || c.instrumentSymbol || `Outcome ${idx + 1}`)
+      const rawName = [c.title, c.description, c.name, c.instrumentSymbol]
+        .find(v => typeof v === "string" && v.trim()) || `Outcome ${idx + 1}`
       // Extract human-readable name from contract symbols like GEMI-TPC2026WIN-ABERG
       let name = rawName
       const symbolMatch = rawName.match(/^[A-Z]+-[A-Z0-9]+-(.+)$/)
