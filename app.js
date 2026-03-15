@@ -50,6 +50,19 @@ function toMoneyline(pct) {
     : `+${Math.round((100 - pct) / pct * 100)}`
 }
 
+// Returns amber banner if last trade was > 1 hour ago, else empty string
+function staleWarningHtml(lastTradeIso) {
+  if (!lastTradeIso || typeof lastTradeIso !== "string") return ""
+  const d = new Date(lastTradeIso)
+  if (isNaN(d)) return ""
+  const ageMins = Math.floor((Date.now() - d.getTime()) / 60000)
+  if (ageMins < 60) return ""
+  const ageText = ageMins < 120 ? "1 hour"
+    : ageMins < 1440 ? `${Math.floor(ageMins / 60)} hours`
+    : `${Math.floor(ageMins / 1440)} days`
+  return `<div class="stale-warning">⚠ PRICES MAY BE STALE · Last trade ${ageText} ago</div>`
+}
+
 function fmtDate(iso) {
   if (!iso || typeof iso !== "string" || iso.startsWith("0001")) return "—"
   // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS spec, which shifts them
@@ -290,8 +303,10 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
           ${sub ? `<div class="outcome-sub">${esc(sub)}</div>` : ""}
         </div>
         <div class="outcome-right">
-          <span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>
-          <span class="outcome-pct" style="color:${color}">${pct}%${estTag}</span>
+          <div class="odds-display" style="color:${color}">
+            <span class="outcome-pct">${pct}%${estTag}</span>
+            <span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>
+          </div>
           ${deltaHtml}
         </div>
       </div>
@@ -338,6 +353,243 @@ function buildOutcomesHtml(rows) {
     </div>`
 }
 
+// ── Comparison helpers ────────────────────────────────────────────────────────
+
+function extractTopOutcomes(platform, data) {
+  try {
+    if (platform === "kalshi") {
+      const ev = data.event || (data.market ? { title: data.market.title, markets: [data.market] } : null)
+      if (!ev) return { title: "", topOutcomes: [] }
+      const markets = (ev.markets || []).filter(m => m.yes_sub_title)
+      const sorted = [...markets].sort((a, b) => parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
+      return {
+        title: ev.title || "",
+        topOutcomes: sorted.slice(0, 3).map((m, i) => ({
+          name: m.yes_sub_title,
+          pct: Math.round(parseFloat(m.last_price_dollars || 0) * 100),
+          color: OUTCOME_COLORS[i],
+        })),
+      }
+    }
+    if (platform === "polymarket" || platform === "coinbase") {
+      const event = Array.isArray(data) ? data[0] : data
+      if (!event) return { title: "", topOutcomes: [] }
+      const all = []
+      ;(event.markets || []).forEach(market => {
+        let outcomes, prices
+        try {
+          outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
+          prices   = typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : market.outcomePrices
+        } catch (e) { return }
+        if (!Array.isArray(outcomes) || !Array.isArray(prices)) return
+        outcomes.forEach((name, i) => {
+          if (i < prices.length) all.push({ name, pct: Math.round(parseFloat(prices[i] || 0) * 100) })
+        })
+      })
+      all.sort((a, b) => b.pct - a.pct)
+      return { title: event.title || "", topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })) }
+    }
+    if (platform === "gemini") {
+      if (!data || !data.title) return { title: "", topOutcomes: [] }
+      const contracts = Array.isArray(data.contracts) ? data.contracts : []
+      const extracted = contracts.map((c, i) => {
+        const cp = c.prices || {}
+        const price = parseFloat(cp.lastTradePrice || cp.bestAsk || 0)
+        const rawName = [c.title, c.instrumentSymbol, c.name].find(v => typeof v === "string" && v.trim()) || `Outcome ${i + 1}`
+        let name = rawName
+        if (rawName.includes("-")) {
+          const parts = rawName.split("-")
+          const meaningful = parts.filter(p => p.length > 1 && !/^\d+$/.test(p))
+          const last = meaningful[meaningful.length - 1] || parts[parts.length - 1]
+          if (last) name = last.charAt(0).toUpperCase() + last.slice(1).toLowerCase()
+        }
+        return { name, pct: Math.round(price * 100), color: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }
+      })
+      extracted.sort((a, b) => b.pct - a.pct)
+      return { title: data.title, topOutcomes: extracted.slice(0, 3) }
+    }
+  } catch (e) {}
+  return { title: "", topOutcomes: [] }
+}
+
+// Fetch one market URL and return { html, meta, platform, accent, rawData, error }
+async function fetchOneMarket(url) {
+  let expandedUrl = (url || "").trim()
+  if (!expandedUrl) return null
+  const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
+  if (geminiTickerRe.test(expandedUrl) && !expandedUrl.startsWith("http")) {
+    expandedUrl = `https://www.gemini.com/predictions/${expandedUrl.toUpperCase()}`
+  }
+  const lowerUrl = expandedUrl.toLowerCase()
+  let platform = "unknown"
+  if      (lowerUrl.includes("kalshi"))     platform = "kalshi"
+  else if (lowerUrl.includes("polymarket")) platform = "polymarket"
+  else if (lowerUrl.includes("coinbase"))   platform = "coinbase"
+  else if (lowerUrl.includes("gemini"))     platform = "gemini"
+  const accent = (PLATFORMS[platform] || {}).accent || "#555"
+
+  try {
+    if (platform === "polymarket" || platform === "coinbase") {
+      let slug = ""
+      if (platform === "polymarket") {
+        const part = expandedUrl.split("/event/")[1]
+        if (!part) return { error: "Invalid Polymarket URL", platform, accent }
+        slug = part.split("?")[0].split("#")[0].replace(/\/$/, "")
+      } else {
+        const clean = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
+        slug = clean.split("/").pop()
+        if (!slug || slug === "markets" || slug === "predictions" || slug === "event") return { error: "Invalid Coinbase URL", platform, accent }
+      }
+      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
+      if (!res.ok) return { error: `Polymarket API ${res.status}`, platform, accent }
+      const data = await res.json()
+      const event = Array.isArray(data) ? data[0] : data
+      if (!event) return { error: "Event not found", platform, accent }
+      const markets = event.markets || []
+      if (!markets.length) return { error: "No market data", platform, accent }
+      return { html: renderPolymarketEvent(event, markets, accent, platform), meta: extractTopOutcomes(platform, data), platform, accent, rawData: data }
+
+    } else if (platform === "kalshi") {
+      if (!expandedUrl.includes("/markets/") && !expandedUrl.includes("/events/")) return { error: "Invalid Kalshi URL — needs /markets/<ticker>", platform, accent }
+      const cleanPath = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
+      const pathParts = cleanPath.split("/")
+      const marketsIdx = pathParts.findIndex(p => p === "markets" || p === "events")
+      const eventTicker = marketsIdx !== -1 && pathParts[marketsIdx + 1] ? pathParts[marketsIdx + 1].toUpperCase() : null
+      const ticker = pathParts[pathParts.length - 1].toUpperCase()
+      let data = null
+      if (eventTicker && eventTicker !== ticker) {
+        const er = await fetch(`/api/kalshi?ticker=${encodeURIComponent(eventTicker)}`)
+        if (er.ok) data = await er.json()
+      }
+      if (!data || (!data.event && !data.market)) {
+        const res = await fetch(`/api/kalshi?ticker=${encodeURIComponent(ticker)}`)
+        if (!res.ok) { const e = await res.json().catch(() => ({})); return { error: e.error || `Kalshi API ${res.status}`, platform, accent } }
+        data = await res.json()
+      }
+      let html, rawData
+      if (data.event) {
+        data.event._allMarkets = [...(data.event.markets || [])]
+        if (ticker !== eventTicker && data.event.markets && !data.event.mutually_exclusive) {
+          const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
+          if (specific.length > 0) data.event.markets = specific
+        }
+        html = renderKalshiEvent(data.event, accent)
+        rawData = data
+      } else if (data.market) {
+        const fakeEv = { title: data.market.title, sub_title: "", category: "Markets", markets: [data.market], product_metadata: {} }
+        html = renderKalshiEvent(fakeEv, accent)
+        rawData = { event: fakeEv }
+      } else { return { error: "Unexpected Kalshi response", platform, accent } }
+      return { html, meta: extractTopOutcomes(platform, rawData), platform, accent, rawData }
+
+    } else if (platform === "gemini") {
+      if (!lowerUrl.includes("/prediction-markets/") && !lowerUrl.includes("/predictions/")) return { error: "Invalid Gemini URL — needs /predictions/<ticker>", platform, accent }
+      const cleanPath = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
+      const pathParts = cleanPath.split("/").filter(Boolean)
+      const predIdx = pathParts.findIndex(p => p.toLowerCase() === "predictions" || p.toLowerCase() === "prediction-markets")
+      const ticker = predIdx !== -1 && pathParts[predIdx + 1] ? pathParts[predIdx + 1] : pathParts[pathParts.length - 1]
+      if (!ticker || ticker.toLowerCase() === "prediction-markets" || ticker.toLowerCase() === "predictions") return { error: "Invalid Gemini URL", platform, accent }
+      const res = await fetch(`/api/gemini?ticker=${encodeURIComponent(ticker)}`)
+      if (!res.ok) { const e = await res.json().catch(() => ({})); return { error: e.error || `Gemini API ${res.status}`, platform, accent } }
+      const data = await res.json()
+      if (!data || !data.title) return { error: "No Gemini event data", platform, accent }
+      return { html: renderGeminiEvent(data, accent), meta: extractTopOutcomes(platform, data), platform, accent, rawData: data }
+
+    } else {
+      return { error: "Unrecognized platform", platform, accent }
+    }
+  } catch (err) {
+    return { error: err.message, platform, accent }
+  }
+}
+
+function renderComparison(results) {
+  const cols = results.map((r, i) => {
+    if (!r || r.error) {
+      return `<div class="compare-col">
+        <div class="compare-col-title">Market ${i + 1}</div>
+        <div class="compare-col-empty">⚠ ${esc(r ? r.error : "Failed to load")}</div>
+      </div>`
+    }
+    const { meta, accent, platform } = r
+    const platformLabel = (PLATFORMS[platform] || {}).label || platform.toUpperCase()
+    const outcomesHtml = (meta.topOutcomes || []).map(o =>
+      `<div class="compare-outcome">
+        <span class="compare-outcome-name" style="color:${o.color}">${esc(o.name)}</span>
+        <span class="compare-outcome-pct" style="color:${o.color}">${o.pct}%</span>
+      </div>`
+    ).join("") || `<div class="compare-col-empty">No outcome data</div>`
+    return `<div class="compare-col">
+      <span class="tag-platform" style="background:${accent};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
+      <div class="compare-col-title">${esc(meta.title || "")}</div>
+      ${outcomesHtml}
+    </div>`
+  }).join("")
+
+  return `<div class="mi-card" style="margin-bottom:24px">
+    <div class="section-label">COMPARING ${results.length} MARKETS</div>
+    <div class="compare-cols">${cols}</div>
+  </div>
+  <div class="compare-details-label">FULL ANALYSES</div>`
+}
+
+let _compareMode = false
+function toggleCompareMode() {
+  _compareMode = !_compareMode
+  const section = document.getElementById("compareSection")
+  const btn = document.getElementById("compareToggleBtn")
+  if (section) section.style.display = _compareMode ? "grid" : "none"
+  if (btn) {
+    btn.textContent = _compareMode ? "− HIDE COMPARE" : "+ COMPARE MARKETS"
+    btn.classList.toggle("active", _compareMode)
+  }
+}
+
+async function analyzeCompare() {
+  const urls = [
+    document.getElementById("urlInput").value.trim(),
+    document.getElementById("urlInput2").value.trim(),
+    document.getElementById("urlInput3").value.trim(),
+  ].filter(Boolean)
+
+  if (urls.length < 2) {
+    showError("Enter at least 2 market URLs to compare.", "Fill the second URL input in the compare section below.")
+    return
+  }
+
+  const result = document.getElementById("result")
+  const btn = document.getElementById("compareSubmitBtn")
+  if (btn) { btn.disabled = true; btn.textContent = "COMPARING…" }
+  const shareBarEl = document.getElementById("shareBar")
+  if (shareBarEl) shareBarEl.style.display = "none"
+  result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>COMPARING ${urls.length} MARKETS</div>`
+
+  const results = await Promise.all(urls.map(fetchOneMarket))
+
+  const detailsHtml = results.map((r, i) => {
+    if (!r || r.error) return `<div class="mi-error"><div class="error-content"><span>Market ${i + 1}: ${esc(r ? r.error : "Failed to load")}</span></div></div>`
+    return r.html
+  }).join('<hr class="compare-separator">')
+
+  result.innerHTML = renderComparison(results) + detailsHtml
+
+  // Share link encodes all URLs joined by newline
+  addShareBar(urls.join("\n"))
+
+  if (btn) { btn.disabled = false; btn.textContent = "COMPARE ↗" }
+}
+
+function addShareBar(marketUrl) {
+  const encoded = encodeURIComponent(marketUrl)
+  history.pushState({ q: marketUrl }, "", `${location.pathname}?q=${encoded}`)
+  const shareBarEl = document.getElementById("shareBar")
+  if (shareBarEl) shareBarEl.style.display = "flex"
+  const copyBtn = document.getElementById("copyLinkBtn")
+  if (copyBtn) copyBtn.textContent = "COPY LINK ↗"
+}
+
+// ── End comparison helpers ────────────────────────────────────────────────────
+
 function renderKalshiEvent(ev, accent, platformKey = "kalshi") {
   const markets    = (ev.markets || []).filter(m => m.yes_sub_title)
   const allMarkets = (ev._allMarkets || ev.markets || []).filter(m => m.yes_sub_title)
@@ -372,6 +624,13 @@ function renderKalshiEvent(ev, accent, platformKey = "kalshi") {
     : ""
 
   const isMultiOutcome = markets.length > 2
+
+  // Stale data warning — use most recent last_trade_time across all markets
+  const lastTradeKalshi = allMarkets.reduce((latest, m) => {
+    const t = m.last_trade_time || ""
+    return t > latest ? t : latest
+  }, "")
+  const staleHtml = staleWarningHtml(lastTradeKalshi)
 
   // Outcomes — paginated via buildOutcomesHtml
   const allRows = sorted.map((m, i) => {
@@ -521,6 +780,7 @@ function renderKalshiEvent(ev, accent, platformKey = "kalshi") {
         ${resolvedBanner}
         <div class="event-title">${esc(eventTitle || eventSubTitle)}${eventTitle && eventSubTitle ? " — " + esc(eventSubTitle) : ""}</div>
         ${urgencyHtml}
+        ${staleHtml}
       </div>
     </div>
 
@@ -656,6 +916,8 @@ function renderGeminiEvent(event, accent) {
     ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
     : ""
 
+  const staleHtml = staleWarningHtml(event.updatedAt || event.lastUpdated || "")
+
   // Analytics
   analyticsCandidates.sort((a, b) => b.prob - a.prob)
   const analyticsRows = analyticsCandidates.slice(0, 3)
@@ -745,6 +1007,7 @@ function renderGeminiEvent(event, accent) {
         </div>
         <div class="event-title">${esc(event.title || "Gemini Prediction Market")}</div>
         ${urgencyHtml}
+        ${staleHtml}
       </div>
     </div>
 
@@ -850,6 +1113,7 @@ function renderPolymarketEvent(event, markets, accent, platformKey = "polymarket
     }).join("")
 
   const timeLeft = fmtTimeRemaining(event.endDate)
+  const staleHtml = staleWarningHtml(event.updatedAt || first.lastTradeTime || first.updatedAt || "")
   const urgencyHtml = timeLeft
     ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
     : ""
@@ -924,6 +1188,7 @@ function renderPolymarketEvent(event, markets, accent, platformKey = "polymarket
         </div>
         <div class="event-title">${esc(event.title)}</div>
         ${urgencyHtml}
+        ${staleHtml}
       </div>
     </div>
 
@@ -1068,9 +1333,11 @@ async function analyze() {
   btn.style.opacity = "0.6"
   btn.style.cursor = "not-allowed"
 
-  // Clear input hint while loading
+  // Clear input hint and share bar while loading
   const hintEl = document.getElementById("inputHint")
   if (hintEl) { hintEl.textContent = ""; hintEl.className = "input-hint" }
+  const shareBarEl = document.getElementById("shareBar")
+  if (shareBarEl) shareBarEl.style.display = "none"
 
   result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>ANALYZING</div>`
 
@@ -1146,6 +1413,7 @@ async function analyze() {
       if (!markets.length) throw new Error("No market data found.")
 
       result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
+      addShareBar(url)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
@@ -1208,6 +1476,7 @@ async function analyze() {
           if (specific.length > 0) data.event.markets = specific
         }
         result.innerHTML = renderKalshiEvent(data.event, accent)
+        addShareBar(url)
       } else if (data.market) {
         const m = data.market
         const fakeEvent = {
@@ -1218,6 +1487,7 @@ async function analyze() {
           product_metadata: {},
         }
         result.innerHTML = renderKalshiEvent(fakeEvent, accent)
+        addShareBar(url)
       } else {
         throw new Error("Unexpected API response.")
       }
@@ -1263,6 +1533,7 @@ async function analyze() {
       if (!data || !data.title) throw new Error("No event data returned.")
 
       result.innerHTML = renderGeminiEvent(data, accent)
+      addShareBar(url)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
