@@ -306,7 +306,7 @@ function renderKalshiEvent(ev, accent) {
     parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
 
   // Event meta
-  const status     = first.status || "active"
+  const status     = ev.status || first.status || "active"
   const statusDot  = status === "active" ? "dot-green" : status === "closed" ? "dot-red" : "dot-muted"
   const statusText = status.toUpperCase()
   const category   = ev.product_metadata?.competition || ev.category || "Markets"
