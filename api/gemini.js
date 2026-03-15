@@ -25,11 +25,17 @@ module.exports = (req, res) => {
 
   const target = `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`
 
+  let responded = false
   const proxyReq = https.get(target, (apiRes) => {
     let body = ""
     apiRes.on("data", (chunk) => { body += chunk })
     apiRes.on("end", () => {
+      if (responded) return
+      responded = true
       if (apiRes.statusCode !== 200) {
+        if (apiRes.statusCode === 404) {
+          return res.status(404).json({ error: `Ticker "${ticker}" not found on Gemini. Make sure you have the full ticker (e.g. TPC2026T5, not TPC2026T).` })
+        }
         return res.status(apiRes.statusCode).json({ error: `Gemini API returned ${apiRes.statusCode}` })
       }
       res.status(200).send(body)
@@ -38,10 +44,14 @@ module.exports = (req, res) => {
 
   proxyReq.setTimeout(REQUEST_TIMEOUT_MS, () => {
     proxyReq.destroy()
+    if (responded) return
+    responded = true
     res.status(504).json({ error: "Gemini API request timed out" })
   })
 
   proxyReq.on("error", (err) => {
+    if (responded) return
+    responded = true
     res.status(502).json({ error: err.message })
   })
 }

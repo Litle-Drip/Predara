@@ -303,21 +303,24 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
 }
 
 // Paginated show-more: reveals PAGE_SIZE rows at a time
+// Remaining rows are stored as JSON on the DOM element — no global state needed.
 const PAGE_SIZE = 5
-window._outcomePages = {}
+let _opCounter = 0
 
 function showMoreOutcomes(uid) {
-  const pool = window._outcomePages[uid]
-  if (!pool || !pool.length) return
-  const batch = pool.splice(0, PAGE_SIZE)
   const row = document.getElementById(uid + "_smr")
+  if (!row) return
+  let pool
+  try { pool = JSON.parse(row.dataset.rows || "[]") } catch { return }
+  if (!pool.length) return
+  const batch = pool.splice(0, PAGE_SIZE)
+  row.dataset.rows = JSON.stringify(pool)
   const tmp = document.createElement("div")
   tmp.innerHTML = batch.join("")
   while (tmp.firstChild) row.parentNode.insertBefore(tmp.firstChild, row)
   const btn = row.querySelector("button")
   if (!pool.length) {
     row.remove()
-    delete window._outcomePages[uid]
   } else {
     btn.textContent = `+ ${pool.length} MORE  ↓`
   }
@@ -325,10 +328,10 @@ function showMoreOutcomes(uid) {
 
 function buildOutcomesHtml(rows) {
   if (rows.length <= PAGE_SIZE) return rows.join("")
-  const uid = "op" + Math.random().toString(36).slice(2, 8)
-  window._outcomePages[uid] = rows.slice(PAGE_SIZE)
+  const uid = "op" + (++_opCounter)
+  const remaining = JSON.stringify(rows.slice(PAGE_SIZE)).replace(/"/g, "&quot;")
   return rows.slice(0, PAGE_SIZE).join("") + `
-    <div class="show-more-row" id="${uid}_smr">
+    <div class="show-more-row" id="${uid}_smr" data-rows="${remaining}">
       <button class="show-more-btn" onclick="showMoreOutcomes('${uid}')">
         + ${rows.length - PAGE_SIZE} MORE  ↓
       </button>
@@ -410,12 +413,14 @@ function renderKalshiEvent(ev, accent, platformKey = "kalshi") {
         if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
         return s + parseFloat(m.volume_24h || 0)
       }, 0))
-  // FIX: liquidity field name is unconfirmed — Kalshi may return liquidity_dollars, liquidity_fp (cents),
-  // or liquidity (cents). Trying all known variants; if all are 0 the card will be blank.
+  // Kalshi liquidity: try all known field variants across API versions
   const totalLiq   = fmtNum(allMarkets.reduce((s, m) => {
-    if (m.liquidity_dollars != null) return s + parseFloat(m.liquidity_dollars)
-    if (m.liquidity_fp      != null) return s + parseFloat(m.liquidity_fp) / 100
-    if (m.liquidity         != null) return s + parseFloat(m.liquidity) / 100
+    if (m.liquidity_dollars  != null) return s + parseFloat(m.liquidity_dollars)
+    if (m.liquidity_fp       != null) return s + parseFloat(m.liquidity_fp) / 100
+    if (m.liquidity          != null) return s + parseFloat(m.liquidity) / 100
+    // Separate yes/no liquidity fields (some API versions)
+    if (m.liquidity_yes_fp   != null) return s + (parseFloat(m.liquidity_yes_fp) + parseFloat(m.liquidity_no_fp || 0)) / 100
+    if (m.liquidity_yes      != null) return s + parseFloat(m.liquidity_yes) + parseFloat(m.liquidity_no || 0)
     return s
   }, 0))
   const totalOI    = fmtNum(allMarkets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100)
@@ -977,7 +982,6 @@ async function analyze() {
   }
 
   _analyzing = true
-  window._outcomePages = {}
   btn.disabled = true
   btn.textContent = "ANALYZING\u2026"
   btn.style.opacity = "0.6"

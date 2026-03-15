@@ -25,10 +25,13 @@ module.exports = (req, res) => {
 
   const target = `https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}`
 
+  let responded = false
   const proxyReq = https.get(target, (apiRes) => {
     let body = ""
     apiRes.on("data", (chunk) => { body += chunk })
     apiRes.on("end", () => {
+      if (responded) return
+      responded = true
       if (apiRes.statusCode !== 200) {
         return res.status(apiRes.statusCode).json({ error: `Polymarket API returned ${apiRes.statusCode}` })
       }
@@ -38,10 +41,14 @@ module.exports = (req, res) => {
 
   proxyReq.setTimeout(REQUEST_TIMEOUT_MS, () => {
     proxyReq.destroy()
+    if (responded) return
+    responded = true
     res.status(504).json({ error: "Polymarket API request timed out" })
   })
 
   proxyReq.on("error", (err) => {
+    if (responded) return
+    responded = true
     res.status(502).json({ error: err.message })
   })
 }
