@@ -49,16 +49,16 @@ function fmtDate(iso) {
   if (!iso || typeof iso !== "string" || iso.startsWith("0001")) return "—"
   const d = new Date(iso)
   if (isNaN(d)) return "—"
-  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/New_York" })
+  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
 }
 
 function fmtDateTime(iso) {
   if (!iso || typeof iso !== "string" || iso.startsWith("0001")) return "—"
   const d = new Date(iso)
   if (isNaN(d)) return "—"
-  return d.toLocaleString("en-US", {
+  return d.toLocaleString(undefined, {
     month: "long", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit", timeZone: "America/New_York", timeZoneName: "short"
+    hour: "numeric", minute: "2-digit", timeZoneName: "short"
   })
 }
 
