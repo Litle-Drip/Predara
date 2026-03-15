@@ -924,23 +924,9 @@ function renderPolymarketEvent(event, markets, accent, platformKey = "polymarket
 
     ${whatsTheBetCard(betExplainerText)}
 
-    ${event.endDate ? `
-    <div class="mi-card">
-      <div class="section-label">TIMELINE</div>
-      ${infoRow("Start date", fmtDate(event.startDate))}
-      ${infoRow("End date", fmtDate(event.endDate))}
-    </div>` : ""}
-
     <div class="mi-card">
       <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
       ${outcomesHtml}
-    </div>
-
-    <div class="stats-grid">
-      ${statCard("VOLUME TRADED", totalVol ? `$${totalVol}` : null)}
-      ${statCard("24H VOLUME", totalVol24 ? `$${totalVol24}` : null)}
-      ${statCard("LIQUIDITY", totalLiq ? `$${totalLiq}` : null)}
-      ${commentCount > 0 ? statCard("COMMENTS", commentCount.toLocaleString()) : ""}
     </div>
 
     ${polyRulesLimited.length || resSourceHtml ? `
