@@ -357,13 +357,13 @@ function renderKalshiEvent(ev, accent) {
   })
   const outcomesHtml = buildOutcomesHtml(allRows)
 
-  // Aggregate stats — market-level volume_fp is in cents; event-level volume_fp is in dollars
+  // Aggregate stats — all *_fp fields are in cents (fixed-point); divide by 100 for dollars
   // Prefer event-level volume_fp to avoid double-counting across sibling markets
   const totalVol   = fmtNum(ev.volume_fp != null
-    ? parseFloat(ev.volume_fp)
+    ? parseFloat(ev.volume_fp) / 100
     : markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100)
   const totalVol24 = fmtNum(ev.volume_24h_fp != null
-    ? parseFloat(ev.volume_24h_fp)
+    ? parseFloat(ev.volume_24h_fp) / 100
     : markets.reduce((s, m) => {
         if (m.volume_24h_fp) return s + parseFloat(m.volume_24h_fp) / 100
         return s + parseFloat(m.volume_24h || 0)
