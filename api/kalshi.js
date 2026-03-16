@@ -13,7 +13,12 @@ function isSafeParam(str) {
   return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
 }
 
-function kalshiRequest(apiPath, keyId, normalizedKey) {
+const KALSHI_HOSTS = [
+  "trading-api.kalshi.com",     // main trading API (all markets)
+  "api.elections.kalshi.com",   // legacy elections-specific endpoint
+]
+
+function kalshiRequest(hostname, apiPath, keyId, normalizedKey) {
   return new Promise((resolve, reject) => {
     const timestamp = Date.now().toString()
     const basePath = apiPath.split("?")[0]
@@ -26,7 +31,7 @@ function kalshiRequest(apiPath, keyId, normalizedKey) {
     }
 
     const req = https.request({
-      hostname: "api.elections.kalshi.com",
+      hostname,
       path: apiPath,
       method: "GET",
       headers: {
@@ -47,6 +52,21 @@ function kalshiRequest(apiPath, keyId, normalizedKey) {
     })
     req.on("error", reject).end()
   })
+}
+
+// Try market then event across all known Kalshi API hostnames.
+async function kalshiLookup(ticker, keyId, normalizedKey) {
+  const paths = [
+    `/trade-api/v2/markets/${encodeURIComponent(ticker)}`,
+    `/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`,
+  ]
+  for (const hostname of KALSHI_HOSTS) {
+    for (const path of paths) {
+      const r = await kalshiRequest(hostname, path, keyId, normalizedKey)
+      if (r.status === 200) return r
+    }
+  }
+  return null
 }
 
 module.exports = async (req, res) => {
@@ -73,35 +93,14 @@ module.exports = async (req, res) => {
   const normalizedKey = privateKey.replace(/\\n/g, "\n")
 
   try {
-    // Try market endpoint first
-    const marketRes = await kalshiRequest(
-      `/trade-api/v2/markets/${encodeURIComponent(ticker)}`,
-      keyId, normalizedKey
-    )
-
-    if (marketRes.status === 200) {
-      // Validate it's JSON before forwarding
-      try { JSON.parse(marketRes.body) } catch {
-        return res.status(502).json({ error: "Invalid response from Kalshi API" })
-      }
-      return res.status(200).send(marketRes.body)
+    const found = await kalshiLookup(ticker, keyId, normalizedKey)
+    if (!found) {
+      return res.status(404).json({ error: `Kalshi event or market "${ticker}" not found` })
     }
-
-    // Fall back to event endpoint
-    const eventRes = await kalshiRequest(
-      `/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`,
-      keyId, normalizedKey
-    )
-
-    if (eventRes.status === 200) {
-      try { JSON.parse(eventRes.body) } catch {
-        return res.status(502).json({ error: "Invalid response from Kalshi API" })
-      }
-      return res.status(200).send(eventRes.body)
+    try { JSON.parse(found.body) } catch {
+      return res.status(502).json({ error: "Invalid response from Kalshi API" })
     }
-
-    return res.status(eventRes.status).json({ error: `Kalshi API returned ${eventRes.status}` })
-
+    return res.status(200).send(found.body)
   } catch (err) {
     return res.status(502).json({ error: err.message })
   }
