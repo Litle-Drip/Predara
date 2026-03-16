@@ -76,6 +76,32 @@ async function fetchOneMarket(url) {
         const clean = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
         slug = clean.split("/").pop()
         if (!slug || slug === "markets" || slug === "predictions" || slug === "event") return { error: "Invalid Coinbase URL", platform, accent }
+
+        // www.coinbase.com/predictions/event/ URLs use uppercase Kalshi-style tickers.
+        if (slug !== slug.toLowerCase()) {
+          const kr = await fetch(`/api/kalshi?ticker=${encodeURIComponent(slug)}`)
+          if (kr.ok) {
+            const kd = await kr.json().catch(() => ({}))
+            if (kd.event || kd.market) {
+              let rawData
+              if (kd.event) {
+                kd.event._allMarkets = [...(kd.event.markets || [])]
+                rawData = kd
+              } else {
+                const fakeEv = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {} }
+                rawData = { event: fakeEv }
+                kd.event = fakeEv
+              }
+              const html = renderKalshiEvent(kd.event, accent, "coinbase")
+              return { html, meta: extractTopOutcomes("kalshi", rawData), platform, accent, rawData }
+            }
+          }
+          if (!kr.ok && kr.status !== undefined) {
+            const e = await kr.json().catch(() => ({}))
+            return { error: e.error || `Kalshi API ${kr.status}`, platform, accent }
+          }
+          // Fall through to Polymarket on unexpected errors
+        }
       }
       const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
       if (!res.ok) return { error: `Polymarket API ${res.status}`, platform, accent }

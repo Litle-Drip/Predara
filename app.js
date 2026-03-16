@@ -70,7 +70,10 @@ function onInputChange() {
     return
   }
   if (lower.includes("coinbase.com")) {
-    hint.textContent = "Coinbase market URL detected"
+    const isCoinbasePredictions = lower.includes("/predictions/event/")
+    hint.textContent = isCoinbasePredictions
+      ? "Coinbase Predictions URL detected (Kalshi-backed market)"
+      : "Coinbase market URL detected"
     hint.className = "input-hint hint-ok"
     input.classList.add("input-valid"); input.classList.remove("input-invalid")
     return
@@ -157,6 +160,34 @@ async function analyze() {
         slug = cleanPath.split("/").pop()
         if (!slug || slug === "markets" || slug === "predictions" || slug === "event") {
           throw new Error("Invalid Coinbase URL. Expected: predict.coinbase.com/markets/<slug>")
+        }
+
+        // www.coinbase.com/predictions/event/ URLs use uppercase Kalshi-style tickers
+        // (e.g. KXAAAGASW-26MAR16TH) rather than lowercase Polymarket slugs.
+        // Detect by case: Polymarket slugs are always lowercase.
+        if (slug !== slug.toLowerCase()) {
+          const kr = await fetch(`/api/kalshi?ticker=${encodeURIComponent(slug)}`)
+          const kd = await kr.json().catch(() => ({}))
+          if (kr.ok && (kd.event || kd.market)) {
+            if (kd.event) {
+              kd.event._allMarkets = [...(kd.event.markets || [])]
+              result.innerHTML = renderKalshiEvent(kd.event, accent, "coinbase")
+            } else {
+              const fakeEvent = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {} }
+              result.innerHTML = renderKalshiEvent(fakeEvent, accent, "coinbase")
+            }
+            addShareBar(url)
+            return
+          }
+          if (kr.status === 503) {
+            showError("Kalshi API not configured", "KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY environment variables are required.")
+            return
+          }
+          if (kr.status === 404) {
+            showError(`Event "${slug}" not found`, "This market may have expired or been delisted. Browse Coinbase markets at coinbase.com/predictions")
+            return
+          }
+          // Other Kalshi error — fall through to try Polymarket as a last resort
         }
       }
 
