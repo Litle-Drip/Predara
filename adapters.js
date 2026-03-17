@@ -166,7 +166,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const hasTimeline = !!(eventOpenTime || first.close_time || first.expected_expiration_time)
 
   // Analytics source
-  const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : sorted.slice(0, 1)).map(m => {
+  const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : sorted.slice(0, 1)).map((m, i) => {
     const lp  = parseFloat(m.last_price_dollars || 0)
     const bid = parseFloat(m.yes_bid_dollars || 0)
     let ask   = parseFloat(m.yes_ask_dollars || 0)
@@ -174,7 +174,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     if (!Number.isFinite(ask) || ask <= 0) {
       ask = Number.isFinite(bid) && bid > 0 ? (bid + prob) / 2 : prob
     }
-    return { label: m.yes_sub_title || "YES", prob, ask, bid }
+    return { label: m.yes_sub_title || "YES", prob, ask, bid, color: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }
   })
 
   const leadPct = (() => {
@@ -282,7 +282,7 @@ function normalizeGemini(event) {
     const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
     outcomes.push({ label: "YES", sub: "", pct: pctYes, color: OUTCOME_COLORS[0], delta: null, ...extras })
     outcomes.push({ label: "NO",  sub: "", pct: pctNo,  color: OUTCOME_COLORS[1], delta: null })
-    if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price })
+    if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
     contracts.forEach((c, idx) => {
       const name  = geminiExtractName(c, `Outcome ${idx + 1}`)
@@ -296,7 +296,7 @@ function normalizeGemini(event) {
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
       outcomes.push(out)
-      if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price })
+      if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
     })
   }
 
@@ -486,6 +486,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
         label: name ? String(name) : market.question || "YES",
         ask: out.ask != null ? out.ask : prob,
         bid: out.bid != null ? out.bid : prob,
+        color: out.color,
       })
     })
   })

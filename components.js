@@ -52,7 +52,7 @@ function updateBetSim() {
   `
 }
 
-function calcAnalyticsRow(label, prob, ask, bid) {
+function calcAnalyticsRow(label, prob, ask, bid, color) {
   if (!Number.isFinite(prob) || prob <= 0 || prob >= 1) return null
   if (!Number.isFinite(ask) || ask <= 0 || ask >= 1) return null
   const round1 = n => Math.round(n * 10) / 10
@@ -66,12 +66,11 @@ function calcAnalyticsRow(label, prob, ask, bid) {
     const k = (prob * b - (1 - prob)) / b
     kelly = Math.min(Math.max(round1(k * 100), 0), 25)
   }
-  return { label, breakEven, ev, spread, kelly }
+  return { label, breakEven, ev, spread, kelly, color: color || "" }
 }
 
 function analyticsCard(rows, timeLeft) {
   if ((!rows || !rows.length) && !timeLeft) return ""
-  const multiRow = rows.length > 1
   const lines = rows.map(r => {
     const parts = []
     parts.push(`<div class="info-row"><span class="info-key">${tip("BREAK-EVEN")}</span><span class="info-val val-muted">${r.breakEven}%</span></div>`)
@@ -84,10 +83,9 @@ function analyticsCard(rows, timeLeft) {
       const spClass = r.spread < 3 ? "val-green" : r.spread < 8 ? "val-amber" : "val-red"
       parts.push(`<div class="info-row"><span class="info-key">${tip("SPREAD QUALITY")}</span><span class="info-val ${spClass}">${r.spread}%</span></div>`)
     }
-    if (multiRow) {
-      return `<div class="info-row" style="border-bottom:none;padding-bottom:4px"><span class="info-key" style="color:#d8d6cc;font-weight:600">${esc(r.label)}</span></div>` + parts.join("")
-    }
-    return parts.join("")
+    const dotStyle = r.color ? ` style="color:${esc(r.color)}"` : ""
+    const labelHeader = `<div class="info-row" style="border-bottom:none;padding-bottom:4px"><span class="info-key" style="font-weight:600"><span${dotStyle}>●</span> ${esc(r.label)}</span></div>`
+    return labelHeader + parts.join("")
   }).join("")
   const timeRow = timeLeft
     ? `<div class="info-row"><span class="info-key">TIME REMAINING</span><span class="info-val urgency-text-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</span></div>`

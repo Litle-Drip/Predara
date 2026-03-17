@@ -22,14 +22,15 @@ function renderMarket(norm, accent) {
   const betSimHtml = betSimulatorHtml(norm.leadPct)
 
   const analyticsRows = norm.analyticsSource.slice(0, 3)
-    .map(c => calcAnalyticsRow(c.label, c.prob, c.ask, c.bid))
+    .map(c => calcAnalyticsRow(c.label, c.prob, c.ask, c.bid, c.color))
     .filter(Boolean)
   const analyticsHtml = analyticsCard(analyticsRows, timeLeft)
 
   const statsHtml = norm.stats.map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
 
   const platformLabel = (PLATFORMS[norm.platform] || {}).label || norm.platform.toUpperCase()
-  const hasRules = norm.ruleSentences.length > 0 || norm.resSourceHtml
+  const hasRules = norm.ruleSentences.length > 0
+  const hasTimeline = norm.hasTimeline || !!norm.resSourceHtml
 
   return `
     <div class="mi-card">
@@ -52,14 +53,14 @@ function renderMarket(norm, accent) {
     ${hasRules ? `
     <div class="mi-card">
       <div class="section-label">HOW IT RESOLVES</div>
-      ${norm.ruleSentences.length ? `<div class="num-list">${numList(norm.ruleSentences)}</div>` : ""}
-      ${norm.resSourceHtml}
+      <div class="num-list">${numList(norm.ruleSentences)}</div>
     </div>` : ""}
 
-    ${norm.hasTimeline ? `
+    ${hasTimeline ? `
     <div class="mi-card">
       <div class="section-label">TIMELINE</div>
       ${norm.timelineRows}
+      ${norm.resSourceHtml}
     </div>` : ""}
 
     <div class="mi-card">
