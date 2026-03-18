@@ -33,20 +33,24 @@ function fetchJson(url) {
 }
 
 // Walk a Builder.io content tree and collect all cdn.builder.io asset URLs.
+// Checks both JSON object properties (href/url/src) and URLs embedded inside
+// HTML strings (e.g. rich-text blocks with <a href="cdn.builder.io/assets/...">).
 function collectBuilderAssets(node, results = []) {
   if (!node || typeof node !== "object") return results
-  if (typeof node.href === "string" && node.href.includes("cdn.builder.io")) {
-    results.push(node.href)
-  }
-  if (typeof node.url === "string" && node.url.includes("cdn.builder.io")) {
-    results.push(node.url)
-  }
-  if (typeof node.src === "string" && node.src.includes("cdn.builder.io")) {
-    results.push(node.src)
-  }
-  for (const val of Object.values(node)) {
-    if (Array.isArray(val)) val.forEach(v => collectBuilderAssets(v, results))
-    else if (val && typeof val === "object") collectBuilderAssets(val, results)
+  for (const [key, val] of Object.entries(node)) {
+    if (typeof val === "string") {
+      // Direct link fields
+      if ((key === "href" || key === "url" || key === "src") && val.includes("cdn.builder.io")) {
+        results.push(val)
+      }
+      // URLs embedded in HTML strings (rich-text "terms & conditions" links)
+      const embedded = val.match(/https:\/\/cdn\.builder\.io\/assets[^\s"'<>)\\]+/g)
+      if (embedded) results.push(...embedded)
+    } else if (Array.isArray(val)) {
+      val.forEach(v => collectBuilderAssets(v, results))
+    } else if (val && typeof val === "object") {
+      collectBuilderAssets(val, results)
+    }
   }
   return results
 }
