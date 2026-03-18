@@ -448,8 +448,8 @@
       content: attr(data-tip);
       position: absolute;
       bottom: calc(100% + 8px);
-      left: 0;
-      transform: none;
+      left: 50%;
+      transform: translateX(-50%);
       background: var(--tooltip-bg);
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -497,6 +497,183 @@
     .val-amber { color: #f59e0b; }
     .val-red   { color: var(--red); }
     .val-muted { color: var(--muted); }
+
+    /* ── Odds format toggle ── */
+    .odds-toggle {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      line-height: 1;
+      padding: 7px 10px;
+      transition: border-color 0.2s, color 0.2s;
+      flex-shrink: 0;
+    }
+    .odds-toggle:hover { border-color: var(--orange); color: var(--orange); }
+    body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--orange); }
+
+    /* odds-display: container for pct + ml, inherits outcome color */
+    .odds-display { display: flex; align-items: center; }
+    .odds-display .outcome-ml { color: var(--muted); }
+    /* ML mode: hide %, show moneyline large in outcome color */
+    body.odds-ml .odds-display .outcome-pct { display: none; }
+    body.odds-ml .odds-display .outcome-ml {
+      font-size: 48px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -1px;
+      color: inherit;
+    }
+
+    /* ── Stale data warning ── */
+    .stale-warning {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Share bar ── */
+    .share-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+    .copy-link-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      padding: 5px 12px;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .copy-link-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+    /* ── Compare toggle row ── */
+    .compare-toggle-row { margin-top: -12px; margin-bottom: 16px; }
+    .compare-toggle-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      padding: 2px 0;
+      transition: color 0.15s;
+    }
+    .compare-toggle-btn:hover,
+    .compare-toggle-btn.active { color: var(--orange); }
+
+    /* ── Compare inputs ── */
+    .compare-section { display: grid; gap: 8px; margin-bottom: 20px; }
+    .compare-input-row { display: flex; align-items: center; gap: 8px; }
+    .compare-input-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .compare-url-input {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .compare-url-input:focus { border-color: var(--orange); }
+    .compare-url-input::placeholder { color: var(--muted); }
+    .compare-submit-btn {
+      background: var(--card);
+      border: 1px solid var(--orange);
+      border-radius: 6px;
+      color: var(--orange);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 10px 22px;
+      transition: background 0.15s;
+      justify-self: start;
+    }
+    .compare-submit-btn:hover { background: rgba(217, 79, 32, 0.1); }
+    .compare-submit-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+    /* ── Comparison summary card ── */
+    .compare-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .compare-col { padding: 20px 28px 24px; border-right: 1px solid var(--border); }
+    .compare-col:last-child { border-right: none; }
+    .compare-col-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+      line-height: 1.4;
+      margin-top: 8px;
+      margin-bottom: 14px;
+      overflow-wrap: break-word;
+    }
+    .compare-outcome {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      gap: 8px;
+    }
+    .compare-outcome:last-child { border-bottom: none; }
+    .compare-outcome-name { font-weight: 600; flex: 1; overflow-wrap: break-word; }
+    .compare-outcome-pct { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; flex-shrink: 0; }
+    .compare-col-empty { color: var(--red); font-size: 12px; padding: 8px 0; }
+    .compare-separator {
+      border: none;
+      border-top: 2px dashed var(--border);
+      margin: 28px 0 20px;
+    }
+    .compare-details-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
 
     /* ── Theme toggle ── */
     .theme-toggle {
@@ -579,17 +756,37 @@
     .mi-loading {
       color: var(--muted);
       animation: pulse 1.4s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.35; }
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .mi-spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid var(--border);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
     .mi-error {
       color: var(--red);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 20px;
       flex-wrap: wrap;
+    }
+    .error-content { display: flex; flex-direction: column; gap: 6px; }
+    .error-hint {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+      line-height: 1.5;
     }
     .retry-btn {
       background: none;
@@ -605,8 +802,26 @@
       transition: background 0.15s;
       white-space: nowrap;
       flex-shrink: 0;
+      margin-top: 2px;
     }
     .retry-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+    /* ── Input validation hint ── */
+    .input-hint {
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      line-height: 1.5;
+      margin-top: -20px;
+      margin-bottom: 14px;
+      padding-left: 2px;
+      min-height: 18px;
+      transition: color 0.15s;
+    }
+    .hint-error { color: var(--red); }
+    .hint-ok    { color: var(--green); }
+    .hint-info  { color: var(--muted); }
+    .search-row input.input-invalid { border-color: var(--red); }
+    .search-row input.input-valid   { border-color: var(--green); }
 
     /* ── Empty state ── */
     .empty-state {
@@ -633,13 +848,17 @@
 
       .section-label { padding: 14px 18px 12px; }
 
+      /* Outcome rows: let pct and name wrap so long names don't get squashed */
       .outcome-row  { padding: 18px 18px 16px; }
-      .outcome-pct  { font-size: 38px; }
+      .outcome-top  { flex-wrap: wrap; gap: 6px; }
+      .outcome-pct  { font-size: 36px; }
       .outcome-name { font-size: 14px; }
-      .outcome-right { gap: 12px; margin-left: 14px; }
+      .outcome-right { gap: 10px; margin-left: 0; flex-shrink: 0; }
+      .outcome-ml   { font-size: 12px; }
 
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .stat-card  { padding: 16px 18px 18px; }
+      .stat-value { font-size: 18px; }
 
       .info-row { padding: 12px 18px; flex-wrap: wrap; gap: 4px; }
       .info-val { max-width: 100%; text-align: left; }
@@ -651,8 +870,23 @@
       .bet-sim-input-row { font-size: 13px; }
       .bet-sim-input { width: 80px; font-size: 15px; padding: 6px 10px; }
 
+      .show-more-row { padding: 12px 18px; }
+
       .mi-loading, .mi-error { padding: 32px 18px; }
 
+      /* Keep tooltips from overflowing the right edge */
+      .tip::after { left: auto; right: 0; max-width: 220px; }
+
+      .compare-col { border-right: none; border-bottom: 1px solid var(--border); padding: 16px 18px; }
+      .compare-col:last-child { border-bottom: none; }
+      .share-bar { font-size: 10px; }
+    }
+
+    /* ── Small phones (< 400px) ── */
+    @media (max-width: 400px) {
+      .stats-grid   { grid-template-columns: 1fr; }
+      .outcome-pct  { font-size: 30px; }
+      .outcome-right { gap: 8px; }
     }
   </style>
 </head>
@@ -666,12 +900,36 @@
       <div class="app-title">Predara</div>
       <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
     </div>
+    <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
   </div>
 
   <div class="search-row">
-    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" />
+    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" />
     <button onclick="analyze()">ANALYZE ↗</button>
+  </div>
+
+  <div id="inputHint" class="input-hint"></div>
+
+  <div class="compare-toggle-row">
+    <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()">+ COMPARE MARKETS</button>
+  </div>
+
+  <div id="compareSection" class="compare-section" style="display:none">
+    <div class="compare-input-row">
+      <span class="compare-input-num">2</span>
+      <input id="urlInput2" class="compare-url-input" placeholder="Second market URL (Kalshi, Polymarket, Gemini, or Coinbase)…" />
+    </div>
+    <div class="compare-input-row">
+      <span class="compare-input-num">3</span>
+      <input id="urlInput3" class="compare-url-input" placeholder="Third market URL (optional)…" />
+    </div>
+    <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">COMPARE ↗</button>
+  </div>
+
+  <div id="shareBar" class="share-bar" style="display:none">
+    <span>Analysis ready</span>
+    <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
   </div>
 
   <div id="result"><div class="empty-state">Paste a Kalshi, Polymarket, Gemini, or Coinbase market URL above to analyze odds, volume, and trading data.</div></div>
@@ -680,13 +938,29 @@
 
 </div>
 
-<script src="app.js"></script>
+<script src="utils.js?v=6"></script>
+<script src="components.js?v=6"></script>
+<script src="adapters.js?v=6"></script>
+<script src="renderers.js?v=6"></script>
+<script src="compare.js?v=6"></script>
+<script src="app.js?v=6"></script>
 <script>
   (function () {
-    // Default is light; only switch to dark if explicitly saved
+    // Theme
     if (localStorage.getItem('predara-theme') === 'dark') {
       document.body.classList.remove('light')
       document.getElementById('themeToggle').textContent = '☾'
+    }
+    // Odds format
+    if (localStorage.getItem('predara-odds') === 'ml') {
+      document.body.classList.add('odds-ml')
+      document.getElementById('oddsToggle').textContent = 'ML'
+    }
+    // Auto-analyze from share link (?q=<encoded-url>)
+    const q = new URLSearchParams(location.search).get('q')
+    if (q) {
+      const input = document.getElementById('urlInput')
+      if (input) { input.value = q; setTimeout(analyze, 100) }
     }
   })()
 
@@ -694,6 +968,24 @@
     const isLight = document.body.classList.toggle('light')
     localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
     document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
+  }
+
+  function toggleOdds() {
+    const isML = document.body.classList.toggle('odds-ml')
+    localStorage.setItem('predara-odds', isML ? 'ml' : 'pct')
+    document.getElementById('oddsToggle').textContent = isML ? 'ML' : '%'
+  }
+
+  function copyShareLink() {
+    const btn = document.getElementById('copyLinkBtn')
+    navigator.clipboard.writeText(location.href).then(() => {
+      if (btn) { btn.textContent = 'COPIED ✓'; setTimeout(() => { btn.textContent = 'COPY LINK ↗' }, 2000) }
+    }).catch(() => {
+      // Fallback: select the URL in the input
+      const input = document.getElementById('urlInput')
+      if (input) { input.select(); document.execCommand('copy') }
+      if (btn) { btn.textContent = 'COPIED ✓'; setTimeout(() => { btn.textContent = 'COPY LINK ↗' }, 2000) }
+    })
   }
 </script>
 </body>
