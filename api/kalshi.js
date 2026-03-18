@@ -103,7 +103,9 @@ module.exports = async (req, res) => {
     }
 
     // Enrich with series contract_url so the front-end can surface "View full rules"
+    // series_ticker lives on market objects, not always on the event itself — fall back to first nested market
     const seriesTicker = (data.event || data.market || {}).series_ticker
+      || (data.event?.markets?.[0] || {}).series_ticker
     if (seriesTicker) {
       try {
         for (const hostname of KALSHI_HOSTS) {
