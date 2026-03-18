@@ -55,7 +55,7 @@ function geminiExtractName(c, fallback) {
   // Filter out pure-numeric and single-char segments (e.g. trailing "M" in sports tickers)
   const meaningful = parts.filter(p => p.length > 1 && !/^\d+$/.test(p))
   const lastPart = meaningful[meaningful.length - 1] || parts[parts.length - 1]
-  return lastPart ? lastPart.charAt(0).toUpperCase() + lastPart.slice(1).toLowerCase() : rawName
+  return lastPart ? lastPart.charAt(0).toUpperCase() + lastPart.slice(1) : rawName
 }
 
 // ── normalizeKalshi ────────────────────────────────────────────────────────────
@@ -302,7 +302,9 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      const pct   = Math.round(price * 100)
+      const pct   = price > 0
+        ? Math.round(price * 100)
+        : (bid > 0 && ask > 0) ? Math.round((bid + ask) / 2 * 100) : bid > 0 ? Math.round(bid * 100) : 0
       const out   = { label: name, sub: "", pct, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
@@ -353,17 +355,25 @@ function normalizeGemini(event) {
 
   // Bet explainer
   const desc = event.description || ""
+  const eventTitle = (event.title || "").trim()
   let betExplainerText = ""
-  if (desc) {
-    betExplainerText = applyResolveText(desc)
+  if (desc && desc.trim() !== eventTitle) {
+    const candidate = applyResolveText(desc)
       .split(/(?<=[.!?])\s+/)
       .filter(s => s.trim().length > 10)
       .slice(0, 3)
       .join(" ")
+    // Only use if it contains substantive information beyond the title
+    if (candidate && candidate.trim() !== eventTitle) betExplainerText = candidate
   }
 
-  // Rules — auto-generate when description provides none
-  const ruleSentences = desc ? plainEnglishRules(desc).slice(0, 8) : []
+  // Rules — only use description if it contains actual resolution criteria,
+  // not just the market title echoed back.
+  const descRules = desc ? plainEnglishRules(desc).slice(0, 8) : []
+  const looksLikeRules = descRules.some(s =>
+    /\b(resolv|YES|NO|win|payout|\$1|contract|expir|settl)/i.test(s)
+  )
+  const ruleSentences = looksLikeRules ? descRules : []
   const isHeadToHead = !isBinary && contracts.length === 2
   if (ruleSentences.length === 0) {
     if (isBinary) {
