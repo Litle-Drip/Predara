@@ -224,8 +224,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
       try { const u = new URL(url); if (u.protocol === "http:" || u.protocol === "https:") validSources.push(url) } catch {}
     })
   }
-  if (!validSources.length && ev.series_ticker) {
-    validSources.push({ url: `https://kalshi-public-docs.s3.amazonaws.com/contract_terms/${ev.series_ticker}.pdf`, name: "View full rules (PDF)" })
+  if (!validSources.length && ev._contract_url) {
+    validSources.push({ url: ev._contract_url, name: "View full rules (PDF)" })
   }
   const resSourceHtml = validSources.length
     ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source${validSources.length > 1 ? "s" : ""}</span><span class="info-val">${

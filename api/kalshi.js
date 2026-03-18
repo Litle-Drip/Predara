@@ -97,10 +97,36 @@ module.exports = async (req, res) => {
     if (!found) {
       return res.status(404).json({ error: `Kalshi event or market "${ticker}" not found` })
     }
-    try { JSON.parse(found.body) } catch {
+    let data
+    try { data = JSON.parse(found.body) } catch {
       return res.status(502).json({ error: "Invalid response from Kalshi API" })
     }
-    return res.status(200).send(found.body)
+
+    // Enrich with series contract_url so the front-end can surface "View full rules"
+    const seriesTicker = (data.event || data.market || {}).series_ticker
+    if (seriesTicker) {
+      try {
+        for (const hostname of KALSHI_HOSTS) {
+          const sr = await kalshiRequest(
+            hostname,
+            `/trade-api/v2/series/${encodeURIComponent(seriesTicker)}`,
+            keyId,
+            normalizedKey,
+          )
+          if (sr.status === 200) {
+            const sd = JSON.parse(sr.body)
+            const contractUrl = (sd.series || {}).contract_url
+            if (contractUrl) {
+              if (data.event) data.event._contract_url = contractUrl
+              if (data.market) data.market._contract_url = contractUrl
+            }
+            break
+          }
+        }
+      } catch (_) { /* series fetch is best-effort */ }
+    }
+
+    return res.status(200).json(data)
   } catch (err) {
     return res.status(502).json({ error: err.message })
   }

@@ -291,6 +291,7 @@ async function analyze() {
           markets: [m],
           product_metadata: {},
           series_ticker: m.series_ticker,
+          _contract_url: m._contract_url,
         }
         result.innerHTML = renderKalshiEvent(fakeEvent, accent)
         addShareBar(url)
