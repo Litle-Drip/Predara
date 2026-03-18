@@ -48,6 +48,12 @@ function httpsGetWithTimeout(targetUrl, timeoutMs) {
   })
 }
 
+function getErrorMessage(err, fallback) {
+  if (err && typeof err.message === "string" && err.message.trim()) return err.message
+  if (typeof err === "string" && err.trim()) return err
+  return fallback
+}
+
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url, true)
 
@@ -74,7 +80,7 @@ const server = http.createServer((req, res) => {
       })
       .catch((err) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(JSON.stringify({ error: err.message }))
+        res.end(JSON.stringify({ error: getErrorMessage(err, "Polymarket request failed") }))
       })
 
     return
@@ -95,21 +101,30 @@ const server = http.createServer((req, res) => {
       return res.end(JSON.stringify({ error: "Missing or invalid ticker" }))
     }
 
-    const normalizedKey = (function normalizePem(raw) {
-      // Replace any escaped \n sequences with real newlines
-      let pem = raw.replace(/\\n/g, "\n").trim()
-      // Detect header type (RSA PRIVATE KEY or PRIVATE KEY)
-      const headerMatch = pem.match(/-----BEGIN ([^-]+)-----/)
-      const keyType = headerMatch ? headerMatch[1] : "RSA PRIVATE KEY"
-      // Strip all headers/footers and whitespace to get raw base64
-      const b64 = pem
-        .replace(/-----BEGIN [^-]+-----/g, "")
-        .replace(/-----END [^-]+-----/g, "")
-        .replace(/\s+/g, "")
-      // Re-chunk at 64 chars and wrap with proper PEM headers
-      const body = b64.match(/.{1,64}/g).join("\n")
-      return `-----BEGIN ${keyType}-----\n${body}\n-----END ${keyType}-----`
-    })(privateKey)
+    let normalizedKey
+    try {
+      normalizedKey = (function normalizePem(raw) {
+        // Replace any escaped \n sequences with real newlines
+        let pem = raw.replace(/\\n/g, "\n").trim()
+        // Detect header type (RSA PRIVATE KEY or PRIVATE KEY)
+        const headerMatch = pem.match(/-----BEGIN ([^-]+)-----/)
+        const keyType = headerMatch ? headerMatch[1] : "RSA PRIVATE KEY"
+        // Strip all headers/footers and whitespace to get raw base64
+        const b64 = pem
+          .replace(/-----BEGIN [^-]+-----/g, "")
+          .replace(/-----END [^-]+-----/g, "")
+          .replace(/\s+/g, "")
+        if (!b64) throw new Error("Kalshi private key is empty or malformed")
+        // Re-chunk at 64 chars and wrap with proper PEM headers
+        const chunks = b64.match(/.{1,64}/g)
+        if (!chunks) throw new Error("Kalshi private key is malformed")
+        const body = chunks.join("\n")
+        return `-----BEGIN ${keyType}-----\n${body}\n-----END ${keyType}-----`
+      })(privateKey)
+    } catch (err) {
+      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: getErrorMessage(err, "Kalshi credentials are malformed") }))
+    }
     const headers = { "Content-Type": "application/json", ...CORS_HEADERS }
 
     function kalshiGet(apiPath) {
@@ -163,7 +178,7 @@ const server = http.createServer((req, res) => {
       })
       .catch((err) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(JSON.stringify({ error: err.message }))
+        res.end(JSON.stringify({ error: getErrorMessage(err, "Kalshi request failed") }))
       })
 
     return
