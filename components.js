@@ -84,7 +84,9 @@ function analyticsCard(rows, timeLeft) {
       parts.push(`<div class="info-row"><span class="info-key">${tip("SPREAD QUALITY")}</span><span class="info-val ${spClass}">${r.spread}%</span></div>`)
     }
     const dotStyle = r.color ? ` style="color:${esc(r.color)}"` : ""
-    const labelHeader = `<div class="info-row" style="border-bottom:none;padding-bottom:4px"><span class="info-key" style="font-weight:600"><span${dotStyle}>●</span> ${esc(r.label)}</span></div>`
+    const labelHeader = rows.length > 1
+      ? `<div class="info-row" style="border-bottom:none;padding-bottom:4px"><span class="info-key" style="font-weight:600"><span${dotStyle}>●</span> ${esc(r.label)}</span></div>`
+      : ""
     return labelHeader + parts.join("")
   }).join("")
   const timeRow = timeLeft
