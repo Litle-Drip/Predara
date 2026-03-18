@@ -342,7 +342,9 @@ async function analyze() {
       }
       const data = await res.json()
       if (!data || (!data.title && !data.contracts && !data.ticker)) throw new Error("No event data returned.")
-      console.log("[gemini debug] type:", data.type, "contracts:", JSON.stringify((data.contracts || []).map(c => ({ ticker: c.ticker, title: c.title, name: c.name, type: c.type, result: c.result, probability: c.probability, price: c.price, lastPrice: c.lastPrice, currentPrice: c.currentPrice, status: c.status, prices: c.prices, settlement: c.settlement }))))
+      console.log("[gemini debug] event keys:", Object.keys(data).join(", "))
+      console.log("[gemini debug] type:", data.type, "volume:", data.volume, "notionalVolume:", data.notionalVolume, "liquidity:", data.liquidity, "notionalLiquidity:", data.notionalLiquidity, "openInterest:", data.openInterest, "notionalOpenInterest:", data.notionalOpenInterest)
+      console.log("[gemini debug] first contract (all fields):", JSON.stringify(data.contracts?.[0] || {}))
       console.log("[gemini debug] _contract_url:", data._contract_url)
 
       result.innerHTML = renderGeminiEvent(data, accent)
