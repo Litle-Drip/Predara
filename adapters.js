@@ -144,6 +144,26 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     return out
   })
 
+  // For true binary markets (single Kalshi market), add the complementary NO side
+  if (markets.length === 1 && outcomes.length === 1) {
+    const yesOut = outcomes[0]
+    const m0 = sorted[0]
+    const yesAsk = parseFloat(m0.yes_ask_dollars || 0)
+    const yesBid = parseFloat(m0.yes_bid_dollars || 0)
+    const noBid  = yesAsk > 0 ? Math.max(0, 1 - yesAsk) : 0
+    const noAsk  = yesBid > 0 ? Math.min(1, 1 - yesBid) : 0
+    outcomes.push({
+      label: "NO",
+      sub: "",
+      pct: 100 - yesOut.pct,
+      color: OUTCOME_COLORS[1],
+      delta: yesOut.delta !== null ? -yesOut.delta : null,
+      bid: noBid,
+      ask: noAsk,
+      isEstimate: yesOut.isEstimate,
+    })
+  }
+
   // Stats — always use allMarkets (full event) for accurate totals
   const totalVol = fmtNum(ev.volume_fp != null
     ? parseEventFP(ev.volume_fp)
