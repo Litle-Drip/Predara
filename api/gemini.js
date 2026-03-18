@@ -1,7 +1,9 @@
 const https = require("https")
 
 const REQUEST_TIMEOUT_MS = 10000
-const PAGE_TIMEOUT_MS    = 8000
+
+// Builder.io API key embedded in all Gemini predictions pages
+const BUILDER_API_KEY = "1b77ce3a269a43e985e77f3d65f715ba"
 
 function isSafeParam(str) {
   return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
@@ -16,46 +18,56 @@ function isSafeUrl(str) {
   } catch { return false }
 }
 
-// Fetch a URL server-side and return the response body as a string.
-function fetchHtml(targetUrl) {
+function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get(targetUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
+    const req = https.get(url, {
+      headers: { "Accept": "application/json" },
     }, (apiRes) => {
-      // Follow one redirect
-      if ((apiRes.statusCode === 301 || apiRes.statusCode === 302) && apiRes.headers.location) {
-        return fetchHtml(apiRes.headers.location).then(resolve).catch(reject)
-      }
       let body = ""
       apiRes.on("data", (chunk) => { body += chunk })
       apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
     })
-    req.setTimeout(PAGE_TIMEOUT_MS, () => { req.destroy(); reject(new Error("timeout")) })
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => { req.destroy(); reject(new Error("timeout")) })
     req.on("error", reject)
   })
 }
 
-// Extract the first Builder.io CDN asset URL from page HTML.
-// Looks inside __NEXT_DATA__ JSON first, then falls back to a raw regex.
-function extractContractUrl(html) {
-  // Try __NEXT_DATA__ JSON first (Next.js bakes page props into the HTML)
-  const ndMatch = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i)
-  if (ndMatch) {
-    try {
-      const nd = JSON.parse(ndMatch[1])
-      const ndStr = JSON.stringify(nd)
-      // Find all builder.io CDN asset URLs in the JSON blob
-      const hits = [...ndStr.matchAll(/https?:\/\/cdn\.builder\.io\/o\/assets[^"\\]+/g)]
-      if (hits.length) return hits[0][0].replace(/\\u0026/g, "&").replace(/\\\//g, "/")
-    } catch (_) { /* fall through */ }
+// Walk a Builder.io content tree and collect all cdn.builder.io asset URLs.
+function collectBuilderAssets(node, results = []) {
+  if (!node || typeof node !== "object") return results
+  if (typeof node.href === "string" && node.href.includes("cdn.builder.io")) {
+    results.push(node.href)
   }
-  // Raw search across the full HTML
-  const m = html.match(/https?:\/\/cdn\.builder\.io\/o\/assets[^\s"'<>]+/)
-  return m ? m[0] : null
+  if (typeof node.url === "string" && node.url.includes("cdn.builder.io")) {
+    results.push(node.url)
+  }
+  if (typeof node.src === "string" && node.src.includes("cdn.builder.io")) {
+    results.push(node.src)
+  }
+  for (const val of Object.values(node)) {
+    if (Array.isArray(val)) val.forEach(v => collectBuilderAssets(v, results))
+    else if (val && typeof val === "object") collectBuilderAssets(val, results)
+  }
+  return results
+}
+
+// Fetch the Builder.io page content for a Gemini predictions URL and
+// return the first CDN asset URL that looks like contract terms.
+async function fetchBuilderContractUrl(pageUrl) {
+  try {
+    const parsed = new URL(pageUrl)
+    // Use the path without query/hash as the Builder.io page URL key
+    const pagePath = parsed.pathname
+    const apiUrl = `https://cdn.builder.io/api/v3/content/page` +
+      `?apiKey=${BUILDER_API_KEY}` +
+      `&url=${encodeURIComponent(pagePath)}` +
+      `&limit=1&fields=data`
+    const r = await fetchJson(apiUrl)
+    if (r.status !== 200) return null
+    const json = JSON.parse(r.body)
+    const assets = collectBuilderAssets(json)
+    return assets.length ? assets[0] : null
+  } catch (_) { return null }
 }
 
 module.exports = async (req, res) => {
@@ -71,7 +83,7 @@ module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json")
 
   const ticker  = req.query.ticker
-  const pageUrl = req.query.pageUrl  // full market page URL (optional)
+  const pageUrl = req.query.pageUrl
 
   if (!ticker || !isSafeParam(ticker)) {
     return res.status(400).json({ error: "Missing or invalid ticker" })
@@ -82,27 +94,15 @@ module.exports = async (req, res) => {
 
   const target = `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`
 
-  // Fetch Gemini event API + optionally scrape the market page in parallel
-  const eventFetch = new Promise((resolve, reject) => {
-    const proxyReq = https.get(target, (apiRes) => {
-      let body = ""
-      apiRes.on("data", (chunk) => { body += chunk })
-      apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
-    })
-    proxyReq.setTimeout(REQUEST_TIMEOUT_MS, () => {
-      proxyReq.destroy()
-      reject(new Error("Gemini API request timed out"))
-    })
-    proxyReq.on("error", reject)
-  })
-
-  const pageFetch = pageUrl
-    ? fetchHtml(pageUrl).catch(() => null)
+  // Fetch Gemini event API + Builder.io contract URL in parallel
+  const eventFetch = fetchJson(target)
+  const contractFetch = pageUrl
+    ? fetchBuilderContractUrl(pageUrl).catch(() => null)
     : Promise.resolve(null)
 
-  let eventResult, pageResult
+  let eventResult, contractUrl
   try {
-    ;[eventResult, pageResult] = await Promise.all([eventFetch, pageFetch])
+    ;[eventResult, contractUrl] = await Promise.all([eventFetch, contractFetch])
   } catch (err) {
     return res.status(502).json({ error: err.message })
   }
@@ -119,11 +119,7 @@ module.exports = async (req, res) => {
     return res.status(502).json({ error: "Invalid response from Gemini API" })
   }
 
-  // Attach contract terms URL if we found one on the market page
-  if (pageResult && pageResult.status === 200) {
-    const contractUrl = extractContractUrl(pageResult.body)
-    if (contractUrl) data._contract_url = contractUrl
-  }
+  if (contractUrl) data._contract_url = contractUrl
 
   return res.status(200).json(data)
 }

@@ -48,7 +48,7 @@ function geminiExtractPrice(c) {
 // "GEMI-TPC2026WIN-ABERG" → "Aberg"
 // Previously duplicated twice in renderGeminiEvent.
 function geminiExtractName(c, fallback) {
-  const rawName = [c.title, c.description, c.instrumentSymbol, c.name]
+  const rawName = [c.title, c.description, c.instrumentSymbol, c.name, c.ticker]
     .find(v => typeof v === "string" && v.trim()) || fallback
   if (!rawName.includes("-")) return rawName
   const parts = rawName.split("-")
@@ -305,6 +305,7 @@ function normalizeGemini(event) {
       const pct   = price > 0
         ? Math.round(price * 100)
         : (bid > 0 && ask > 0) ? Math.round((bid + ask) / 2 * 100) : bid > 0 ? Math.round(bid * 100) : 0
+      console.log("[gemini price debug]", name, "price:", price, "bid:", bid, "ask:", ask, "pct:", pct)
       const out   = { label: name, sub: "", pct, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
