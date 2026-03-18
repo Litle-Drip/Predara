@@ -284,6 +284,7 @@ async function analyze() {
         addShareBar(url)
       } else if (data.market) {
         const m = data.market
+        console.log("[kalshi market debug] series_ticker:", m.series_ticker, "_contract_url:", m._contract_url, "contract_url:", m.contract_url, "settlement_sources:", JSON.stringify(m.settlement_sources))
         const fakeEvent = {
           title: m.title,
           sub_title: "",
