@@ -48,7 +48,7 @@ function geminiExtractPrice(c) {
 // "GEMI-TPC2026WIN-ABERG" → "Aberg"
 // Previously duplicated twice in renderGeminiEvent.
 function geminiExtractName(c, fallback) {
-  const rawName = [c.title, c.description, c.instrumentSymbol, c.name, c.ticker]
+  const rawName = [c.title, c.name, c.instrumentSymbol, c.description, c.ticker]
     .find(v => typeof v === "string" && v.trim()) || fallback
   if (!rawName.includes("-")) return rawName
   const parts = rawName.split("-")
@@ -540,10 +540,12 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
         delta: null,
       }
       colorIdx++
-      // bestBid/bestAsk refer to the YES token (i=0). Invert for NO (i>0).
+      // bestBid/bestAsk refer to the YES token (i=0).
+      // For binary (2-outcome) markets invert for the NO side; for 3+ outcomes
+      // the formula is meaningless so leave bid/ask unset (falls back to prob).
       if (bestBid != null && bestAsk != null) {
         if (i === 0) { out.bid = bestBid; out.ask = bestAsk }
-        else { out.bid = Math.max(0, 1 - bestAsk); out.ask = Math.min(1, 1 - bestBid) }
+        else if (outs.length === 2) { out.bid = Math.max(0, 1 - bestAsk); out.ask = Math.min(1, 1 - bestBid) }
       }
       outcomes.push(out)
       const prob = parseFloat(prices[i])

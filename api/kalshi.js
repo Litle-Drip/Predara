@@ -9,6 +9,18 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 }
 
+function normalizePem(raw) {
+  let pem = raw.replace(/\\n/g, "\n").trim()
+  const headerMatch = pem.match(/-----BEGIN ([^-]+)-----/)
+  const keyType = headerMatch ? headerMatch[1] : "RSA PRIVATE KEY"
+  const b64 = pem
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "")
+  const body = b64.match(/.{1,64}/g).join("\n")
+  return `-----BEGIN ${keyType}-----\n${body}\n-----END ${keyType}-----`
+}
+
 function isSafeParam(str) {
   return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
 }
@@ -90,7 +102,7 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: "Missing or invalid ticker" })
   }
 
-  const normalizedKey = privateKey.replace(/\\n/g, "\n")
+  const normalizedKey = normalizePem(privateKey)
 
   try {
     const found = await kalshiLookup(ticker, keyId, normalizedKey)
@@ -106,6 +118,8 @@ module.exports = async (req, res) => {
     // series_ticker lives on market objects, not always on the event itself — fall back to first nested market
     const seriesTicker = (data.event || data.market || {}).series_ticker
       || (data.event?.markets?.[0] || {}).series_ticker
+      || (data.event || data.market || {}).event_ticker
+      || (data.event?.markets?.[0] || {}).event_ticker
     if (seriesTicker) {
       try {
         for (const hostname of KALSHI_HOSTS) {
