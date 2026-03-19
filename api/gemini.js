@@ -123,10 +123,25 @@ module.exports = async (req, res) => {
     return res.status(502).json({ error: "Invalid response from Gemini API" })
   }
 
-  // Prefer the contract URL sourced directly from the API (termsLink / termsAndConditionsUrl),
-  // then fall back to whatever Builder.io scraping found.
+  // Extract terms URL: check event.termsLink, then contract.termsAndConditionsUrl (may be empty string),
+  // then mine the markdown link embedded in contract description text, then Builder.io scraping fallback.
+  function richTextToPlain(node) {
+    if (!node) return ""
+    if (typeof node === "string") return node
+    if (node.value) return node.value
+    if (Array.isArray(node.content)) return node.content.map(richTextToPlain).join("")
+    return ""
+  }
+  function mdUrl(text) {
+    const m = text && text.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/)
+    return m ? m[2] : null
+  }
+  const contracts = Array.isArray(data && data.contracts) ? data.contracts : []
+  const firstContract = contracts[0] || {}
+  const descText = richTextToPlain(firstContract.description)
   const directTerms = (data && data.termsLink)
-    || (Array.isArray(data && data.contracts) && data.contracts[0] && data.contracts[0].termsAndConditionsUrl)
+    || (firstContract.termsAndConditionsUrl || "")   // may be ""
+    || mdUrl(descText)
     || null
   if (directTerms) data._contract_url = directTerms
   else if (contractUrl) data._contract_url = contractUrl

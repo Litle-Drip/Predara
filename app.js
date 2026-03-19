@@ -275,6 +275,11 @@ async function analyze() {
 
       if (data.event) {
         data.event._allMarkets = [...(data.event.markets || [])]
+        const ev = data.event
+        const fm = (ev.markets || [])[0] || {}
+        console.log("[kalshi event debug] series_ticker:", ev.series_ticker, "event_ticker:", ev.event_ticker, "_contract_url:", ev._contract_url)
+        console.log("[kalshi event debug] first market keys:", Object.keys(fm).join(", "))
+        console.log("[kalshi event debug] first market: series_ticker:", fm.series_ticker, "_contract_url:", fm._contract_url, "contract_url:", fm.contract_url, "settlement_sources:", JSON.stringify(fm.settlement_sources), "rules_primary snippet:", (fm.rules_primary || "").slice(0, 120))
 
         if (ticker !== eventTicker && data.event.markets && !data.event.mutually_exclusive) {
           const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
