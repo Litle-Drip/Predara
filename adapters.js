@@ -351,16 +351,19 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      const pct   = price > 0
-        ? Math.round(price * 100)
-        : (bid > 0 && ask > 0) ? Math.round((bid + ask) / 2 * 100) : bid > 0 ? Math.round(bid * 100) : 0
-      console.log("[gemini price debug]", name, "price:", price, "bid:", bid, "ask:", ask, "pct:", pct)
-      const out   = { label: name, sub: "", pct, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
+      console.log("[gemini price debug]", name, "price:", price, "bid:", bid, "ask:", ask)
+      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
       outcomes.push(out)
       if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
+    })
+    // Normalize raw prices to sum to exactly 100%, eliminating over-round from bid/ask spread.
+    const rawSum = outcomes.reduce((s, o) => s + (o._rawPrice || 0), 0)
+    outcomes.forEach(o => {
+      o.pct = rawSum > 0 ? Math.round((o._rawPrice || 0) / rawSum * 100) : 0
+      delete o._rawPrice
     })
   }
 
