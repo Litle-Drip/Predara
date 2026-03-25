@@ -108,9 +108,17 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     (isFinished ? sorted.find(m => m.result === "no") : null)
   const resolution  = resolvedMarket?.result || ""
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
-  const resolvedBanner = resolution
-    ? `<div class="resolved-banner resolved-${resolution}">✓ RESOLVED · ${resolution.toUpperCase()}${expValue ? " · " + expValue : ""}</div>`
-    : ""
+  const resolvedBanner = ""
+
+  const resolvedInfo = (isFinished && resolution) ? {
+    winner: resolvedMarket
+      ? (isMultiOutcome
+          ? resolvedMarket.yes_sub_title
+          : (resolution === "yes" ? (resolvedMarket.yes_sub_title || "YES") : "NO"))
+      : null,
+    resolvedAt: first.close_time || "",
+    value: expValue || null,
+  } : null
 
   const isMultiOutcome = markets.length > 2
 
@@ -300,7 +308,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     title: eventTitle || eventSubTitle,
     subtitle: eventTitle && eventSubTitle ? eventSubTitle : "",
     statusDot, statusText,
-    resolvedBanner, exclusiveTag, tagsHtml,
+    resolvedBanner, resolvedInfo, exclusiveTag, tagsHtml,
     staleIso: lastTradeIso,
     closeIso: first.close_time || "",
     timelineRows, hasTimeline,
@@ -498,12 +506,21 @@ function normalizeGemini(event) {
       }</span></div>`
     : ""
 
+  const geminiWinner = !isOpen && outcomes.length > 0
+    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
+    : null
+  const resolvedInfo = (!isOpen && geminiWinner) ? {
+    winner: geminiWinner.label,
+    resolvedAt: event.resolvedAt || expiryIso || "",
+    value: null,
+  } : null
+
   return {
     platform: "gemini",
     title: event.title || "Gemini Prediction Market",
     subtitle: "",
     statusDot, statusText,
-    resolvedBanner: "", exclusiveTag: "", tagsHtml,
+    resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
     staleIso: event.updatedAt || event.lastUpdated || "",
     closeIso: expiryIso,
     timelineRows, hasTimeline,
@@ -664,12 +681,21 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
+  const polyWinner = event.closed && outcomes.length > 0
+    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
+    : null
+  const resolvedInfo = (event.closed && polyWinner) ? {
+    winner: polyWinner.label,
+    resolvedAt: event.closedTime || event.endDate || "",
+    value: null,
+  } : null
+
   return {
     platform: platformKey,
     title: event.title || "",
     subtitle: "",
     statusDot, statusText,
-    resolvedBanner: "", exclusiveTag: "", tagsHtml,
+    resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
     staleIso: event.updatedAt || first.lastTradeTime || first.updatedAt || "",
     closeIso: event.endDate || "",
     timelineRows, hasTimeline,

@@ -1,3 +1,22 @@
+function resolvedBoxHtml(info) {
+  if (!info) return ""
+  const isNo = info.winner === "NO"
+  const colorClass = isNo ? "resolved-no" : "resolved-yes"
+  const metaRows = []
+  if (info.resolvedAt) {
+    metaRows.push(`<div class="resolved-meta-row"><span class="resolved-meta-key">ENDED</span><span class="resolved-meta-val">${esc(fmtDateTime(info.resolvedAt))}</span></div>`)
+  }
+  if (info.value) {
+    metaRows.push(`<div class="resolved-meta-row"><span class="resolved-meta-key">SETTLED AT</span><span class="resolved-meta-val">${esc(info.value)}</span></div>`)
+  }
+  return `
+    <div class="mi-card resolved-box ${colorClass}">
+      <div class="resolved-box-label">✓ RESOLVED</div>
+      ${info.winner ? `<div class="resolved-box-winner">${esc(info.winner)}</div>` : ""}
+      ${metaRows.length ? `<div class="resolved-box-meta">${metaRows.join("")}</div>` : ""}
+    </div>`
+}
+
 function whatsTheBetCard(text) {
   if (!text) return ""
   return `
