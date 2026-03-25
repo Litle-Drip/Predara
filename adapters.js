@@ -110,16 +110,6 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
   const resolvedBanner = ""
 
-  const resolvedInfo = (isFinished && resolution) ? {
-    winner: resolvedMarket
-      ? (isMultiOutcome
-          ? resolvedMarket.yes_sub_title
-          : (resolution === "yes" ? (resolvedMarket.yes_sub_title || "YES") : "NO"))
-      : null,
-    resolvedAt: first.close_time || "",
-    value: expValue || null,
-  } : null
-
   const isMultiOutcome = markets.length > 2
 
   // Stale data — most recent last_trade_time across all markets
@@ -302,6 +292,19 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const tagsHtml = `<span class="tag-cat" style="color:${catColor};border-color:${catColor};background:${catColor}1a">${esc(category.toUpperCase())}</span>`
   const exclusiveTag = ev.mutually_exclusive
     ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : ""
+
+  const resolvedInfo = (isFinished && resolution) ? {
+    winner: resolvedMarket
+      ? (isMultiOutcome
+          ? resolvedMarket.yes_sub_title
+          : (resolution === "yes" ? (resolvedMarket.yes_sub_title || "YES") : "NO"))
+      : null,
+    resolution,
+    resolvedAt: first.close_time || "",
+    value: expValue || null,
+    totalVol: totalVol || null,
+    isMultiOutcome,
+  } : null
 
   return {
     platform: platformKey,
@@ -511,8 +514,11 @@ function normalizeGemini(event) {
     : null
   const resolvedInfo = (!isOpen && geminiWinner) ? {
     winner: geminiWinner.label,
+    resolution: isBinary ? (geminiWinner.label === "YES" ? "yes" : "no") : "",
     resolvedAt: event.resolvedAt || expiryIso || "",
     value: null,
+    totalVol: totalVol || null,
+    isMultiOutcome: !isBinary && contracts.length > 2,
   } : null
 
   return {
@@ -686,8 +692,11 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     : null
   const resolvedInfo = (event.closed && polyWinner) ? {
     winner: polyWinner.label,
+    resolution: outcomes.length === 2 ? (polyWinner.label === "No" ? "no" : "yes") : "",
     resolvedAt: event.closedTime || event.endDate || "",
     value: null,
+    totalVol: totalVol || null,
+    isMultiOutcome: outcomes.length > 2,
   } : null
 
   return {
