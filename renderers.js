@@ -41,12 +41,13 @@ function renderMarket(norm, accent) {
           ${norm.exclusiveTag}
           <span class="tag-status"><span class="${norm.statusDot}">●</span> ${esc(norm.statusText)}</span>
         </div>
-        ${norm.resolvedBanner}
         <div class="event-title">${esc(norm.title)}${norm.subtitle ? " — " + esc(norm.subtitle) : ""}</div>
         ${urgencyHtml}
         ${staleHtml}
       </div>
     </div>
+
+    ${resolvedBoxHtml(norm.resolvedInfo)}
 
     ${whatsTheBetCard(norm.betExplainerText)}
 
