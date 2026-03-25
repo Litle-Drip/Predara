@@ -3,6 +3,7 @@ function resolvedBoxHtml(info) {
   const isNo = info.resolution === "no"
   const colorClass = isNo ? "resolved-no" : "resolved-yes"
   const pillText = info.isMultiOutcome ? "WINNER" : (info.resolution ? info.resolution.toUpperCase() : "RESOLVED")
+  const checkMark = isNo ? "✗" : "✓"
 
   const metaItems = []
   if (info.resolvedAt) metaItems.push({ key: "ENDED", val: fmtDateTime(info.resolvedAt) })
@@ -10,24 +11,23 @@ function resolvedBoxHtml(info) {
   if (info.totalVol)   metaItems.push({ key: "TOTAL VOLUME", val: `$${info.totalVol}` })
 
   const metaHtml = metaItems.length
-    ? `<div class="resolved-meta-grid">${metaItems.map(i =>
+    ? `<div class="resolved-meta">${metaItems.map(i =>
         `<div class="resolved-meta-item">
-          <span class="resolved-meta-key">${esc(i.key)}</span>
-          <span class="resolved-meta-val">${esc(i.val)}</span>
+          <div class="resolved-meta-key">${esc(i.key)}</div>
+          <div class="resolved-meta-val">${esc(i.val)}</div>
         </div>`).join("")}</div>`
     : ""
 
   return `
     <div class="mi-card resolved-box ${colorClass}">
-      <div class="resolved-top-row">
-        <div class="resolved-circle">${isNo ? "✗" : "✓"}</div>
-        <div class="resolved-header-text">
-          <div class="resolved-header-label">MARKET RESOLVED</div>
-          <span class="resolved-pill">${esc(pillText)}</span>
-        </div>
+      <div class="resolved-header">
+        <span class="resolved-header-label">MARKET RESOLVED</span>
+        <span class="resolved-pill">${esc(pillText)}</span>
       </div>
-      ${info.winner ? `<div class="resolved-winner">${esc(info.winner)}</div>` : ""}
-      ${metaHtml}
+      <div class="resolved-body">
+        ${info.winner ? `<div class="resolved-winner"><span class="resolved-check">${checkMark}</span> ${esc(info.winner)}</div>` : ""}
+        ${metaHtml}
+      </div>
     </div>`
 }
 
