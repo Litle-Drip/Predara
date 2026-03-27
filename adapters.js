@@ -349,11 +349,15 @@ function normalizeGemini(event) {
     const cp    = c.prices || {}
     const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
     const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-    const pctYes = Math.round(price * 100)
+    // If the market is settled and resolutionSide is explicit, use it to override
+    // price-derived percentages (which go to 0 after settlement, making NO look like winner).
+    const resSide = (c.resolutionSide || "").toLowerCase()
+    const pctYes = resSide === "yes" ? 100 : resSide === "no" ? 0 : Math.round(price * 100)
     const pctNo  = 100 - pctYes
     const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
-    outcomes.push({ label: "YES", sub: "", pct: pctYes, color: OUTCOME_COLORS[0], delta: null, ...extras })
-    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  color: OUTCOME_COLORS[1], delta: null })
+    // Carry _resolutionSide so geminiWinner can use the explicit field (cleaned up below).
+    outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), color: OUTCOME_COLORS[0], delta: null, ...extras })
+    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), color: OUTCOME_COLORS[1], delta: null })
     if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
     contracts.forEach((c, idx) => {
@@ -362,7 +366,7 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
+      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _resolutionSide: c.resolutionSide || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
@@ -375,6 +379,8 @@ function normalizeGemini(event) {
       o.pct = rawSum > 0 ? Math.round((o._rawPrice || 0) / rawSum * 100) : 0
       delete o._rawPrice
     })
+    // Remove internal flag after normalization (before geminiWinner reads it below)
+    // _resolutionSide is read by geminiWinner and then deleted before returning outcomes.
   }
 
   if (!outcomes.length) return null
@@ -508,9 +514,16 @@ function normalizeGemini(event) {
       }</span></div>`
     : ""
 
+  // Prefer the contract's explicit resolutionSide field ("yes" = winner).
+  // This is populated by Gemini on settlement even when prices have gone to 0.
+  // Fall back to price-percentage comparison for live/open markets.
   const geminiWinner = !isOpen && outcomes.length > 0
-    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
+    ? (outcomes.find(o => o._resolutionSide === "yes") ||
+       outcomes.find(o => o.pct === 100) ||
+       outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
     : null
+  // Clean up the internal flag so it doesn't reach the UI renderer.
+  outcomes.forEach(o => { delete o._resolutionSide })
   const resolvedInfo = (!isOpen && geminiWinner) ? {
     winner: geminiWinner.label,
     resolution: isBinary ? (geminiWinner.label === "YES" ? "yes" : "no") : "",
