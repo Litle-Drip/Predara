@@ -362,7 +362,6 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      console.log("[gemini price debug]", name, "price:", price, "bid:", bid, "ask:", ask)
       const out   = { label: name, sub: "", pct: 0, _rawPrice: price, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))

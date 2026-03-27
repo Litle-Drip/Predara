@@ -128,11 +128,8 @@ async function analyze() {
 
   // Expand a bare Gemini ticker (e.g. "NBA-2603151930-DET-TOR-M") to a full URL
   const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
-  console.log("[debug] raw url:", JSON.stringify(url))
-  console.log("[debug] ticker regex test:", geminiTickerRe.test(url))
   if (geminiTickerRe.test(url)) {
     url = `https://www.gemini.com/predictions/${url.toUpperCase()}`
-    console.log("[debug] expanded to:", url)
   }
 
   const lowerUrl = url.toLowerCase()
@@ -141,7 +138,6 @@ async function analyze() {
   else if (lowerUrl.includes("polymarket")) platform = "polymarket"
   else if (lowerUrl.includes("coinbase"))   platform = "coinbase"
   else if (lowerUrl.includes("gemini"))     platform = "gemini"
-  console.log("[debug] platform:", platform)
 
   const accent = (PLATFORMS[platform] || {}).accent || "#555"
 
@@ -275,11 +271,6 @@ async function analyze() {
 
       if (data.event) {
         data.event._allMarkets = [...(data.event.markets || [])]
-        const ev = data.event
-        const fm = (ev.markets || [])[0] || {}
-        console.log("[kalshi event debug] series_ticker:", ev.series_ticker, "event_ticker:", ev.event_ticker, "_contract_url:", ev._contract_url)
-        console.log("[kalshi event debug] first market keys:", Object.keys(fm).join(", "))
-        console.log("[kalshi event debug] first market: series_ticker:", fm.series_ticker, "_contract_url:", fm._contract_url, "contract_url:", fm.contract_url, "settlement_sources:", JSON.stringify(fm.settlement_sources), "rules_primary snippet:", (fm.rules_primary || "").slice(0, 120))
 
         if (ticker !== eventTicker && data.event.markets && !data.event.mutually_exclusive) {
           const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
@@ -289,8 +280,6 @@ async function analyze() {
         addShareBar(url)
       } else if (data.market) {
         const m = data.market
-        console.log("[kalshi market debug] keys:", Object.keys(m).join(", "))
-        console.log("[kalshi market debug] series_ticker:", m.series_ticker, "event_ticker:", m.event_ticker, "_contract_url:", m._contract_url, "contract_url:", m.contract_url, "settlement_sources:", JSON.stringify(m.settlement_sources), "rules_primary snippet:", (m.rules_primary || "").slice(0, 120))
         const fakeEvent = {
           title: m.title,
           sub_title: "",
@@ -347,10 +336,6 @@ async function analyze() {
       }
       const data = await res.json()
       if (!data || (!data.title && !data.contracts && !data.ticker)) throw new Error("No event data returned.")
-      console.log("[gemini debug] event keys:", Object.keys(data).join(", "))
-      console.log("[gemini debug] type:", data.type, "volume:", data.volume, "notionalVolume:", data.notionalVolume, "liquidity:", data.liquidity, "notionalLiquidity:", data.notionalLiquidity, "openInterest:", data.openInterest, "notionalOpenInterest:", data.notionalOpenInterest)
-      console.log("[gemini debug] first contract (all fields):", JSON.stringify(data.contracts?.[0] || {}))
-      console.log("[gemini debug] _contract_url:", data._contract_url)
 
       result.innerHTML = renderGeminiEvent(data, accent)
       addShareBar(url)

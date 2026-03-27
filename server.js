@@ -96,18 +96,110 @@ const server = http.createServer((req, res) => {
 
   // ── Gemini proxy ──
   if (parsed.pathname === "/api/gemini") {
-    const ticker = parsed.query.ticker
+    const ticker  = parsed.query.ticker
+    const pageUrl = parsed.query.pageUrl
+
     if (!ticker || !isSafeParam(ticker)) {
       res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
       return res.end(JSON.stringify({ error: "Missing or invalid ticker" }))
     }
 
+    // Validate optional pageUrl (must be a gemini.com HTTPS URL)
+    if (pageUrl) {
+      try {
+        const u = new URL(pageUrl)
+        if (!((u.protocol === "https:" || u.protocol === "http:") && u.hostname.endsWith("gemini.com"))) {
+          res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: "Invalid pageUrl" }))
+        }
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+        return res.end(JSON.stringify({ error: "Invalid pageUrl" }))
+      }
+    }
+
+    const BUILDER_API_KEY = "1b77ce3a269a43e985e77f3d65f715ba"
     const target = `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`
 
-    httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
-      .then(({ status, body }) => {
-        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(body)
+    // Helper: walk Builder.io JSON tree and collect CDN asset URLs
+    function collectBuilderAssets(node, results = []) {
+      if (!node || typeof node !== "object") return results
+      for (const [key, val] of Object.entries(node)) {
+        if (typeof val === "string") {
+          if ((key === "href" || key === "url" || key === "src") && val.includes("cdn.builder.io")) results.push(val)
+          const embedded = val.match(/https:\/\/cdn\.builder\.io\/assets[^\s"'<>)\\]+/g)
+          if (embedded) results.push(...embedded)
+        } else if (Array.isArray(val)) {
+          val.forEach(v => collectBuilderAssets(v, results))
+        } else if (val && typeof val === "object") {
+          collectBuilderAssets(val, results)
+        }
+      }
+      return results
+    }
+
+    // Fetch Builder.io page content to find contract terms URL
+    function fetchBuilderContractUrl(pUrl) {
+      return new Promise((resolve) => {
+        try {
+          const parsedPage = new URL(pUrl)
+          const apiUrl = `https://cdn.builder.io/api/v3/content/page?apiKey=${BUILDER_API_KEY}&url=${encodeURIComponent(parsedPage.pathname)}&limit=1&fields=data`
+          httpsGetWithTimeout(apiUrl, REQUEST_TIMEOUT_MS)
+            .then(({ status, body }) => {
+              if (status !== 200) return resolve(null)
+              try {
+                const json = JSON.parse(body)
+                const assets = collectBuilderAssets(json)
+                resolve(assets.length ? assets[0] : null)
+              } catch { resolve(null) }
+            })
+            .catch(() => resolve(null))
+        } catch { resolve(null) }
+      })
+    }
+
+    Promise.all([
+      httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS),
+      pageUrl ? fetchBuilderContractUrl(pageUrl) : Promise.resolve(null),
+    ])
+      .then(([{ status, body }, contractUrl]) => {
+        if (status !== 200) {
+          if (status === 404) {
+            res.writeHead(404, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: `Ticker "${ticker}" not found on Gemini.` }))
+          }
+          res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: `Gemini API returned ${status}` }))
+        }
+        let data
+        try { data = JSON.parse(body) } catch {
+          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: "Invalid response from Gemini API" }))
+        }
+        // Enrich with contract terms URL (same logic as api/gemini.js)
+        function richTextToPlain(node) {
+          if (!node) return ""
+          if (typeof node === "string") return node
+          if (node.value) return node.value
+          if (Array.isArray(node.content)) return node.content.map(richTextToPlain).join("")
+          return ""
+        }
+        function mdUrl(text) {
+          const m = text && text.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/)
+          return m ? m[2] : null
+        }
+        const contracts = Array.isArray(data && data.contracts) ? data.contracts : []
+        const firstContract = contracts[0] || {}
+        const descText = richTextToPlain(firstContract.description)
+        const directTerms = (data && data.termsLink)
+          || (firstContract.termsAndConditionsUrl || "")
+          || mdUrl(descText)
+          || null
+        if (directTerms) data._contract_url = directTerms
+        else if (contractUrl) data._contract_url = contractUrl
+
+        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(data))
       })
       .catch((err) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
