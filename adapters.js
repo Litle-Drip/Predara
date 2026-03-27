@@ -366,7 +366,7 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _resolutionSide: c.resolutionSide || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
+      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
