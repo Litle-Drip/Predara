@@ -84,13 +84,8 @@ function betSimulatorHtml(outcomes) {
 window._simMarket = { amount: 10, pct: 0, platform: "" }
 window.selectBetSimOutcome = function(btn) {
   const pct = parseFloat(btn.dataset.pct)
-  const label = btn.dataset.label
   const color = btn.dataset.color
   window._simMarket.pct = pct
-  const labelEl = document.getElementById("betSimLabel")
-  const pctEl = document.getElementById("betSimPct")
-  if (labelEl) labelEl.textContent = label
-  if (pctEl) pctEl.textContent = pct + "%"
   document.querySelectorAll(".bet-sim-tab").forEach(t => {
     t.classList.remove("active")
     t.style.borderColor = ""
