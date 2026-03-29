@@ -226,7 +226,7 @@ function renderComparison(results) {
     const statsHtml = (meta.stats || []).length
       ? `<div class="compare-stats">${(meta.stats).map(s =>
           `<div class="compare-stat-row">
-            <span class="compare-stat-label">${esc(s.label)}</span>
+            <span class="compare-stat-label">${tip(s.label, s.label.toUpperCase())}</span>
             <span class="compare-stat-value">${esc(s.value)}</span>
           </div>`
         ).join("")}</div>`
