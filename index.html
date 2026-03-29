@@ -1037,10 +1037,7 @@
   function refreshMarket() {
     const btn = document.getElementById('refreshBtn')
     if (btn) { btn.textContent = '↺ LOADING…'; btn.disabled = true }
-    const p = typeof analyzeCompare !== 'undefined' && document.getElementById('compareSection') && document.getElementById('compareSection').style.display !== 'none'
-      ? analyzeCompare()
-      : analyze()
-    Promise.resolve(p).finally(() => {
+    Promise.resolve(analyze()).finally(() => {
       if (btn) { btn.textContent = '↺ REFRESH'; btn.disabled = false }
     })
   }
