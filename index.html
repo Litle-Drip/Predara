@@ -65,7 +65,7 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 48px 32px 100px;
+      padding: 48px 32px 80px;
     }
 
     .app { max-width: 1240px; margin: 0 auto; }
@@ -137,7 +137,7 @@
     .mi-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       margin-bottom: 16px;
       overflow: hidden;
     }
@@ -316,7 +316,7 @@
     .stat-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 22px 28px 24px;
     }
     .stat-label {
@@ -396,7 +396,6 @@
     }
 
     /* ── Bet simulator ── */
-    .bet-sim-card { }
     .bet-sim-body { padding: 20px 32px 24px; }
     .bet-sim-input-row {
       display: flex;
@@ -680,7 +679,7 @@
     .compare-stats { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .compare-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
     .compare-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .compare-stat-value { font-size: 13px; font-weight: 600; color: var(--fg); }
+    .compare-stat-value { font-size: 13px; font-weight: 600; color: var(--text-mid); }
     .compare-separator {
       border: none;
       border-top: 2px dashed var(--border);
@@ -703,15 +702,14 @@
       font-size: 15px;
       line-height: 1;
       padding: 7px 11px;
-      margin-left: auto;
       transition: border-color 0.2s, color 0.2s, background 0.2s;
-      flex-shrink: 0;
     }
     .theme-toggle:hover { background: var(--orange); color: var(--bg); }
+    .header-controls { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     /* ── Footer ── */
     .footer {
-      margin-top: 60px;
+      margin-top: 48px;
       font-size: 10px;
       letter-spacing: 2.5px;
       color: var(--muted);
@@ -885,6 +883,7 @@
       color: var(--muted);
       letter-spacing: 1px;
       line-height: 1.8;
+      text-align: center;
     }
 
     /* ── Mobile ── */
@@ -922,6 +921,7 @@
 
       .bet-explainer-body { padding: 12px 18px 18px; font-size: 13px; }
       .bet-sim-body { padding: 16px 18px 20px; }
+      .bet-sim-tabs { padding: 12px 18px 0; }
       .bet-sim-input-row { font-size: 13px; }
       .bet-sim-input { width: 80px; font-size: 15px; padding: 6px 10px; }
 
@@ -955,8 +955,10 @@
       <div class="app-title">Predara</div>
       <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
     </div>
-    <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
-    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="header-controls">
+      <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    </div>
   </div>
 
   <div class="search-row">
