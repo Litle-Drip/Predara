@@ -1,12 +1,23 @@
 // ── Comparison helpers ────────────────────────────────────────────────────────
 
+function fmtCompareNum(n) {
+  if (!n || !Number.isFinite(n) || n <= 0) return "—"
+  return "$" + Math.round(n).toLocaleString()
+}
+
 function extractTopOutcomes(platform, data) {
   try {
     if (platform === "kalshi") {
       const ev = data.event || (data.market ? { title: data.market.title, markets: [data.market] } : null)
-      if (!ev) return { title: "", topOutcomes: [] }
+      if (!ev) return { title: "", topOutcomes: [], stats: [] }
       const markets = (ev.markets || []).filter(m => m.yes_sub_title)
       const sorted = [...markets].sort((a, b) => parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
+      const vol   = markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100
+      const vol24 = markets.reduce((s, m) => s + parseFloat(m.volume_24h_fp || 0), 0) / 100
+      const oi    = markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100
+      const spreads = markets.map(m => parseFloat(m.yes_ask_dollars || 0) - parseFloat(m.yes_bid_dollars || 0)).filter(s => s > 0)
+      const minSpread = spreads.length ? Math.min(...spreads) : null
+      const overround = markets.reduce((s, m) => s + parseFloat(m.last_price_dollars || 0), 0)
       return {
         title: ev.title || "",
         topOutcomes: sorted.slice(0, 3).map((m, i) => ({
@@ -14,11 +25,18 @@ function extractTopOutcomes(platform, data) {
           pct: Math.round(parseFloat(m.last_price_dollars || 0) * 100),
           color: OUTCOME_COLORS[i],
         })),
+        stats: [
+          { label: "Volume",        value: fmtCompareNum(vol) },
+          { label: "24h Volume",    value: fmtCompareNum(vol24) },
+          { label: "Open Interest", value: fmtCompareNum(oi) },
+          { label: "Best Spread",   value: minSpread != null ? Math.round(minSpread * 100) + "¢" : "—" },
+          { label: "Overround",     value: overround > 0 ? Math.round(overround * 100) + "%" : "—" },
+        ],
       }
     }
     if (platform === "polymarket" || platform === "coinbase") {
       const event = Array.isArray(data) ? data[0] : data
-      if (!event) return { title: "", topOutcomes: [] }
+      if (!event) return { title: "", topOutcomes: [], stats: [] }
       const all = []
       ;(event.markets || []).forEach(market => {
         let outcomes, prices
@@ -32,10 +50,10 @@ function extractTopOutcomes(platform, data) {
         })
       })
       all.sort((a, b) => b.pct - a.pct)
-      return { title: event.title || "", topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })) }
+      return { title: event.title || "", topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })), stats: [] }
     }
     if (platform === "gemini") {
-      if (!data || !data.title) return { title: "", topOutcomes: [] }
+      if (!data || !data.title) return { title: "", topOutcomes: [], stats: [] }
       const contracts = Array.isArray(data.contracts) ? data.contracts : []
       const extracted = contracts.map((c, i) => {
         const price = geminiExtractPrice(c)
@@ -43,10 +61,28 @@ function extractTopOutcomes(platform, data) {
         return { name, pct: Math.round(price * 100), color: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }
       })
       extracted.sort((a, b) => b.pct - a.pct)
-      return { title: data.title, topOutcomes: extracted.slice(0, 3) }
+      const vol   = parseFloat(data.volume || 0)
+      const vol24 = parseFloat(data.volume24h || 0)
+      const spreads = contracts.map(c => {
+        const ask = parseFloat((c.prices || {}).bestAsk || 0)
+        const bid = parseFloat((c.prices || {}).bestBid || 0)
+        return ask > 0 && bid > 0 ? ask - bid : null
+      }).filter(s => s !== null && s > 0)
+      const minSpread = spreads.length ? Math.min(...spreads) : null
+      return {
+        title: data.title,
+        topOutcomes: extracted.slice(0, 3),
+        stats: [
+          { label: "Volume",        value: fmtCompareNum(vol) },
+          { label: "24h Volume",    value: fmtCompareNum(vol24) },
+          { label: "Open Interest", value: "—" },
+          { label: "Best Spread",   value: minSpread != null ? Math.round(minSpread * 100) + "¢" : "—" },
+          { label: "Overround",     value: "~100%" },
+        ],
+      }
     }
   } catch (e) {}
-  return { title: "", topOutcomes: [] }
+  return { title: "", topOutcomes: [], stats: [] }
 }
 
 // Fetch one market URL and return { html, meta, platform, accent, rawData, error }
@@ -182,10 +218,19 @@ function renderComparison(results) {
         <span class="compare-outcome-pct" style="color:${o.color}">${o.pct}%</span>
       </div>`
     ).join("") || `<div class="compare-col-empty">No outcome data</div>`
+    const statsHtml = (meta.stats || []).length
+      ? `<div class="compare-stats">${(meta.stats).map(s =>
+          `<div class="compare-stat-row">
+            <span class="compare-stat-label">${esc(s.label)}</span>
+            <span class="compare-stat-value">${esc(s.value)}</span>
+          </div>`
+        ).join("")}</div>`
+      : ""
     return `<div class="compare-col">
       <span class="tag-platform" style="background:${accent};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
       <div class="compare-col-title">${esc(meta.title || "")}</div>
       ${outcomesHtml}
+      ${statsHtml}
     </div>`
   }).join("")
 
