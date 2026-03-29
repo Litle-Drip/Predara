@@ -45,7 +45,7 @@ function betSimulatorHtml(outcomes) {
     const n = outcomes
     outcomes = (n > 0 && n < 100) ? [{ label: "the leading outcome", pct: n, color: "#22c55e" }] : []
   }
-  const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100)
+  const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100).sort((a, b) => b.pct - a.pct)
   if (!valid.length) return ""
   const first = valid[0]
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
