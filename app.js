@@ -116,7 +116,14 @@ async function analyze() {
   const shareBarEl = document.getElementById("shareBar")
   if (shareBarEl) shareBarEl.style.display = "none"
 
-  result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>ANALYZING</div>`
+  // Detect platform early for a contextual loading message
+  const earlyLower = url.toLowerCase()
+  const loadingPlatform = earlyLower.includes("kalshi") ? "KALSHI"
+    : earlyLower.includes("polymarket") ? "POLYMARKET"
+    : earlyLower.includes("coinbase") ? "COINBASE"
+    : earlyLower.includes("gemini") ? "GEMINI"
+    : ""
+  result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>ANALYZING${loadingPlatform ? " " + loadingPlatform : ""}\u2026</div>`
 
   function resetBtn() {
     _analyzing = false

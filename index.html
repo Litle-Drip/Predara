@@ -530,9 +530,9 @@
     .odds-toggle:hover { border-color: var(--orange); color: var(--orange); }
     body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--orange); }
 
-    /* odds-display: container for pct + ml, inherits outcome color */
-    .odds-display { display: flex; align-items: center; }
-    .odds-display .outcome-ml { color: var(--muted); }
+    /* odds-display: pct stacked above ml, right-aligned */
+    .odds-display { display: flex; flex-direction: column; align-items: flex-end; }
+    .odds-display .outcome-ml { color: var(--muted); margin-left: 0; }
     /* ML mode: hide %, show moneyline large in outcome color */
     body.odds-ml .odds-display .outcome-pct { display: none; }
     body.odds-ml .odds-display .outcome-ml {
@@ -985,7 +985,7 @@
   </div>
 
   <div id="shareBar" class="share-bar" style="display:none">
-    <span>Analysis ready</span>
+    <span id="shareBarLabel">Analysis ready</span>
     <div style="display:flex;gap:6px">
       <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ REFRESH</button>
       <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>

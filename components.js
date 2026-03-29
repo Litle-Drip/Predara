@@ -47,13 +47,14 @@ function betSimulatorHtml(outcomes) {
   }
   const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100).sort((a, b) => b.pct - a.pct)
   if (!valid.length) return ""
-  const first = valid[0]
+  const capped = valid.slice(0, 4)
+  const first = capped[0]
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
   const prob = first.pct / 100
   const winPayout = (defaultBet / prob).toFixed(2)
   const profit = (winPayout - defaultBet).toFixed(2)
-  const tabsHtml = valid.length > 1
-    ? `<div class="bet-sim-tabs">${valid.map((o, i) => {
+  const tabsHtml = capped.length > 1
+    ? `<div class="bet-sim-tabs">${capped.map((o, i) => {
         const active = i === 0
         const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
         return `<button class="bet-sim-tab${active ? " active" : ""}" style="${s}"
@@ -71,7 +72,6 @@ function betSimulatorHtml(outcomes) {
           <span class="bet-sim-dollar">$</span>
           <input type="number" class="bet-sim-input" id="betSimInput" value="${defaultBet}" min="1" max="100000" step="1"
             oninput="updateBetSim()" />
-          <span class="bet-sim-label">on <strong id="betSimLabel">${esc(first.label)}</strong> at <strong id="betSimPct">${first.pct}%</strong></span>
         </div>
         <div class="bet-sim-results" id="betSimResults">
           <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
@@ -141,7 +141,7 @@ function calcAnalyticsRow(label, prob, ask, bid, color) {
 
 function analyticsCard(rows, timeLeft) {
   if ((!rows || !rows.length) && !timeLeft) return ""
-  const lines = rows.map(r => {
+  const lines = rows.map((r, idx) => {
     const parts = []
     parts.push(`<div class="info-row"><span class="info-key">${tip("BREAK-EVEN")}</span><span class="info-val val-muted">${r.breakEven}%</span></div>`)
     const evClass = r.ev > 0 ? "val-green" : r.ev < 0 ? "val-red" : "val-muted"
@@ -154,8 +154,9 @@ function analyticsCard(rows, timeLeft) {
       parts.push(`<div class="info-row"><span class="info-key">${tip("SPREAD QUALITY")}</span><span class="info-val ${spClass}">${r.spread}%</span></div>`)
     }
     const dotStyle = r.color ? ` style="color:${esc(r.color)}"` : ""
+    const sepStyle = rows.length > 1 && idx > 0 ? "border-top:1px solid var(--border);margin-top:4px;padding-top:8px;" : ""
     const labelHeader = rows.length > 1
-      ? `<div class="info-row" style="border-bottom:none;padding-bottom:4px"><span class="info-key" style="font-weight:600"><span${dotStyle}>●</span> ${esc(r.label)}</span></div>`
+      ? `<div class="info-row" style="border-bottom:none;padding-bottom:4px;${sepStyle}"><span class="info-key" style="font-weight:600"><span${dotStyle}>●</span> ${esc(r.label)}</span></div>`
       : ""
     return labelHeader + parts.join("")
   }).join("")

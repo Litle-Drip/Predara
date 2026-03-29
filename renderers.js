@@ -70,7 +70,7 @@ function renderMarket(norm, accent) {
     </div>` : ""}
 
     <div class="mi-card">
-      <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
+      <div class="section-label">CURRENT ODDS</div>
       ${outcomesHtml}
     </div>
 
