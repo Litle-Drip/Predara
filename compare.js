@@ -300,6 +300,24 @@ function addShareBar(marketUrl) {
   const copyBtn = document.getElementById("copyLinkBtn")
   if (copyBtn) copyBtn.textContent = "COPY LINK ↗"
 
+  // Set contextual label: "KALSHI · Market title..."
+  const labelEl = document.getElementById("shareBarLabel")
+  if (labelEl) {
+    const firstUrl = marketUrl.split("\n")[0]
+    const lower = firstUrl.toLowerCase()
+    const platform = lower.includes("kalshi") ? "KALSHI"
+      : lower.includes("polymarket") ? "POLYMARKET"
+      : lower.includes("coinbase") ? "COINBASE"
+      : lower.includes("gemini") ? "GEMINI"
+      : ""
+    const titleEl = document.querySelector("#result .event-title")
+    const title = titleEl ? titleEl.textContent.trim() : ""
+    const truncated = title.length > 45 ? title.slice(0, 44) + "…" : title
+    labelEl.textContent = platform && truncated
+      ? `${platform} · ${truncated}`
+      : platform || "Analysis ready"
+  }
+
   // Auto-expand compare markets section on event load
   if (!_compareMode) {
     _compareMode = true
