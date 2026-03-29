@@ -441,6 +441,16 @@
     }
     .bet-sim-win strong { color: var(--text-bright); }
     .bet-sim-lose strong { color: var(--text-bright); }
+    .bet-sim-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 16px 32px 0; }
+    .bet-sim-tab {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      padding: 4px 12px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+      font-family: inherit;
+    }
+    .bet-sim-tab:hover { border-color: var(--orange); color: var(--orange); }
 
     /* ── Tooltips ── */
     .tip {
@@ -974,7 +984,10 @@
 
   <div id="shareBar" class="share-bar" style="display:none">
     <span>Analysis ready</span>
-    <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
+    <div style="display:flex;gap:6px">
+      <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ REFRESH</button>
+      <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
+    </div>
   </div>
 
   <div id="result"><div class="empty-state">Paste a Kalshi, Polymarket, Gemini, or Coinbase market URL above to analyze odds, volume, and trading data.</div></div>
@@ -983,11 +996,11 @@
 
 </div>
 
-<script src="utils.js?v=6"></script>
-<script src="components.js?v=6"></script>
+<script src="utils.js?v=7"></script>
+<script src="components.js?v=7"></script>
 <script src="adapters.js?v=6"></script>
-<script src="renderers.js?v=6"></script>
-<script src="compare.js?v=6"></script>
+<script src="renderers.js?v=7"></script>
+<script src="compare.js?v=7"></script>
 <script src="app.js?v=6"></script>
 <script>
   (function () {
@@ -1019,6 +1032,17 @@
     const isML = document.body.classList.toggle('odds-ml')
     localStorage.setItem('predara-odds', isML ? 'ml' : 'pct')
     document.getElementById('oddsToggle').textContent = isML ? 'ML' : '%'
+  }
+
+  function refreshMarket() {
+    const btn = document.getElementById('refreshBtn')
+    if (btn) { btn.textContent = '↺ LOADING…'; btn.disabled = true }
+    const p = typeof analyzeCompare !== 'undefined' && document.getElementById('compareSection') && document.getElementById('compareSection').style.display !== 'none'
+      ? analyzeCompare()
+      : analyze()
+    Promise.resolve(p).finally(() => {
+      if (btn) { btn.textContent = '↺ REFRESH'; btn.disabled = false }
+    })
   }
 
   function copyShareLink() {

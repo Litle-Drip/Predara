@@ -40,22 +40,38 @@ function whatsTheBetCard(text) {
     </div>`
 }
 
-function betSimulatorHtml(pctYes) {
-  if (!pctYes || pctYes <= 0 || pctYes >= 100) return ""
-  const prob = pctYes / 100
+function betSimulatorHtml(outcomes) {
+  if (!Array.isArray(outcomes)) {
+    const n = outcomes
+    outcomes = (n > 0 && n < 100) ? [{ label: "the leading outcome", pct: n, color: "#22c55e" }] : []
+  }
+  const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100)
+  if (!valid.length) return ""
+  const first = valid[0]
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
+  const prob = first.pct / 100
   const winPayout = (defaultBet / prob).toFixed(2)
   const profit = (winPayout - defaultBet).toFixed(2)
+  const tabsHtml = valid.length > 1
+    ? `<div class="bet-sim-tabs">${valid.map((o, i) => {
+        const active = i === 0
+        const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
+        return `<button class="bet-sim-tab${active ? " active" : ""}" style="${s}"
+          data-pct="${o.pct}" data-label="${esc(o.label)}" data-color="${esc(o.color)}"
+          onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
+      }).join("")}</div>`
+    : ""
   return `
     <div class="mi-card bet-sim-card">
       <div class="section-label">BET CALCULATOR</div>
+      ${tabsHtml}
       <div class="bet-sim-body">
         <div class="bet-sim-input-row">
           <span class="bet-sim-label">If you bet</span>
           <span class="bet-sim-dollar">$</span>
           <input type="number" class="bet-sim-input" id="betSimInput" value="${defaultBet}" min="1" max="100000" step="1"
             oninput="updateBetSim()" />
-          <span class="bet-sim-label">on the leading outcome at <strong>${pctYes}%</strong></span>
+          <span class="bet-sim-label">on <strong id="betSimLabel">${esc(first.label)}</strong> at <strong id="betSimPct">${first.pct}%</strong></span>
         </div>
         <div class="bet-sim-results" id="betSimResults">
           <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
@@ -66,6 +82,27 @@ function betSimulatorHtml(pctYes) {
 }
 
 window._simMarket = { amount: 10, pct: 0, platform: "" }
+window.selectBetSimOutcome = function(btn) {
+  const pct = parseFloat(btn.dataset.pct)
+  const label = btn.dataset.label
+  const color = btn.dataset.color
+  window._simMarket.pct = pct
+  const labelEl = document.getElementById("betSimLabel")
+  const pctEl = document.getElementById("betSimPct")
+  if (labelEl) labelEl.textContent = label
+  if (pctEl) pctEl.textContent = pct + "%"
+  document.querySelectorAll(".bet-sim-tab").forEach(t => {
+    t.classList.remove("active")
+    t.style.borderColor = ""
+    t.style.color = ""
+    t.style.background = ""
+  })
+  btn.classList.add("active")
+  btn.style.borderColor = color
+  btn.style.color = color
+  btn.style.background = color + "22"
+  updateBetSim()
+}
 function updateBetSim() {
   const input = document.getElementById("betSimInput")
   const results = document.getElementById("betSimResults")

@@ -19,7 +19,7 @@ function renderMarket(norm, accent) {
   const outcomesHtml = buildOutcomesHtml(allRows)
 
   window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform }
-  const betSimHtml = betSimulatorHtml(norm.leadPct)
+  const betSimHtml = betSimulatorHtml(norm.outcomes)
 
   const analyticsRows = norm.analyticsSource.slice(0, 3)
     .map(c => calcAnalyticsRow(c.label, c.prob, c.ask, c.bid, c.color))

@@ -26,6 +26,9 @@ const GLOSSARY = {
   "START DATE":       "When this market or event was created on the platform.",
   "END DATE":         "The scheduled end date for this event on the platform — trading may close before or after the real-world event.",
   "PROJECTED PAYOUT": "If the current leader wins, how much each contract pays. Kalshi contracts always pay $1 on a win — profit depends on what you paid.",
+  "VOLUME":           "Total dollars that have changed hands since this market opened.",
+  "BEST SPREAD":      "The tightest bid-ask gap across all outcomes. Lower means cheaper to enter and exit positions.",
+  "OVERROUND":        "Sum of all outcome probabilities. 100% is fair; 103% means the exchange takes 3% — lower is better for traders.",
 }
 
 function esc(str) {
