@@ -34,7 +34,12 @@ function extractTopOutcomes(platform, data) {
         ],
       }
     }
-    if (platform === "polymarket" || platform === "coinbase") {
+    if (platform === "coinbase") {
+      // Coinbase uppercase-ticker URLs resolve through Kalshi — reuse that logic
+      if (data && data.event) return extractTopOutcomes("kalshi", data)
+      return { title: "", topOutcomes: [], stats: [] }
+    }
+    if (platform === "polymarket") {
       const event = Array.isArray(data) ? data[0] : data
       if (!event) return { title: "", topOutcomes: [], stats: [] }
       const all = []
