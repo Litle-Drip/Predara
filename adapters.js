@@ -210,7 +210,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const hasTimeline = !!(eventOpenTime || first.close_time || first.expected_expiration_time)
 
   // Analytics source
-  const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : sorted.slice(0, 1)).map((m, i) => {
+  const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : markets.length === 2 ? sorted.slice(0, 2) : sorted.slice(0, 1)).map((m, i) => {
     const lp  = parseFloat(m.last_price_dollars || 0)
     const bid = parseFloat(m.yes_bid_dollars || 0)
     let ask   = parseFloat(m.yes_ask_dollars || 0)
@@ -360,7 +360,8 @@ function normalizeGemini(event) {
     outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), color: OUTCOME_COLORS[1], delta: null })
     if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
-    contracts.forEach((c, idx) => {
+    const sortedContracts = [...contracts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+    sortedContracts.forEach((c, idx) => {
       const name  = geminiExtractName(c, `Outcome ${idx + 1}`)
       const price = geminiExtractPrice(c)
       const cp    = c.prices || {}
@@ -409,7 +410,7 @@ function normalizeGemini(event) {
     ? (contracts[0].closeDate || contracts[0].expiryDate || contracts[0].endDate || "")
     : ""
   const expiryIso = event.closeDate || event.expiryDate || event.endDate || contractCloseDate || event.resolvedAt || ""
-  const startIso  = event.openDate || event.startDate || event.effectiveDate || event.createdAt || ""
+  const startIso  = event.openDate || event.startDate || event.startTime || event.effectiveDate || event.createdAt || ""
 
   // Timeline
   const timelineRows = [
@@ -538,7 +539,7 @@ function normalizeGemini(event) {
     title: event.title || "Gemini Prediction Market",
     subtitle: "",
     statusDot, statusText,
-    resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
+    resolvedBanner: "", resolvedInfo, exclusiveTag: (!isBinary && contracts.length >= 2) ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : "", tagsHtml,
     staleIso: event.updatedAt || event.lastUpdated || "",
     closeIso: expiryIso,
     timelineRows, hasTimeline,
