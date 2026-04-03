@@ -160,7 +160,8 @@ async function analyze() {
           if (lastSegment && lastSegment !== "polymarket.com") eventPart = lastSegment
         }
         if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug> or a sports/esports market URL")
-        slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "")
+        // /event/<event-slug>/<market-slug> — only the event slug is needed
+        slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "").split("/")[0]
       } else {
         if (!lowerUrl.includes("/event/") && !lowerUrl.includes("/markets/") && !lowerUrl.includes("/predictions/")) {
           throw new Error("Invalid Coinbase URL. Expected: predict.coinbase.com/markets/<slug> or coinbase.com/predictions/<slug>")

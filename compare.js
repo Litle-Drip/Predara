@@ -118,7 +118,7 @@ async function fetchOneMarket(url) {
           if (lastSegment && lastSegment !== "polymarket.com") part = lastSegment
         }
         if (!part) return { error: "Invalid Polymarket URL", platform, accent }
-        slug = part.split("?")[0].split("#")[0].replace(/\/$/, "")
+        slug = part.split("?")[0].split("#")[0].replace(/\/$/, "").split("/")[0]
       } else {
         const clean = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
         slug = clean.split("/").pop()
