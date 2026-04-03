@@ -596,8 +596,18 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
 
     if (isCategorical) {
       hasCategorical = true
+      // Skip inactive/closed individual markets — their outcomePrices are stale
+      // and don't reflect the current market consensus.
+      if (market.active === false || market.closed === true || market.archived === true) return
+
       const prob = parseFloat(prices[0])
       const vol = parseFloat(market.volume || 0)
+
+      // Also skip markets that have never traded AND have no live orderbook —
+      // these are placeholder markets with synthetic 50/50 prices.
+      const hasLiveOrders = bestBid != null || bestAsk != null
+      if (vol === 0 && !hasLiveOrders) return
+
       categoricalEntries.push({
         label: groupLabel,
         prob: Number.isFinite(prob) ? prob : 0,
