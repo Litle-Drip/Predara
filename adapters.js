@@ -603,6 +603,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
         prob: Number.isFinite(prob) ? prob : 0,
         vol: Number.isFinite(vol) ? vol : 0,
         bestAsk, bestBid,
+        groupItemId: market.groupItemId || null,
       })
       return
     }
@@ -638,8 +639,20 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
 
   // For categorical markets: sort by odds desc, then volume desc; show top 10
   if (hasCategorical) {
-    categoricalEntries.sort((a, b) => b.prob - a.prob || b.vol - a.vol)
-    const top10 = categoricalEntries.slice(0, 10)
+    // Filter to the dominant groupItemId (the main categorical group).
+    // Events can contain stray standalone binary markets sharing the same event
+    // but with a different groupItemId — those would have wildly different
+    // probabilities and should be excluded.
+    const groupCounts = {}
+    categoricalEntries.forEach(e => {
+      if (e.groupItemId != null) groupCounts[e.groupItemId] = (groupCounts[e.groupItemId] || 0) + 1
+    })
+    const dominantGroupId = Object.keys(groupCounts).sort((a, b) => groupCounts[b] - groupCounts[a])[0]
+    const filtered = dominantGroupId
+      ? categoricalEntries.filter(e => e.groupItemId === dominantGroupId || e.groupItemId == null)
+      : categoricalEntries
+    filtered.sort((a, b) => b.prob - a.prob || b.vol - a.vol)
+    const top10 = filtered.slice(0, 10)
     top10.forEach(entry => {
       const pct = Math.round(entry.prob * 100)
       const volStr = entry.vol > 0 ? `$${fmtNum(entry.vol)} traded` : ""
