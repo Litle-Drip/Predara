@@ -781,20 +781,15 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     betExplainerText = `Bet YES if you think it happens, NO if you don't. Winning contracts pay $1 each.`
   }
 
-  // Rules — for categorical markets, use only the first market's description
-  // (not each candidate's question, which would just repeat "Will X win?" for every entry)
+  // Rules — only use the first market's description (or event description).
+  // For multi-market events (sports, categoricals) including all markets'
+  // descriptions/questions causes bleed-in from unrelated sub-markets and
+  // raw question strings that look like incomplete sentences.
   const ruleSentences = []
   const seenSentences = new Set()
-  const ruleSources = hasCategorical
-    ? [first.description || event.description || ""]
-    : markets.flatMap(m => [m.description || "", m.question || ""])
-  const seenTexts = new Set()
-  ruleSources.forEach(text => {
-    if (!text || seenTexts.has(text)) return
-    seenTexts.add(text)
-    plainEnglishRules(text).forEach(s => {
-      if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
-    })
+  const ruleText = first.description || event.description || ""
+  plainEnglishRules(ruleText).forEach(s => {
+    if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
   })
   const limitedRules = ruleSentences.slice(0, 8)
 
