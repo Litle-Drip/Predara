@@ -569,7 +569,9 @@ function normalizeGemini(event) {
 function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const outcomes = []
   const analyticsSource = []
+  const categoricalEntries = []
   let colorIdx = 0
+  let hasCategorical = false
 
   markets.forEach(market => {
     let outs, prices
@@ -583,6 +585,28 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     const rawBid = parseFloat(market.bestBid)
     const bestAsk = Number.isFinite(rawAsk) && rawAsk > 0 ? rawAsk : null
     const bestBid = Number.isFinite(rawBid) && rawBid > 0 ? rawBid : null
+
+    // Categorical market: each market in the event represents one named outcome
+    // (e.g. a candidate). groupItemTitle holds the outcome name; outcomes are
+    // always ["Yes","No"] so we only use the Yes (i=0) price as the probability.
+    const groupLabel = market.groupItemTitle || ""
+    const isCategorical = groupLabel && outs.length === 2 &&
+      outs[0] && outs[0].toLowerCase() === "yes" &&
+      outs[1] && outs[1].toLowerCase() === "no"
+
+    if (isCategorical) {
+      hasCategorical = true
+      const prob = parseFloat(prices[0])
+      const vol = parseFloat(market.volume || 0)
+      categoricalEntries.push({
+        label: groupLabel,
+        prob: Number.isFinite(prob) ? prob : 0,
+        vol: Number.isFinite(vol) ? vol : 0,
+        bestAsk, bestBid,
+        groupItemId: market.groupItemId || null,
+      })
+      return
+    }
 
     outs.forEach((name, i) => {
       if (i >= prices.length) return
@@ -612,6 +636,46 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       })
     })
   })
+
+  // For categorical markets: sort by odds desc, then volume desc; show top 10
+  if (hasCategorical) {
+    // Filter to the dominant groupItemId (the main categorical group).
+    // Events can contain stray standalone binary markets sharing the same event
+    // but with a different groupItemId — those would have wildly different
+    // probabilities and should be excluded.
+    const groupCounts = {}
+    categoricalEntries.forEach(e => {
+      if (e.groupItemId != null) groupCounts[e.groupItemId] = (groupCounts[e.groupItemId] || 0) + 1
+    })
+    const dominantGroupId = Object.keys(groupCounts).sort((a, b) => groupCounts[b] - groupCounts[a])[0]
+    const filtered = dominantGroupId
+      ? categoricalEntries.filter(e => e.groupItemId === dominantGroupId || e.groupItemId == null)
+      : categoricalEntries
+    filtered.sort((a, b) => b.prob - a.prob || b.vol - a.vol)
+    const top10 = filtered.slice(0, 10)
+    top10.forEach(entry => {
+      const pct = Math.round(entry.prob * 100)
+      const volStr = entry.vol > 0 ? `$${fmtNum(entry.vol)} traded` : ""
+      const out = {
+        label: entry.label, sub: volStr, pct,
+        color: OUTCOME_COLORS[colorIdx % OUTCOME_COLORS.length],
+        delta: null,
+        bid: entry.bestBid != null ? entry.bestBid : undefined,
+        ask: entry.bestAsk != null ? entry.bestAsk : undefined,
+      }
+      colorIdx++
+      outcomes.push(out)
+      if (entry.prob > 0) {
+        analyticsSource.push({
+          prob: entry.prob,
+          label: entry.label,
+          ask: out.ask != null ? out.ask : entry.prob,
+          bid: out.bid != null ? out.bid : entry.prob,
+          color: out.color,
+        })
+      }
+    })
+  }
 
   if (!outcomes.length) return null
 
