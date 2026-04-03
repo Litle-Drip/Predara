@@ -112,8 +112,10 @@ async function fetchOneMarket(url) {
       if (platform === "polymarket") {
         let part = expandedUrl.split("/event/")[1]
         if (!part) {
-          const sportsMatch = expandedUrl.match(/\/sports\/[^/?#]+\/([^/?#]+)/)
-          if (sportsMatch) part = sportsMatch[1]
+          // Support /sports/, /esports/, and other path-based URLs — use last path segment as slug
+          const cleanPath = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
+          const lastSegment = cleanPath.split("/").pop()
+          if (lastSegment && lastSegment !== "polymarket.com") part = lastSegment
         }
         if (!part) return { error: "Invalid Polymarket URL", platform, accent }
         slug = part.split("?")[0].split("#")[0].replace(/\/$/, "")
