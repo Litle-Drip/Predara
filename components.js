@@ -45,7 +45,7 @@ function whatsTheBetCard(text) {
   return `
     <div class="mi-card bet-explainer">
       <div class="section-label">WHAT'S THE BET?</div>
-      <div class="bet-explainer-body">${esc(text)}</div>
+      <div class="bet-explainer-body">${text}</div>
     </div>`
 }
 

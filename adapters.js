@@ -234,7 +234,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   if (!isMultiOutcome && markets.length === 2) {
     const labelA = sorted[0]?.yes_sub_title || "one outcome"
     const labelB = sorted[1]?.yes_sub_title || "the other outcome"
-    betExplainerText = `Pick a side: bet YES on ${labelA} if you think they win, or YES on ${labelB} if you think they win. Each contract pays $1 — only one side can resolve YES.`
+    betExplainerText = `Pick a side: bet YES on ${esc(labelA)} if you think they win, or YES on ${esc(labelB)} if you think they win. Each contract pays $1 — only one side can resolve YES.`
   } else if (!isMultiOutcome && first.rules_primary) {
     betExplainerText = first.rules_primary
       .split(/[.!?]\s/)[0]
@@ -249,8 +249,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const eventName = (ev.title || ev.event_ticker || "this event").replace(/[?!.]+$/, "").trim()
     const sampleOutcome = (sorted[0]?.yes_sub_title || "").replace(/[.!?]+$/, "")
     betExplainerText = sampleOutcome
-      ? `Bet on which outcome will happen for ${eventName} — for example, "${sampleOutcome}." You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
-      : `Bet on which outcome will happen for ${eventName}. You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
+      ? `Bet on which outcome will happen for ${esc(eventName)} — for example, &ldquo;${esc(sampleOutcome)}.&rdquo; You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
+      : `Bet on which outcome will happen for ${esc(eventName)}. You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
   }
 
   // Resolution sources — prefer structured settlement_sources, fall back to URLs in rules text
@@ -435,7 +435,7 @@ function normalizeGemini(event) {
       .slice(0, 3)
       .join(" ")
     // Only use if it contains substantive information beyond the title
-    if (candidate && candidate.trim() !== eventTitle) betExplainerText = candidate
+    if (candidate && candidate.trim() !== eventTitle) betExplainerText = esc(candidate)
   }
 
   // Rules — only use description if it contains actual resolution criteria,
@@ -734,19 +734,51 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   // Bet explainer
   let betExplainerText = ""
   const title = event.title || ""
+
+  // Detect sports matchup: "Padres vs Red Sox", "Man City v Arsenal", etc.
+  const vsMatch = title.match(/^(.+?)\s+v\.?s\.?\s+(.+)$/i)
+
   if (hasCategorical) {
     const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
-    // Use "who" for person-based markets (nominees, winners, CEOs, etc.),
-    // "what" for outcome-based markets (rate decisions, scores, prices, etc.)
+    const boldTitle = title ? `<strong>&ldquo;${esc(tidyTitle)}&rdquo;</strong>` : ""
     const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
-    const pronoun = isPersonMarket ? "who" : "what"
-    const subject = title ? `${pronoun} will be the ${tidyTitle}` : `${pronoun} will win`
-    betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    const isElection = /election/i.test(title)
+    // If the title is itself phrased as a question (starts with What/Who/Which/How/Will)
+    // don't wrap it in a "Pick what the ... will be" construction — just reference it directly.
+    const titleIsQuestion = /^(what|who|which|how|will|when)\b/i.test(title.trim())
+    let sentence
+    if (!title) {
+      sentence = `Pick who you think will win. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (titleIsQuestion) {
+      sentence = `Pick the outcome for ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (isElection) {
+      sentence = `Pick who will win ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (isPersonMarket) {
+      sentence = `Pick who will be the ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else {
+      sentence = `Pick the outcome for ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    }
+    betExplainerText = sentence
+  } else if (vsMatch) {
+    const teamA = esc(vsMatch[1].trim())
+    const teamB = esc(vsMatch[2].trim())
+    const q = first.question || first.groupItemTitle || ""
+    const isSpread  = /spread|handicap|cover/i.test(q)
+    const isTotal   = /total|over|under/i.test(q)
+    const isInning  = /inning|half|quarter|period/i.test(q)
+    if (isSpread) {
+      betExplainerText = `Bet on whether <strong>${teamA}</strong> covers the spread against <strong>${teamB}</strong>. YES pays $1 if they cover — NO pays $1 if they don't.`
+    } else if (isTotal) {
+      betExplainerText = `Bet on whether the combined score goes over or under the line in <strong>${teamA}</strong> vs <strong>${teamB}</strong>. Correct side pays $1 per contract.`
+    } else if (isInning) {
+      betExplainerText = `Bet on a specific game event in <strong>${teamA}</strong> vs <strong>${teamB}</strong>. YES pays $1 if it happens — NO pays $1 if it doesn't.`
+    } else {
+      betExplainerText = `Bet on the winner of <strong>${teamA}</strong> vs <strong>${teamB}</strong>. Back ${teamA} or ${teamB} — the winning side pays $1 per contract, the losing side expires at $0.`
+    }
   } else if (markets.length === 1) {
     const q = first.question || title
     if (q) {
-      // Strip leading "Will " and trailing "?" to form a clean subject
-      const subject = q.replace(/^will\s+/i, "").replace(/\?$/, "").trim()
+      const subject = esc(q.replace(/^will\s+/i, "").replace(/\?$/, "").trim())
       betExplainerText = `Bet YES if you think ${subject}. Bet NO if you don't. The winning side pays $1 per contract.`
     }
   }
@@ -754,40 +786,39 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     betExplainerText = `Bet YES if you think it happens, NO if you don't. Winning contracts pay $1 each.`
   }
 
-  // Rules
+  // Rules — only use the first market's description (or event description).
+  // For multi-market events (sports, categoricals) including all markets'
+  // descriptions/questions causes bleed-in from unrelated sub-markets and
+  // raw question strings that look like incomplete sentences.
   const ruleSentences = []
-  const seenTexts = new Set()
   const seenSentences = new Set()
-  markets.forEach(m => {
-    ;[m.description || "", m.question || ""].forEach(text => {
-      if (!text || seenTexts.has(text)) return
-      seenTexts.add(text)
-      plainEnglishRules(text).forEach(s => {
-        if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
-      })
-    })
+  const ruleText = first.description || event.description || ""
+  plainEnglishRules(ruleText).forEach(s => {
+    if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
   })
   const limitedRules = ruleSentences.slice(0, 8)
 
-  // Resolution source
-  let resSource = ""
+  // Resolution sources — check dedicated field first, then extract URLs from description
+  const resUrls = []
   for (const m of markets) {
     if (m.resolutionSource && typeof m.resolutionSource === "string") {
       try {
         const u = new URL(m.resolutionSource)
-        if (u.protocol === "http:" || u.protocol === "https:") { resSource = m.resolutionSource; break }
+        if ((u.protocol === "http:" || u.protocol === "https:") && !resUrls.includes(m.resolutionSource))
+          resUrls.push(m.resolutionSource)
       } catch(e) {}
     }
   }
-  let resSourceLabel = ""
-  if (resSource) {
-    try {
-      const u = new URL(resSource)
-      resSourceLabel = u.hostname.replace(/^www\./, "")
-    } catch { resSourceLabel = resSource.replace(/^https?:\/\//, "").split("/")[0] }
-  }
-  const resSourceHtml = resSource
-    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(resSource)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(resSourceLabel)}</a></span></div>`
+  // Also extract any https:// URLs embedded in the first market's description
+  const urlsInDesc = (first.description || event.description || "").match(/https?:\/\/[^\s"'<>)\]]+/g) || []
+  urlsInDesc.forEach(u => { if (!resUrls.includes(u)) resUrls.push(u) })
+
+  const resSourceHtml = resUrls.length
+    ? resUrls.map(url => {
+        let label = url
+        try { label = new URL(url).hostname.replace(/^www\./, "") } catch(e) {}
+        return `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(label)}</a></span></div>`
+      }).join("")
     : ""
 
   // Timeline
@@ -849,6 +880,21 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     subtitle: "",
     statusDot, statusText,
     resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
+    notification: (() => {
+      // Polymarket sometimes attaches a notifications array to events or markets
+      // when the framing/orientation has changed (e.g. Yes↔No swap, refund notice).
+      const sources = [event, first, ...markets.slice(1)]
+      for (const src of sources) {
+        const n = src.notifications || src.notification || src.alert || src.warning
+        if (!n) continue
+        if (Array.isArray(n) && n.length > 0) {
+          const msg = n[0].message || n[0].text || n[0].content || String(n[0])
+          if (msg && msg.length > 5) return msg
+        }
+        if (typeof n === "string" && n.length > 5) return n
+      }
+      return null
+    })(),
     staleIso: event.updatedAt || first.lastTradeTime || first.updatedAt || "",
     closeIso: event.endDate || "",
     timelineRows, hasTimeline,
