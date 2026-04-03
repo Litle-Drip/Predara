@@ -49,6 +49,12 @@ function renderMarket(norm, accent) {
 
     ${resolvedBoxHtml(norm.resolvedInfo)}
 
+    ${norm.notification ? `
+    <div class="mi-card market-notice">
+      <div class="market-notice-icon">⚠</div>
+      <div class="market-notice-text">${esc(norm.notification)}</div>
+    </div>` : ""}
+
     ${whatsTheBetCard(norm.betExplainerText)}
 
     ${hasRules ? `
