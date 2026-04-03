@@ -704,7 +704,12 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     .map(t => {
       const label = t.label || t.slug || String(t)
       const col = categoryColor(label)
-      return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${esc(label.toUpperCase())}</span>`
+      const isEarn = /^earn\b/i.test(label.trim())
+      const classes = isEarn ? "tag-cat tip" : "tag-cat"
+      const tipAttr = isEarn
+        ? ` data-tip="Polymarket rewards liquidity providers on this market. The % shown is the annualized return earned by placing resting limit orders (making markets)."`
+        : ""
+      return `<span class="${classes}" style="color:${col};border-color:${col};background:${col}1a"${tipAttr}>${esc(label.toUpperCase())}</span>`
     }).join("")
 
   analyticsSource.sort((a, b) => b.prob - a.prob)
