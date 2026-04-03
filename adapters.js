@@ -569,7 +569,9 @@ function normalizeGemini(event) {
 function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const outcomes = []
   const analyticsSource = []
+  const categoricalEntries = []
   let colorIdx = 0
+  let hasCategorical = false
 
   markets.forEach(market => {
     let outs, prices
@@ -593,26 +595,15 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       outs[1] && outs[1].toLowerCase() === "no"
 
     if (isCategorical) {
-      const pct = Math.round(parseFloat(prices[0] || 0) * 100)
-      const out = {
-        label: groupLabel, sub: "", pct,
-        color: OUTCOME_COLORS[colorIdx % OUTCOME_COLORS.length],
-        delta: null,
-        bid: bestBid != null ? bestBid : undefined,
-        ask: bestAsk != null ? bestAsk : undefined,
-      }
-      colorIdx++
-      outcomes.push(out)
+      hasCategorical = true
       const prob = parseFloat(prices[0])
-      if (Number.isFinite(prob) && prob > 0) {
-        analyticsSource.push({
-          prob,
-          label: groupLabel,
-          ask: out.ask != null ? out.ask : prob,
-          bid: out.bid != null ? out.bid : prob,
-          color: out.color,
-        })
-      }
+      const vol = parseFloat(market.volume || 0)
+      categoricalEntries.push({
+        label: groupLabel,
+        prob: Number.isFinite(prob) ? prob : 0,
+        vol: Number.isFinite(vol) ? vol : 0,
+        bestAsk, bestBid,
+      })
       return
     }
 
@@ -644,6 +635,34 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       })
     })
   })
+
+  // For categorical markets: sort by odds desc, then volume desc; show top 10
+  if (hasCategorical) {
+    categoricalEntries.sort((a, b) => b.prob - a.prob || b.vol - a.vol)
+    const top10 = categoricalEntries.slice(0, 10)
+    top10.forEach(entry => {
+      const pct = Math.round(entry.prob * 100)
+      const volStr = entry.vol > 0 ? `$${fmtNum(entry.vol)} traded` : ""
+      const out = {
+        label: entry.label, sub: volStr, pct,
+        color: OUTCOME_COLORS[colorIdx % OUTCOME_COLORS.length],
+        delta: null,
+        bid: entry.bestBid != null ? entry.bestBid : undefined,
+        ask: entry.bestAsk != null ? entry.bestAsk : undefined,
+      }
+      colorIdx++
+      outcomes.push(out)
+      if (entry.prob > 0) {
+        analyticsSource.push({
+          prob: entry.prob,
+          label: entry.label,
+          ask: out.ask != null ? out.ask : entry.prob,
+          bid: out.bid != null ? out.bid : entry.prob,
+          color: out.color,
+        })
+      }
+    })
+  }
 
   if (!outcomes.length) return null
 
