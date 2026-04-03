@@ -859,6 +859,21 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     subtitle: "",
     statusDot, statusText,
     resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
+    notification: (() => {
+      // Polymarket sometimes attaches a notifications array to events or markets
+      // when the framing/orientation has changed (e.g. Yes↔No swap, refund notice).
+      const sources = [event, first, ...markets.slice(1)]
+      for (const src of sources) {
+        const n = src.notifications || src.notification || src.alert || src.warning
+        if (!n) continue
+        if (Array.isArray(n) && n.length > 0) {
+          const msg = n[0].message || n[0].text || n[0].content || String(n[0])
+          if (msg && msg.length > 5) return msg
+        }
+        if (typeof n === "string" && n.length > 5) return n
+      }
+      return null
+    })(),
     staleIso: event.updatedAt || first.lastTradeTime || first.updatedAt || "",
     closeIso: event.endDate || "",
     timelineRows, hasTimeline,
