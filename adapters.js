@@ -584,6 +584,38 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     const bestAsk = Number.isFinite(rawAsk) && rawAsk > 0 ? rawAsk : null
     const bestBid = Number.isFinite(rawBid) && rawBid > 0 ? rawBid : null
 
+    // Categorical market: each market in the event represents one named outcome
+    // (e.g. a candidate). groupItemTitle holds the outcome name; outcomes are
+    // always ["Yes","No"] so we only use the Yes (i=0) price as the probability.
+    const groupLabel = market.groupItemTitle || ""
+    const isCategorical = groupLabel && outs.length === 2 &&
+      outs[0] && outs[0].toLowerCase() === "yes" &&
+      outs[1] && outs[1].toLowerCase() === "no"
+
+    if (isCategorical) {
+      const pct = Math.round(parseFloat(prices[0] || 0) * 100)
+      const out = {
+        label: groupLabel, sub: "", pct,
+        color: OUTCOME_COLORS[colorIdx % OUTCOME_COLORS.length],
+        delta: null,
+        bid: bestBid != null ? bestBid : undefined,
+        ask: bestAsk != null ? bestAsk : undefined,
+      }
+      colorIdx++
+      outcomes.push(out)
+      const prob = parseFloat(prices[0])
+      if (Number.isFinite(prob) && prob > 0) {
+        analyticsSource.push({
+          prob,
+          label: groupLabel,
+          ask: out.ask != null ? out.ask : prob,
+          bid: out.bid != null ? out.bid : prob,
+          color: out.color,
+        })
+      }
+      return
+    }
+
     outs.forEach((name, i) => {
       if (i >= prices.length) return
       const pct = Math.round(parseFloat(prices[i] || 0) * 100)
