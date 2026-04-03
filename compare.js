@@ -42,8 +42,13 @@ function extractTopOutcomes(platform, data) {
     if (platform === "polymarket") {
       const event = Array.isArray(data) ? data[0] : data
       if (!event) return { title: "", topOutcomes: [], stats: [] }
+      const allMarkets = event.markets || []
+      // Mirror the adapter's moneyline filter for sports events
+      const isSportsEvent = allMarkets.some(m => m.sportsMarketType)
+      const mlOnly = isSportsEvent ? allMarkets.filter(m => m.sportsMarketType === "moneyline") : []
+      const markets = isSportsEvent ? (mlOnly.length ? mlOnly : allMarkets.slice(0, 1)) : allMarkets
       const all = []
-      ;(event.markets || []).forEach(market => {
+      markets.forEach(market => {
         let outcomes, prices
         try {
           outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
@@ -55,7 +60,23 @@ function extractTopOutcomes(platform, data) {
         })
       })
       all.sort((a, b) => b.pct - a.pct)
-      return { title: event.title || "", topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })), stats: [] }
+      const spreads = markets.map(m => {
+        const ask = parseFloat(m.bestAsk || 0)
+        const bid = parseFloat(m.bestBid || 0)
+        return ask > 0 && bid > 0 ? ask - bid : null
+      }).filter(s => s !== null && s > 0)
+      const minSpread = spreads.length ? Math.min(...spreads) : null
+      return {
+        title: event.title || "",
+        topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })),
+        stats: [
+          { label: "Volume",        value: fmtCompareNum(parseFloat(event.volume || 0)) },
+          { label: "24h Volume",    value: fmtCompareNum(parseFloat(event.volume24hr || 0)) },
+          { label: "Open Interest", value: fmtCompareNum(parseFloat(event.openInterest || 0)) },
+          { label: "Liquidity",     value: fmtCompareNum(parseFloat(event.liquidity || 0)) },
+          { label: "Best Spread",   value: minSpread != null ? Math.round(minSpread * 100) + "¢" : "—" },
+        ],
+      }
     }
     if (platform === "gemini") {
       if (!data || !data.title) return { title: "", topOutcomes: [], stats: [] }
