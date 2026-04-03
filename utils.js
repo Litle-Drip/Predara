@@ -87,16 +87,86 @@ function fmtDateTime(iso) {
   })
 }
 
+// ── Country flag colors ────────────────────────────────────────────────────────
+const COUNTRY_COLORS = {
+  // Americas
+  "united states": "#B22234", "usa": "#B22234", "us election": "#B22234", "us": "#B22234",
+  "brazil": "#009c3b", "brasil": "#009c3b",
+  "canada": "#FF0000",
+  "mexico": "#006847",
+  "argentina": "#74ACDF",
+  "colombia": "#FCD116",
+  "chile": "#D52B1E",
+  "peru": "#D91023",
+  "venezuela": "#CF142B",
+  // Europe
+  "united kingdom": "#012169", "uk": "#012169", "britain": "#012169", "england": "#CF142B",
+  "france": "#002395",
+  "germany": "#FFCE00",
+  "italy": "#009246",
+  "spain": "#AA151B",
+  "ukraine": "#005BBB",
+  "russia": "#D52B1E",
+  "netherlands": "#AE1C28",
+  "sweden": "#006AA7",
+  "norway": "#EF2B2D",
+  "switzerland": "#FF0000",
+  "poland": "#DC143C",
+  "portugal": "#006600",
+  "greece": "#0D5EAF",
+  "turkey": "#E30A17",
+  // Asia
+  "china": "#DE2910",
+  "japan": "#BC002D",
+  "india": "#FF9933",
+  "south korea": "#CD2E3A", "korea": "#CD2E3A",
+  "taiwan": "#003F87",
+  "iran": "#239f40",
+  "israel": "#0038b8",
+  "saudi arabia": "#006C35",
+  "pakistan": "#01411C",
+  "indonesia": "#CE1126",
+  "philippines": "#0038A8",
+  "vietnam": "#DA251D",
+  "thailand": "#A51931",
+  // Africa / Oceania
+  "south africa": "#007A4D",
+  "nigeria": "#008751",
+  "egypt": "#CE1126",
+  "kenya": "#006600",
+  "australia": "#00008B",
+  "new zealand": "#00247D",
+}
+
+function countryColor(label) {
+  const lower = (label || "").toLowerCase().trim()
+  for (const [key, color] of Object.entries(COUNTRY_COLORS)) {
+    if (lower === key || lower.startsWith(key + " ") || lower.endsWith(" " + key)) return color
+  }
+  return null
+}
+
+// ── Category / topic colors ────────────────────────────────────────────────────
 function categoryColor(cat) {
   const c = (cat || "").toLowerCase()
-  if (/politi|election|govern|democrat|republican|senate|congress|president/.test(c)) return "#3b82f6"
-  if (/sport|golf|pga|nfl|nba|mlb|nhl|soccer|tennis|football|basketball|baseball|hockey|ufc|fight/.test(c)) return "#22c55e"
-  if (/financ|econom|gdp|inflation|fed|rate|stock|market|bond|yield/.test(c)) return "#f59e0b"
-  if (/crypto|bitcoin|btc|ethereum|eth|web3|token|coin/.test(c)) return "#6366f1"
-  if (/tech|science|space|ai|software|computer/.test(c)) return "#06b6d4"
-  if (/entertain|culture|celebrity|award|movie|music|tv|film|oscar|grammy/.test(c)) return "#a855f7"
-  if (/health|medical|covid|drug|pharma|disease/.test(c)) return "#ec4899"
-  if (/business|company|corporate|ceo|merger|ipo/.test(c)) return "#f97316"
+
+  // Country check first
+  const cc = countryColor(c)
+  if (cc) return cc
+
+  // Topics — consistent across all platforms
+  if (/politi|election|govern|democrat|republican|senate|congress|president|primar|ballot|vote/.test(c)) return "#3b82f6"
+  if (/sport|golf|pga|nfl|nba|mlb|nhl|soccer|tennis|football|basketball|baseball|hockey|ufc|fight|esport|dota|league of legends|chess|cricket|rugby/.test(c)) return "#22c55e"
+  if (/financ|econom|gdp|inflation|fed|rate|stock|market|bond|yield|trade|tariff|deficit/.test(c)) return "#f59e0b"
+  if (/crypto|bitcoin|btc|ethereum|eth|web3|token|coin|defi|nft/.test(c)) return "#6366f1"
+  if (/tech|science|space|ai|artificial intel|software|computer|nasa|rocket/.test(c)) return "#06b6d4"
+  if (/entertain|culture|celebrity|award|movie|music|tv|film|oscar|grammy|emmy/.test(c)) return "#a855f7"
+  if (/health|medical|covid|drug|pharma|disease|fda|vaccine/.test(c)) return "#ec4899"
+  if (/business|company|corporate|ceo|merger|ipo|acquisition/.test(c)) return "#f97316"
+  if (/geopolit|war|conflict|military|sanction|nato|iran|nuclear/.test(c)) return "#ef4444"
+  if (/weather|climate|hurricane|earthquake|natural/.test(c)) return "#0ea5e9"
+  if (/legal|court|law|trial|verdict|justice|supreme/.test(c)) return "#a16207"
+  if (/world election|global election/.test(c)) return "#3b82f6"
   return "#6b7280"
 }
 
