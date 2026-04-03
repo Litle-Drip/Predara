@@ -717,19 +717,19 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
 
   // Bet explainer
   let betExplainerText = ""
-  const firstDesc = first.description || first.question || event.description || ""
-  if (firstDesc) {
-    betExplainerText = applyResolveText(firstDesc)
-      .split(/(?<=[.!?])\s+/)
-      .filter(s => s.trim().length > 10)
-      .slice(0, 3)
-      .join(" ")
+  const title = event.title || ""
+  if (hasCategorical) {
+    betExplainerText = `Pick who you think will win. The correct pick pays $1 per contract — wrong picks expire at $0.`
+  } else if (markets.length === 1) {
+    const q = first.question || title
+    if (q) {
+      // Strip leading "Will " and trailing "?" to form a clean subject
+      const subject = q.replace(/^will\s+/i, "").replace(/\?$/, "").trim()
+      betExplainerText = `Bet YES if you think ${subject}. Bet NO if you don't. The winning side pays $1 per contract.`
+    }
   }
-  if (!betExplainerText && markets.length > 1) {
-    betExplainerText = `Pick which outcome you think will happen. You win if your chosen outcome is correct.`
-  }
-  if (!betExplainerText && event.title) {
-    betExplainerText = `This market is about: ${event.title}. Check the outcomes below to see the options and their current odds.`
+  if (!betExplainerText) {
+    betExplainerText = `Bet YES if you think it happens, NO if you don't. Winning contracts pay $1 each.`
   }
 
   // Rules
