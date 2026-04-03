@@ -736,16 +736,24 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const title = event.title || ""
   if (hasCategorical) {
     const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
-    // Use "who" for person-based markets (nominees, winners, CEOs, etc.),
-    // "what" for outcome-based markets (rate decisions, scores, prices, etc.)
     const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
-    const pronoun = isPersonMarket ? "who" : "what"
-    const subject = title ? `${pronoun} will be the ${tidyTitle}` : `${pronoun} will win`
+    const isElection = /election/i.test(title)
+    let subject
+    if (!title) {
+      subject = "who will win"
+    } else if (isElection) {
+      // "Brazil Presidential Election" → "who will win the Brazil Presidential Election"
+      subject = `who will win the ${tidyTitle}`
+    } else if (isPersonMarket) {
+      // "Democratic Presidential Nominee 2028" → "who will be the Democratic Presidential Nominee in 2028"
+      subject = `who will be the ${tidyTitle}`
+    } else {
+      subject = `what the ${tidyTitle} will be`
+    }
     betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
   } else if (markets.length === 1) {
     const q = first.question || title
     if (q) {
-      // Strip leading "Will " and trailing "?" to form a clean subject
       const subject = q.replace(/^will\s+/i, "").replace(/\?$/, "").trim()
       betExplainerText = `Bet YES if you think ${subject}. Bet NO if you don't. The winning side pays $1 per contract.`
     }
@@ -754,17 +762,19 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     betExplainerText = `Bet YES if you think it happens, NO if you don't. Winning contracts pay $1 each.`
   }
 
-  // Rules
+  // Rules — for categorical markets, use only the first market's description
+  // (not each candidate's question, which would just repeat "Will X win?" for every entry)
   const ruleSentences = []
-  const seenTexts = new Set()
   const seenSentences = new Set()
-  markets.forEach(m => {
-    ;[m.description || "", m.question || ""].forEach(text => {
-      if (!text || seenTexts.has(text)) return
-      seenTexts.add(text)
-      plainEnglishRules(text).forEach(s => {
-        if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
-      })
+  const ruleSources = hasCategorical
+    ? [first.description || event.description || ""]
+    : markets.flatMap(m => [m.description || "", m.question || ""])
+  const seenTexts = new Set()
+  ruleSources.forEach(text => {
+    if (!text || seenTexts.has(text)) return
+    seenTexts.add(text)
+    plainEnglishRules(text).forEach(s => {
+      if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
     })
   })
   const limitedRules = ruleSentences.slice(0, 8)
