@@ -573,6 +573,15 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   let colorIdx = 0
   let hasCategorical = false
 
+  // Sports events (NBA, NFL, etc.) return 40+ sub-markets per game:
+  // one moneyline + many spread lines + totals + player props.
+  // Only the moneyline market should drive the outcomes display.
+  const isSportsEvent = markets.some(m => m.sportsMarketType)
+  if (isSportsEvent) {
+    const moneyline = markets.filter(m => m.sportsMarketType === "moneyline")
+    markets = moneyline.length > 0 ? moneyline : markets.slice(0, 1)
+  }
+
   markets.forEach(market => {
     let outs, prices
     try {
