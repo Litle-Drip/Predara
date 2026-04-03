@@ -719,9 +719,12 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   let betExplainerText = ""
   const title = event.title || ""
   if (hasCategorical) {
-    // "Republican Presidential Nominee 2028" → "Pick who you think will be the Republican Presidential Nominee in 2028."
     const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
-    const subject = title ? `who will be the ${tidyTitle}` : "who will win"
+    // Use "who" for person-based markets (nominees, winners, CEOs, etc.),
+    // "what" for outcome-based markets (rate decisions, scores, prices, etc.)
+    const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
+    const pronoun = isPersonMarket ? "who" : "what"
+    const subject = title ? `${pronoun} will be the ${tidyTitle}` : `${pronoun} will win`
     betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
   } else if (markets.length === 1) {
     const q = first.question || title
