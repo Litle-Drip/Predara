@@ -794,6 +794,24 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     const winners = definiteWinners.length > 0
       ? definiteWinners.map(o => o.label)
       : [outcomes.reduce((a, b) => a.pct > b.pct ? a : b).label]
+
+    // Runner-up: highest-volume non-winner from categorical entries
+    const winnerSet = new Set(winners)
+    const nonWinners = categoricalEntries.filter(e => !winnerSet.has(e.label))
+    const runnerUpEntry = nonWinners.length > 0
+      ? nonWinners.reduce((a, b) => b.vol > a.vol ? b : a)
+      : null
+    const runnerUp = runnerUpEntry && runnerUpEntry.vol > 0
+      ? { label: runnerUpEntry.label, vol: `$${fmtNum(runnerUpEntry.vol)}` }
+      : null
+
+    // Duration
+    const startMs = event.startDate ? new Date(event.startDate).getTime() : null
+    const endMs   = new Date(event.closedTime || event.endDate || "").getTime()
+    const durationDays = startMs && endMs && !isNaN(endMs)
+      ? Math.round((endMs - startMs) / 86400000)
+      : null
+
     resolvedInfo = {
       winners,
       winner: winners[0],
@@ -802,6 +820,10 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       value: null,
       totalVol: totalVol || null,
       isMultiOutcome: outcomes.length > 2,
+      runnerUp,
+      durationDays,
+      totalOutcomes: hasCategorical ? categoricalEntries.length : null,
+      winnersCount: winners.length,
     }
   }
 
