@@ -9,8 +9,11 @@ function resolvedBoxHtml(info) {
 
   const metaItems = []
   if (info.resolvedAt) metaItems.push({ key: "ENDED", val: fmtDateTime(info.resolvedAt) })
-  if (info.value)      metaItems.push({ key: "SETTLED AT", val: info.value })
+  if (info.durationDays != null) metaItems.push({ key: "MARKET RAN", val: `${info.durationDays} day${info.durationDays !== 1 ? "s" : ""}` })
   if (info.totalVol)   metaItems.push({ key: "TOTAL VOLUME", val: `$${info.totalVol}` })
+  if (info.value)      metaItems.push({ key: "SETTLED AT", val: info.value })
+  if (info.totalOutcomes) metaItems.push({ key: "OUTCOMES", val: `${info.winnersCount} of ${info.totalOutcomes} resolved YES` })
+  if (info.runnerUp)   metaItems.push({ key: "RUNNER-UP (BY VOLUME)", val: `${info.runnerUp.label} · ${info.runnerUp.vol}` })
 
   const metaHtml = metaItems.length
     ? `<div class="resolved-meta">${metaItems.map(i =>
