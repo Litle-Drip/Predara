@@ -950,10 +950,12 @@
 <div class="app">
 
   <div class="app-header">
-    <div class="app-logo">✦</div>
-    <div>
-      <div class="app-title">Predara</div>
-      <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="document.getElementById('urlInput').value='';document.getElementById('result').innerHTML='<div class=\'empty-state\'>Paste a Kalshi, Polymarket, Gemini, or Coinbase market URL above to analyze odds, volume, and trading data.</div>';document.getElementById('hint').textContent='';document.getElementById('hint').className='input-hint';document.getElementById('urlInput').classList.remove('input-valid','input-invalid');" title="Back to home">
+      <div class="app-logo">✦</div>
+      <div>
+        <div class="app-title">Predara</div>
+        <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
+      </div>
     </div>
     <div class="header-controls">
       <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
