@@ -598,6 +598,16 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       hasCategorical = true
       const prob = parseFloat(prices[0])
       const vol = parseFloat(market.volume || 0)
+
+      // For open events: skip inactive/closed individual markets (stale prices)
+      // and placeholder markets with no activity. For resolved events keep all
+      // markets so the historical result is still shown.
+      if (!event.closed) {
+        if (market.active === false || market.closed === true || market.archived === true) return
+        const hasLiveOrders = bestBid != null || bestAsk != null
+        if (vol === 0 && !hasLiveOrders) return
+      }
+
       categoricalEntries.push({
         label: groupLabel,
         prob: Number.isFinite(prob) ? prob : 0,
@@ -689,12 +699,33 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   let tags = event.tags || []
   if (typeof tags === "string") { try { tags = JSON.parse(tags) } catch(e) { tags = [] } }
   if (!Array.isArray(tags)) tags = []
-  const tagsHtml = tags
+  // Filter and deduplicate tags before rendering.
+  // 1. Drop internal Polymarket grouping tags (macro-*, numbered suffixes, etc.)
+  // 2. Drop tags that are substrings of another tag already in the set
+  //    e.g. "World" is redundant when "World Elections" is present
+  const INTERNAL_TAG_RE = /^macro[\s_-]|^\d+$|^(group|bucket|cat|tag)-?\d/i
+  const rawLabels = tags
     .filter(t => t != null)
-    .map(t => {
-      const label = t.label || t.slug || String(t)
-      const col = categoryColor(label)
-      return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${esc(label.toUpperCase())}</span>`
+    .map(t => (t.label || t.slug || String(t)).trim())
+    .filter(l => l && !INTERNAL_TAG_RE.test(l))
+
+  // Remove labels that are fully contained in a longer label (case-insensitive)
+  const dedupedLabels = rawLabels.filter((label, _, arr) => {
+    const lower = label.toLowerCase()
+    return !arr.some(other => {
+      const otherLower = other.toLowerCase()
+      return otherLower !== lower && otherLower.includes(lower)
+    })
+  })
+
+  const tagsHtml = dedupedLabels.map(label => {
+      const isEarn = /^earn\b/i.test(label.trim())
+      const col = isEarn ? "#c9a227" : categoryColor(label)
+      const classes = isEarn ? "tag-cat tip tip-bottom" : "tag-cat"
+      const tipAttr = isEarn
+        ? ` data-tip="Polymarket rewards liquidity providers on this market. The % shown is the annualized return earned by placing resting limit orders (making markets)."`
+        : ""
+      return `<span class="${classes}" style="color:${col};border-color:${col};background:${col}1a"${tipAttr}>${esc(label.toUpperCase())}</span>`
     }).join("")
 
   analyticsSource.sort((a, b) => b.prob - a.prob)
@@ -702,19 +733,25 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
 
   // Bet explainer
   let betExplainerText = ""
-  const firstDesc = first.description || first.question || event.description || ""
-  if (firstDesc) {
-    betExplainerText = applyResolveText(firstDesc)
-      .split(/(?<=[.!?])\s+/)
-      .filter(s => s.trim().length > 10)
-      .slice(0, 3)
-      .join(" ")
+  const title = event.title || ""
+  if (hasCategorical) {
+    const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
+    // Use "who" for person-based markets (nominees, winners, CEOs, etc.),
+    // "what" for outcome-based markets (rate decisions, scores, prices, etc.)
+    const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
+    const pronoun = isPersonMarket ? "who" : "what"
+    const subject = title ? `${pronoun} will be the ${tidyTitle}` : `${pronoun} will win`
+    betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+  } else if (markets.length === 1) {
+    const q = first.question || title
+    if (q) {
+      // Strip leading "Will " and trailing "?" to form a clean subject
+      const subject = q.replace(/^will\s+/i, "").replace(/\?$/, "").trim()
+      betExplainerText = `Bet YES if you think ${subject}. Bet NO if you don't. The winning side pays $1 per contract.`
+    }
   }
-  if (!betExplainerText && markets.length > 1) {
-    betExplainerText = `Pick which outcome you think will happen. You win if your chosen outcome is correct.`
-  }
-  if (!betExplainerText && event.title) {
-    betExplainerText = `This market is about: ${event.title}. Check the outcomes below to see the options and their current odds.`
+  if (!betExplainerText) {
+    betExplainerText = `Bet YES if you think it happens, NO if you don't. Winning contracts pay $1 each.`
   }
 
   // Rules
@@ -764,17 +801,47 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
-  const polyWinner = event.closed && outcomes.length > 0
-    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
-    : null
-  const resolvedInfo = (event.closed && polyWinner) ? {
-    winner: polyWinner.label,
-    resolution: outcomes.length === 2 ? (polyWinner.label === "No" ? "no" : "yes") : "",
-    resolvedAt: event.closedTime || event.endDate || "",
-    value: null,
-    totalVol: totalVol || null,
-    isMultiOutcome: outcomes.length > 2,
-  } : null
+  let resolvedInfo = null
+  if (event.closed && outcomes.length > 0) {
+    // Collect all YES-resolved outcomes (pct === 100). For events where
+    // multiple outcomes resolved YES (e.g. "who did Trump talk to?"), show
+    // all of them. Fall back to the highest-probability outcome if none hit 100.
+    const definiteWinners = outcomes.filter(o => o.pct === 100)
+    const winners = definiteWinners.length > 0
+      ? definiteWinners.map(o => o.label)
+      : [outcomes.reduce((a, b) => a.pct > b.pct ? a : b).label]
+
+    // Runner-up: highest-volume non-winner from categorical entries
+    const winnerSet = new Set(winners)
+    const nonWinners = categoricalEntries.filter(e => !winnerSet.has(e.label))
+    const runnerUpEntry = nonWinners.length > 0
+      ? nonWinners.reduce((a, b) => b.vol > a.vol ? b : a)
+      : null
+    const runnerUp = runnerUpEntry && runnerUpEntry.vol > 0
+      ? { label: runnerUpEntry.label, vol: `$${fmtNum(runnerUpEntry.vol)}` }
+      : null
+
+    // Duration
+    const startMs = event.startDate ? new Date(event.startDate).getTime() : null
+    const endMs   = new Date(event.closedTime || event.endDate || "").getTime()
+    const durationDays = startMs && endMs && !isNaN(endMs)
+      ? Math.round((endMs - startMs) / 86400000)
+      : null
+
+    resolvedInfo = {
+      winners,
+      winner: winners[0],
+      resolution: outcomes.length === 2 ? (winners[0] === "No" ? "no" : "yes") : "",
+      resolvedAt: event.closedTime || event.endDate || "",
+      value: null,
+      totalVol: totalVol || null,
+      isMultiOutcome: outcomes.length > 2,
+      runnerUp,
+      durationDays,
+      totalOutcomes: hasCategorical ? categoricalEntries.length : null,
+      winnersCount: winners.length,
+    }
+  }
 
   return {
     platform: platformKey,

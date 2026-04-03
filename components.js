@@ -2,13 +2,18 @@ function resolvedBoxHtml(info) {
   if (!info) return ""
   const isNo = info.resolution === "no"
   const colorClass = isNo ? "resolved-no" : "resolved-yes"
-  const pillText = info.isMultiOutcome ? "WINNER" : (info.resolution ? info.resolution.toUpperCase() : "RESOLVED")
+  const winners = info.winners || (info.winner ? [info.winner] : [])
+  const multiWin = winners.length > 1
+  const pillText = multiWin ? "WINNERS" : (info.isMultiOutcome ? "WINNER" : (info.resolution ? info.resolution.toUpperCase() : "RESOLVED"))
   const checkMark = isNo ? "✗" : "✓"
 
   const metaItems = []
   if (info.resolvedAt) metaItems.push({ key: "ENDED", val: fmtDateTime(info.resolvedAt) })
-  if (info.value)      metaItems.push({ key: "SETTLED AT", val: info.value })
+  if (info.durationDays != null) metaItems.push({ key: "MARKET RAN", val: `${info.durationDays} day${info.durationDays !== 1 ? "s" : ""}` })
   if (info.totalVol)   metaItems.push({ key: "TOTAL VOLUME", val: `$${info.totalVol}` })
+  if (info.value)      metaItems.push({ key: "SETTLED AT", val: info.value })
+  if (info.totalOutcomes) metaItems.push({ key: "OUTCOMES", val: `${info.winnersCount} of ${info.totalOutcomes} resolved YES` })
+  if (info.runnerUp)   metaItems.push({ key: "RUNNER-UP (BY VOLUME)", val: `${info.runnerUp.label} · ${info.runnerUp.vol}` })
 
   const metaHtml = metaItems.length
     ? `<div class="resolved-meta">${metaItems.map(i =>
@@ -18,6 +23,10 @@ function resolvedBoxHtml(info) {
         </div>`).join("")}</div>`
     : ""
 
+  const winnersHtml = winners.map(w =>
+    `<div class="resolved-winner"><span class="resolved-check">${checkMark}</span> ${esc(w)}</div>`
+  ).join("")
+
   return `
     <div class="mi-card resolved-box ${colorClass}">
       <div class="resolved-header">
@@ -25,7 +34,7 @@ function resolvedBoxHtml(info) {
         <span class="resolved-pill">${esc(pillText)}</span>
       </div>
       <div class="resolved-body">
-        ${info.winner ? `<div class="resolved-winner"><span class="resolved-check">${checkMark}</span> ${esc(info.winner)}</div>` : ""}
+        ${winnersHtml}
         ${metaHtml}
       </div>
     </div>`
