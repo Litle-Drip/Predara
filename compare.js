@@ -110,7 +110,11 @@ async function fetchOneMarket(url) {
     if (platform === "polymarket" || platform === "coinbase") {
       let slug = ""
       if (platform === "polymarket") {
-        const part = expandedUrl.split("/event/")[1]
+        let part = expandedUrl.split("/event/")[1]
+        if (!part) {
+          const sportsMatch = expandedUrl.match(/\/sports\/[^/?#]+\/([^/?#]+)/)
+          if (sportsMatch) part = sportsMatch[1]
+        }
         if (!part) return { error: "Invalid Polymarket URL", platform, accent }
         slug = part.split("?")[0].split("#")[0].replace(/\/$/, "")
       } else {

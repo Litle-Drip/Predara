@@ -46,8 +46,8 @@ function onInputChange() {
     return
   }
   if (lower.includes("polymarket.com")) {
-    if (!lower.includes("/event/")) {
-      hint.textContent = "Polymarket URL needs /event/<slug>"
+    if (!lower.includes("/event/") && !lower.includes("/sports/")) {
+      hint.textContent = "Polymarket URL needs /event/<slug> or /sports/<sport>/<slug>"
       hint.className = "input-hint hint-error"
       input.classList.add("input-invalid"); input.classList.remove("input-valid")
     } else {
@@ -152,8 +152,13 @@ async function analyze() {
     try {
       let slug = ""
       if (platform === "polymarket") {
-        const eventPart = url.split("/event/")[1]
-        if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug>")
+        let eventPart = url.split("/event/")[1]
+        if (!eventPart) {
+          // Support /sports/<sport>/<slug> URLs
+          const sportsMatch = url.match(/\/sports\/[^/?#]+\/([^/?#]+)/)
+          if (sportsMatch) eventPart = sportsMatch[1]
+        }
+        if (!eventPart) throw new Error("Invalid Polymarket URL. Expected: polymarket.com/event/<slug> or /sports/<sport>/<slug>")
         slug = eventPart.split("?")[0].split("#")[0].replace(/\/$/, "")
       } else {
         if (!lowerUrl.includes("/event/") && !lowerUrl.includes("/markets/") && !lowerUrl.includes("/predictions/")) {
