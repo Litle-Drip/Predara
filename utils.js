@@ -221,6 +221,7 @@ function plainEnglishRules(rulesText) {
     .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
+    .filter(s => /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle)\b/i.test(s))
     .map(s => applyResolveText(s)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")
