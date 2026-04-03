@@ -798,25 +798,27 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   })
   const limitedRules = ruleSentences.slice(0, 8)
 
-  // Resolution source
-  let resSource = ""
+  // Resolution sources — check dedicated field first, then extract URLs from description
+  const resUrls = []
   for (const m of markets) {
     if (m.resolutionSource && typeof m.resolutionSource === "string") {
       try {
         const u = new URL(m.resolutionSource)
-        if (u.protocol === "http:" || u.protocol === "https:") { resSource = m.resolutionSource; break }
+        if ((u.protocol === "http:" || u.protocol === "https:") && !resUrls.includes(m.resolutionSource))
+          resUrls.push(m.resolutionSource)
       } catch(e) {}
     }
   }
-  let resSourceLabel = ""
-  if (resSource) {
-    try {
-      const u = new URL(resSource)
-      resSourceLabel = u.hostname.replace(/^www\./, "")
-    } catch { resSourceLabel = resSource.replace(/^https?:\/\//, "").split("/")[0] }
-  }
-  const resSourceHtml = resSource
-    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(resSource)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(resSourceLabel)}</a></span></div>`
+  // Also extract any https:// URLs embedded in the first market's description
+  const urlsInDesc = (first.description || event.description || "").match(/https?:\/\/[^\s"'<>)\]]+/g) || []
+  urlsInDesc.forEach(u => { if (!resUrls.includes(u)) resUrls.push(u) })
+
+  const resSourceHtml = resUrls.length
+    ? resUrls.map(url => {
+        let label = url
+        try { label = new URL(url).hostname.replace(/^www\./, "") } catch(e) {}
+        return `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(label)}</a></span></div>`
+      }).join("")
     : ""
 
   // Timeline
