@@ -719,7 +719,10 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   let betExplainerText = ""
   const title = event.title || ""
   if (hasCategorical) {
-    betExplainerText = `Pick who you think will win. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    // "Republican Presidential Nominee 2028" → "Pick who you think will be the Republican Presidential Nominee in 2028."
+    const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
+    const subject = title ? `who will be the ${tidyTitle}` : "who will win"
+    betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
   } else if (markets.length === 1) {
     const q = first.question || title
     if (q) {
