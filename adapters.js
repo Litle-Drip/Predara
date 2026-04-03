@@ -785,17 +785,25 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
-  const polyWinner = event.closed && outcomes.length > 0
-    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
-    : null
-  const resolvedInfo = (event.closed && polyWinner) ? {
-    winner: polyWinner.label,
-    resolution: outcomes.length === 2 ? (polyWinner.label === "No" ? "no" : "yes") : "",
-    resolvedAt: event.closedTime || event.endDate || "",
-    value: null,
-    totalVol: totalVol || null,
-    isMultiOutcome: outcomes.length > 2,
-  } : null
+  let resolvedInfo = null
+  if (event.closed && outcomes.length > 0) {
+    // Collect all YES-resolved outcomes (pct === 100). For events where
+    // multiple outcomes resolved YES (e.g. "who did Trump talk to?"), show
+    // all of them. Fall back to the highest-probability outcome if none hit 100.
+    const definiteWinners = outcomes.filter(o => o.pct === 100)
+    const winners = definiteWinners.length > 0
+      ? definiteWinners.map(o => o.label)
+      : [outcomes.reduce((a, b) => a.pct > b.pct ? a : b).label]
+    resolvedInfo = {
+      winners,
+      winner: winners[0],
+      resolution: outcomes.length === 2 ? (winners[0] === "No" ? "no" : "yes") : "",
+      resolvedAt: event.closedTime || event.endDate || "",
+      value: null,
+      totalVol: totalVol || null,
+      isMultiOutcome: outcomes.length > 2,
+    }
+  }
 
   return {
     platform: platformKey,
