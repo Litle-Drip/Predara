@@ -235,17 +235,25 @@ function showMoreOutcomes(uid) {
   let pool
   try { pool = JSON.parse(row.dataset.rows || "[]") } catch { return }
   if (!pool.length) return
-  const batch = pool.splice(0, PAGE_SIZE)
-  row.dataset.rows = JSON.stringify(pool)
-  const tmp = document.createElement("div")
-  tmp.innerHTML = batch.join("")
-  while (tmp.firstChild) row.parentNode.insertBefore(tmp.firstChild, row)
+  const revealed = document.createElement("div")
+  revealed.id = uid + "_revealed"
+  revealed.innerHTML = pool.join("")
+  row.parentNode.insertBefore(revealed, row)
+  row.dataset.rows = "[]"
   const btn = row.querySelector("button")
-  if (!pool.length) {
-    row.remove()
-  } else {
-    btn.textContent = `+ ${pool.length} MORE  ↓`
-  }
+  btn.textContent = "SHOW LESS  ↑"
+  btn.onclick = () => showLessOutcomes(uid, pool)
+}
+
+function showLessOutcomes(uid, pool) {
+  const revealed = document.getElementById(uid + "_revealed")
+  if (revealed) revealed.remove()
+  const row = document.getElementById(uid + "_smr")
+  if (!row) return
+  row.dataset.rows = JSON.stringify(pool)
+  const btn = row.querySelector("button")
+  btn.textContent = `+ ${pool.length} MORE  ↓`
+  btn.onclick = () => showMoreOutcomes(uid)
 }
 
 function buildOutcomesHtml(rows) {
