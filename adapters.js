@@ -234,7 +234,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   if (!isMultiOutcome && markets.length === 2) {
     const labelA = sorted[0]?.yes_sub_title || "one outcome"
     const labelB = sorted[1]?.yes_sub_title || "the other outcome"
-    betExplainerText = `Pick a side: bet YES on ${labelA} if you think they win, or YES on ${labelB} if you think they win. Each contract pays $1 — only one side can resolve YES.`
+    betExplainerText = `Pick a side: bet YES on ${esc(labelA)} if you think they win, or YES on ${esc(labelB)} if you think they win. Each contract pays $1 — only one side can resolve YES.`
   } else if (!isMultiOutcome && first.rules_primary) {
     betExplainerText = first.rules_primary
       .split(/[.!?]\s/)[0]
@@ -249,8 +249,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const eventName = (ev.title || ev.event_ticker || "this event").replace(/[?!.]+$/, "").trim()
     const sampleOutcome = (sorted[0]?.yes_sub_title || "").replace(/[.!?]+$/, "")
     betExplainerText = sampleOutcome
-      ? `Bet on which outcome will happen for ${eventName} — for example, "${sampleOutcome}." You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
-      : `Bet on which outcome will happen for ${eventName}. You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
+      ? `Bet on which outcome will happen for ${esc(eventName)} — for example, &ldquo;${esc(sampleOutcome)}.&rdquo; You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
+      : `Bet on which outcome will happen for ${esc(eventName)}. You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
   }
 
   // Resolution sources — prefer structured settlement_sources, fall back to URLs in rules text
@@ -435,7 +435,7 @@ function normalizeGemini(event) {
       .slice(0, 3)
       .join(" ")
     // Only use if it contains substantive information beyond the title
-    if (candidate && candidate.trim() !== eventTitle) betExplainerText = candidate
+    if (candidate && candidate.trim() !== eventTitle) betExplainerText = esc(candidate)
   }
 
   // Rules — only use description if it contains actual resolution criteria,
@@ -740,40 +740,45 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
 
   if (hasCategorical) {
     const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
+    const boldTitle = title ? `<strong>&ldquo;${esc(tidyTitle)}&rdquo;</strong>` : ""
     const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
     const isElection = /election/i.test(title)
-    let subject
+    // If the title is itself phrased as a question (starts with What/Who/Which/How/Will)
+    // don't wrap it in a "Pick what the ... will be" construction — just reference it directly.
+    const titleIsQuestion = /^(what|who|which|how|will|when)\b/i.test(title.trim())
+    let sentence
     if (!title) {
-      subject = "who will win"
+      sentence = `Pick who you think will win. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (titleIsQuestion) {
+      sentence = `Pick the outcome for ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
     } else if (isElection) {
-      subject = `who will win the ${tidyTitle}`
+      sentence = `Pick who will win ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
     } else if (isPersonMarket) {
-      subject = `who will be the ${tidyTitle}`
+      sentence = `Pick who will be the ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
     } else {
-      subject = `what the ${tidyTitle} will be`
+      sentence = `Pick the outcome for ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
     }
-    betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    betExplainerText = sentence
   } else if (vsMatch) {
-    const teamA = vsMatch[1].trim()
-    const teamB = vsMatch[2].trim()
-    // Describe based on the first/main market question if available
+    const teamA = esc(vsMatch[1].trim())
+    const teamB = esc(vsMatch[2].trim())
     const q = first.question || first.groupItemTitle || ""
     const isSpread  = /spread|handicap|cover/i.test(q)
     const isTotal   = /total|over|under/i.test(q)
     const isInning  = /inning|half|quarter|period/i.test(q)
     if (isSpread) {
-      betExplainerText = `Bet on whether ${teamA} covers the spread against ${teamB}. YES pays $1 if they cover — NO pays $1 if they don't.`
+      betExplainerText = `Bet on whether <strong>${teamA}</strong> covers the spread against <strong>${teamB}</strong>. YES pays $1 if they cover — NO pays $1 if they don't.`
     } else if (isTotal) {
-      betExplainerText = `Bet on whether the combined score goes over or under the line in ${teamA} vs ${teamB}. Correct side pays $1 per contract.`
+      betExplainerText = `Bet on whether the combined score goes over or under the line in <strong>${teamA}</strong> vs <strong>${teamB}</strong>. Correct side pays $1 per contract.`
     } else if (isInning) {
-      betExplainerText = `Bet on a specific game event in ${teamA} vs ${teamB}. YES pays $1 if it happens — NO pays $1 if it doesn't.`
+      betExplainerText = `Bet on a specific game event in <strong>${teamA}</strong> vs <strong>${teamB}</strong>. YES pays $1 if it happens — NO pays $1 if it doesn't.`
     } else {
-      betExplainerText = `Bet on the winner of ${teamA} vs ${teamB}. Back ${teamA} or ${teamB} — the winning side pays $1 per contract, the losing side expires at $0.`
+      betExplainerText = `Bet on the winner of <strong>${teamA}</strong> vs <strong>${teamB}</strong>. Back ${teamA} or ${teamB} — the winning side pays $1 per contract, the losing side expires at $0.`
     }
   } else if (markets.length === 1) {
     const q = first.question || title
     if (q) {
-      const subject = q.replace(/^will\s+/i, "").replace(/\?$/, "").trim()
+      const subject = esc(q.replace(/^will\s+/i, "").replace(/\?$/, "").trim())
       betExplainerText = `Bet YES if you think ${subject}. Bet NO if you don't. The winning side pays $1 per contract.`
     }
   }
