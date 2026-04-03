@@ -734,6 +734,10 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   // Bet explainer
   let betExplainerText = ""
   const title = event.title || ""
+
+  // Detect sports matchup: "Padres vs Red Sox", "Man City v Arsenal", etc.
+  const vsMatch = title.match(/^(.+?)\s+v\.?s\.?\s+(.+)$/i)
+
   if (hasCategorical) {
     const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
     const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
@@ -742,15 +746,30 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     if (!title) {
       subject = "who will win"
     } else if (isElection) {
-      // "Brazil Presidential Election" → "who will win the Brazil Presidential Election"
       subject = `who will win the ${tidyTitle}`
     } else if (isPersonMarket) {
-      // "Democratic Presidential Nominee 2028" → "who will be the Democratic Presidential Nominee in 2028"
       subject = `who will be the ${tidyTitle}`
     } else {
       subject = `what the ${tidyTitle} will be`
     }
     betExplainerText = `Pick ${subject}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+  } else if (vsMatch) {
+    const teamA = vsMatch[1].trim()
+    const teamB = vsMatch[2].trim()
+    // Describe based on the first/main market question if available
+    const q = first.question || first.groupItemTitle || ""
+    const isSpread  = /spread|handicap|cover/i.test(q)
+    const isTotal   = /total|over|under/i.test(q)
+    const isInning  = /inning|half|quarter|period/i.test(q)
+    if (isSpread) {
+      betExplainerText = `Bet on whether ${teamA} covers the spread against ${teamB}. YES pays $1 if they cover — NO pays $1 if they don't.`
+    } else if (isTotal) {
+      betExplainerText = `Bet on whether the combined score goes over or under the line in ${teamA} vs ${teamB}. Correct side pays $1 per contract.`
+    } else if (isInning) {
+      betExplainerText = `Bet on a specific game event in ${teamA} vs ${teamB}. YES pays $1 if it happens — NO pays $1 if it doesn't.`
+    } else {
+      betExplainerText = `Bet on the winner of ${teamA} vs ${teamB}. Back ${teamA} or ${teamB} — the winning side pays $1 per contract, the losing side expires at $0.`
+    }
   } else if (markets.length === 1) {
     const q = first.question || title
     if (q) {
