@@ -1,6 +1,6 @@
 const PLATFORMS = {
   kalshi:     { label: "KALSHI",     accent: "#00C805" },
-  polymarket: { label: "POLYMARKET", accent: "#7B3FE4" },
+  polymarket: { label: "POLYMARKET", accent: "#0070f3" },
   gemini:     { label: "GEMINI",     accent: "#00DCFA" },
   coinbase:   { label: "COINBASE",   accent: "#1652F0" },
 }
