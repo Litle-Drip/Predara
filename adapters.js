@@ -374,10 +374,12 @@ function normalizeGemini(event) {
       outcomes.push(out)
       if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
     })
-    // Normalize raw prices to sum to exactly 100%, eliminating over-round from bid/ask spread.
-    const rawSum = outcomes.reduce((s, o) => s + (o._rawPrice || 0), 0)
+    // Convert raw prices (0–1 range) directly to percentages.
+    // Do NOT normalize by dividing by the sum — for large fields (e.g. 150-player golf)
+    // the sum of all individual win probabilities far exceeds 1, which would deflate
+    // every displayed percentage (e.g. a 58% favourite appearing as 10%).
     outcomes.forEach(o => {
-      o.pct = rawSum > 0 ? Math.round((o._rawPrice || 0) / rawSum * 100) : 0
+      o.pct = Math.round((o._rawPrice || 0) * 100)
       delete o._rawPrice
     })
     // Sort by probability descending (highest % first), matching Polymarket behaviour.
