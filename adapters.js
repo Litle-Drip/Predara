@@ -380,6 +380,9 @@ function normalizeGemini(event) {
       o.pct = rawSum > 0 ? Math.round((o._rawPrice || 0) / rawSum * 100) : 0
       delete o._rawPrice
     })
+    // Sort by probability descending (highest % first), matching Polymarket behaviour.
+    outcomes.sort((a, b) => b.pct - a.pct)
+    outcomes.forEach((o, i) => { o.color = OUTCOME_COLORS[i % OUTCOME_COLORS.length] })
     // Remove internal flag after normalization (before geminiWinner reads it below)
     // _resolutionSide is read by geminiWinner and then deleted before returning outcomes.
   }
