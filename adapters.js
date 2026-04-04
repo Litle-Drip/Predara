@@ -106,7 +106,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
 
   // Resolution banner
   const isFinished = status === "finalized" || status === "closed"
-  const resolvedMarket = sorted.find(m => m.result === "yes") ||
+  const resolvedYesMarkets = sorted.filter(m => m.result === "yes")
+  const resolvedMarket = resolvedYesMarkets[0] ||
     (isFinished ? sorted.find(m => m.result === "no") : null)
   const resolution  = resolvedMarket?.result || ""
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
@@ -295,16 +296,24 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const exclusiveTag = ev.mutually_exclusive
     ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : ""
 
-  const resolvedInfo = (isFinished && resolution) ? {
+  // Show resolved box when finished OR when some sub-markets have already resolved YES
+  // (e.g. cumulative-threshold markets where lower thresholds resolve before the event closes)
+  const hasPartialResolution = isMultiOutcome && resolvedYesMarkets.length > 0
+  const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
+    winners: isMultiOutcome && resolvedYesMarkets.length > 1
+      ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
+      : null,
     winner: resolvedMarket
       ? (isMultiOutcome
           ? resolvedMarket.yes_sub_title
           : (resolution === "yes" ? (resolvedMarket.yes_sub_title || "YES") : "NO"))
       : null,
-    resolution,
-    resolvedAt: first.close_time || "",
+    winnersCount: resolvedYesMarkets.length || null,
+    totalOutcomes: isMultiOutcome ? sorted.length : null,
+    resolution: resolvedYesMarkets.length > 0 ? "yes" : resolution,
+    resolvedAt: isFinished ? (first.close_time || "") : "",
     value: expValue || null,
-    totalVol: totalVol || null,
+    totalVol: isFinished ? (totalVol || null) : null,
     isMultiOutcome,
   } : null
 
