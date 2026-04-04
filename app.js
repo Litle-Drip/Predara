@@ -244,10 +244,14 @@ async function analyze() {
       const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
       const pathParts = cleanPath.split("/")
       const marketsIdx = pathParts.findIndex(p => p === "markets" || p === "events")
-      const eventTicker = marketsIdx !== -1 && pathParts[marketsIdx + 1]
+      const ticker = pathParts[pathParts.length - 1].toUpperCase()
+      // For 3-segment URLs like /markets/{series}/{slug}/{ticker}, pathParts[marketsIdx+1]
+      // is the series, not the event ticker — fetching it returns the entire series (wrong).
+      // Only use it as a prefetch hint for 2-segment URLs: /markets/{series}/{ticker}.
+      const segmentsAfterMarkets = marketsIdx !== -1 ? pathParts.length - 1 - marketsIdx : 0
+      const eventTicker = (segmentsAfterMarkets === 2 && pathParts[marketsIdx + 1])
         ? pathParts[marketsIdx + 1].toUpperCase()
         : null
-      const ticker = pathParts[pathParts.length - 1].toUpperCase()
 
       let data = null
       if (eventTicker && eventTicker !== ticker) {
