@@ -35,17 +35,19 @@
 // displayed probability tracks the current market rather than an old trade.
 function geminiExtractPrice(c) {
   const cp = c.prices || {}
-  // Current live bid/ask midpoint is the most accurate market probability
+  // Prefer the exchange's mark/mid price — it's the theoretical fair value that
+  // already accounts for bid/ask spread without inflating the overround.
+  const mark = parseFloat(cp.mark || cp.mid || c.mark || c.midpoint || c.mid || 0) || 0
+  if (mark > 0) return mark
+  // Fall back to bid/ask midpoint
   const bid = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || 0) || 0
   const ask = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || 0) || 0
   if (bid > 0 && ask > 0) return (bid + ask) / 2
-  // Fall back to theoretical fair-value fields, then stale last-trade price
+  // Last resort: stale last-trade / listed price fields
   return parseFloat(
-    cp.mark || cp.mid ||
     cp.lastTradePrice || cp.last || cp.close ||
     c.lastPrice || c.currentPrice || c.lastSalePrice ||
-    c.midpoint || c.mid || c.mark || c.price ||
-    c.bestAsk || c.ask || c.probability ||
+    c.price || c.bestAsk || c.ask || c.probability ||
     ask || bid || 0
   )
 }
@@ -374,15 +376,13 @@ function normalizeGemini(event) {
       outcomes.push(out)
       if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
     })
-    // Convert raw prices (0–1 range) to percentages.
-    // Normalize only when rawSum is close to 1.0 (small categorical market — a few
-    // candidates — where bid/ask overround causes minor inflation summing to ~102-105%).
-    // For large fields (e.g. 150-player golf) rawSum >> 1 so normalising would
-    // massively deflate every price; use raw prices directly in that case.
-    const rawSum = outcomes.reduce((s, o) => s + (o._rawPrice || 0), 0)
+    // Convert raw prices (0–1 range) to percentages directly — no normalisation.
+    // Normalising by dividing each price by the field total breaks any market with
+    // more than ~5 outcomes (NASCAR 40 drivers, golf 150 players, etc.) because
+    // the sum of individual win-probabilities far exceeds 1. Each raw price already
+    // represents the contract's market-implied probability; multiply by 100 as-is.
     outcomes.forEach(o => {
-      const raw = o._rawPrice || 0
-      o.pct = Math.round(rawSum > 0 && rawSum < 2 ? raw / rawSum * 100 : raw * 100)
+      o.pct = Math.round((o._rawPrice || 0) * 100)
       delete o._rawPrice
     })
     // Sort by probability descending (highest % first), matching Polymarket behaviour.
