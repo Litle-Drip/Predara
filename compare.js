@@ -11,18 +11,24 @@ function extractTopOutcomes(platform, data) {
       const ev = data.event || (data.market ? { title: data.market.title, markets: [data.market] } : null)
       if (!ev) return { title: "", topOutcomes: [], stats: [] }
       const markets = (ev.markets || []).filter(m => m.yes_sub_title)
-      const sorted = [...markets].sort((a, b) => parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
+      // Use bid/ask midpoint as the live price; fall back to last trade when unavailable
+      const mktPrice = m => {
+        const bid = parseFloat(m.yes_bid_dollars || 0)
+        const ask = parseFloat(m.yes_ask_dollars || 0)
+        return (bid > 0 && ask > 0) ? (bid + ask) / 2 : parseFloat(m.last_price_dollars || 0)
+      }
+      const sorted = [...markets].sort((a, b) => mktPrice(b) - mktPrice(a))
       const vol   = markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100
       const vol24 = markets.reduce((s, m) => s + parseFloat(m.volume_24h_fp || 0), 0) / 100
       const oi    = markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100
       const spreads = markets.map(m => parseFloat(m.yes_ask_dollars || 0) - parseFloat(m.yes_bid_dollars || 0)).filter(s => s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
-      const overround = markets.reduce((s, m) => s + parseFloat(m.last_price_dollars || 0), 0)
+      const overround = markets.reduce((s, m) => s + mktPrice(m), 0)
       return {
         title: ev.title || "",
         topOutcomes: sorted.slice(0, 3).map((m, i) => ({
           name: m.yes_sub_title,
-          pct: Math.round(parseFloat(m.last_price_dollars || 0) * 100),
+          pct: Math.round(mktPrice(m) * 100),
           color: OUTCOME_COLORS[i],
         })),
         stats: [
