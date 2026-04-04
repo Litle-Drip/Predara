@@ -235,7 +235,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
 
 // Paginated show-more: reveals PAGE_SIZE rows at a time
 // Remaining rows are stored as JSON on the DOM element — no global state needed.
-const PAGE_SIZE = 5
+const PAGE_SIZE = 10
 let _opCounter = 0
 
 function showMoreOutcomes(uid) {
