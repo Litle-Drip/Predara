@@ -35,21 +35,30 @@
 // displayed probability tracks the current market rather than an old trade.
 function geminiExtractPrice(c) {
   const cp = c.prices || {}
-  // Prefer the exchange's mark/mid price — it's the theoretical fair value that
-  // already accounts for bid/ask spread without inflating the overround.
-  const mark = parseFloat(cp.mark || cp.mid || c.mark || c.midpoint || c.mid || 0) || 0
+  // Gemini sometimes nests YES-side prices under prices.yes (categorical markets)
+  const yp = cp.yes || cp.YES || {}
+
+  // 1. Direct probability/currentPrice on the contract (cleanest)
+  const direct = parseFloat(c.probability || c.currentPrice || 0) || 0
+  if (direct > 0 && direct <= 1) return direct
+
+  // 2. Exchange mark/mid (theoretical fair value) — flat or nested
+  const mark = parseFloat(cp.mark || cp.mid || yp.mark || yp.mid || c.mark || c.midpoint || c.mid || 0) || 0
   if (mark > 0) return mark
-  // Fall back to bid/ask midpoint
-  const bid = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || 0) || 0
-  const ask = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || 0) || 0
+
+  // 3. Last trade price — flat or nested
+  const last = parseFloat(cp.lastTradePrice || cp.last || cp.close || yp.lastTradePrice || yp.last || c.lastPrice || c.currentPrice || c.lastSalePrice || 0) || 0
+  if (last > 0 && last <= 1) return last
+
+  // 4. Bid/ask midpoint — flat, nested YES, or direct on contract
+  const bid = parseFloat(cp.bestBid || cp.bid || yp.bestBid || yp.bid || c.bestBid || c.bid || 0) || 0
+  const ask = parseFloat(cp.bestAsk || cp.ask || yp.bestAsk || yp.ask || c.bestAsk || c.ask || 0) || 0
   if (bid > 0 && ask > 0) return (bid + ask) / 2
-  // Last resort: stale last-trade / listed price fields
-  return parseFloat(
-    cp.lastTradePrice || cp.last || cp.close ||
-    c.lastPrice || c.currentPrice || c.lastSalePrice ||
-    c.price || c.bestAsk || c.ask || c.probability ||
-    ask || bid || 0
-  )
+  if (ask > 0) return ask
+  if (bid > 0) return bid
+
+  // 5. Last resort — anything left
+  return parseFloat(c.price || last || 0) || 0
 }
 
 // ── Gemini contract name extraction ───────────────────────────────────────────
@@ -372,6 +381,13 @@ function normalizeGemini(event) {
     if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
     const sortedContracts = [...contracts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+    // DEBUG: log first contract structure once so price fields are visible in console
+    if (sortedContracts.length > 0 && typeof console !== "undefined") {
+      const _dc = sortedContracts[0]
+      console.log("[Gemini debug] first contract keys:", Object.keys(_dc).join(", "))
+      console.log("[Gemini debug] prices obj:", JSON.stringify(_dc.prices))
+      console.log("[Gemini debug] price/probability/currentPrice:", _dc.price, _dc.probability, _dc.currentPrice)
+    }
     sortedContracts.forEach((c, idx) => {
       const name  = geminiExtractName(c, `Outcome ${idx + 1}`)
       const price = geminiExtractPrice(c)
