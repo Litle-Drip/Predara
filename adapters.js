@@ -124,10 +124,13 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
     const yesBid    = parseFloat(m.yes_bid_dollars || 0)
     const yesAsk    = parseFloat(m.yes_ask_dollars || 0)
-    const isEstimate = lastPrice <= 0
-    const pct = lastPrice > 0
-      ? Math.round(lastPrice * 100)
-      : yesAsk > 0 ? Math.round((yesBid + yesAsk) / 2 * 100) : Math.round(yesBid * 100)
+    // Prefer live bid/ask midpoint over potentially-stale last trade price
+    const hasMid = yesBid > 0 && yesAsk > 0
+    const isEstimate = !hasMid && lastPrice <= 0
+    const pct = hasMid
+      ? Math.round((yesBid + yesAsk) / 2 * 100)
+      : lastPrice > 0 ? Math.round(lastPrice * 100)
+      : yesAsk > 0 ? Math.round(yesAsk * 100) : Math.round(yesBid * 100)
 
     const prevDollars = parseFloat(m.previous_price_dollars || (m.previous_price != null ? m.previous_price / 100 : 0))
     const prevPct = prevDollars > 0 ? Math.round(prevDollars * 100) : null
@@ -215,7 +218,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lp  = parseFloat(m.last_price_dollars || 0)
     const bid = parseFloat(m.yes_bid_dollars || 0)
     let ask   = parseFloat(m.yes_ask_dollars || 0)
-    const prob = lp > 0 ? lp : (ask > 0 ? (bid + ask) / 2 : bid)
+    const prob = (bid > 0 && ask > 0) ? (bid + ask) / 2 : lp > 0 ? lp : ask > 0 ? ask : bid
     if (!Number.isFinite(ask) || ask <= 0) {
       ask = Number.isFinite(bid) && bid > 0 ? (bid + prob) / 2 : prob
     }
@@ -227,7 +230,9 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lp = parseFloat(sorted[0].last_price_dollars || 0)
     const yb = parseFloat(sorted[0].yes_bid_dollars || 0)
     const ya = parseFloat(sorted[0].yes_ask_dollars || 0)
-    return lp > 0 ? Math.round(lp * 100) : ya > 0 ? Math.round((yb + ya) / 2 * 100) : Math.round(yb * 100)
+    return (yb > 0 && ya > 0) ? Math.round((yb + ya) / 2 * 100)
+      : lp > 0 ? Math.round(lp * 100)
+      : ya > 0 ? Math.round(ya * 100) : Math.round(yb * 100)
   })()
 
   // Bet explainer
