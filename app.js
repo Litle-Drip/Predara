@@ -27,7 +27,11 @@ function onInputChange() {
   const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
 
   if (geminiTickerRe.test(raw) && !raw.startsWith("http")) {
-    hint.textContent = `Gemini ticker detected — will search for ${raw.toUpperCase()}`
+    // GEMI-{eventTicker}-{contract} instrument symbols — extract event ticker
+    const eventTicker = /^GEMI-/i.test(raw)
+      ? raw.slice(5).replace(/-[^-]+$/, "").toUpperCase()
+      : raw.toUpperCase()
+    hint.textContent = `Gemini ticker detected — will search for ${eventTicker}`
     hint.className = "input-hint hint-info"
     input.classList.remove("input-invalid", "input-valid")
     return
@@ -133,10 +137,15 @@ async function analyze() {
     btn.style.cursor = ""
   }
 
-  // Expand a bare Gemini ticker (e.g. "NBA-2603151930-DET-TOR-M") to a full URL
+  // Expand a bare Gemini ticker or instrument symbol to a full URL.
+  // GEMI-{eventTicker}-{contract} instrument symbols need the GEMI- prefix
+  // and trailing contract segment stripped to recover the event ticker.
   const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
   if (geminiTickerRe.test(url)) {
-    url = `https://www.gemini.com/predictions/${url.toUpperCase()}`
+    const eventTicker = /^GEMI-/i.test(url)
+      ? url.slice(5).replace(/-[^-]+$/, "").toUpperCase()
+      : url.toUpperCase()
+    url = `https://www.gemini.com/predictions/${eventTicker}`
   }
 
   const lowerUrl = url.toLowerCase()
