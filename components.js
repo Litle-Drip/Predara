@@ -206,6 +206,87 @@ function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
     </div>`
 }
 
+// ── Resolution confidence score ────────────────────────────────────────────────
+function _resolutionConfidenceScore(rawRulesText) {
+  if (!rawRulesText || typeof rawRulesText !== "string" || rawRulesText.length < 30) return null
+  let score = 60
+  const text = rawRulesText.toLowerCase()
+  for (const w of ["may ", "might ", "could ", "discretion", "sole judgment", "sole discretion",
+      "approximately", "reasonable", "substantially", "at its ", "as determined", "in its opinion"]) {
+    if (text.includes(w)) score -= 7
+  }
+  if (/https?:\/\//.test(rawRulesText)) score += 12
+  if (/\b(official|federal|government|national)\s+(data|source|report|website|statistic)/i.test(rawRulesText)) score += 8
+  if (/\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s+\d{4}/i.test(rawRulesText)) score += 8
+  if (/resolves?\s+(?:yes|no|to\s+(?:yes|no))\b/i.test(rawRulesText)) score += 10
+  if (/\bif\s+and\s+only\s+if\b/i.test(rawRulesText)) score += 6
+  score = Math.max(5, Math.min(100, score))
+  const label = score >= 70 ? "HIGH" : score >= 45 ? "MEDIUM" : "LOW"
+  const cls   = score >= 70 ? "val-green" : score >= 45 ? "val-amber" : "val-red"
+  const hint  = score >= 70
+    ? "Clear, objective criteria with verifiable triggers."
+    : score >= 45
+    ? "Some ambiguity — platform judgment may be involved."
+    : "Vague or discretionary criteria — resolution could surprise you."
+  return { score, label, cls, hint }
+}
+
+function resolutionConfidenceHtml(rawRulesText) {
+  const r = _resolutionConfidenceScore(rawRulesText)
+  if (!r) return ""
+  return `<div class="resolution-confidence"><span class="rc-label">CLARITY</span><span class="rc-val ${r.cls}">${r.label}</span><span class="rc-hint">${esc(r.hint)}</span></div>`
+}
+
+// ── Resolution checklist ───────────────────────────────────────────────────────
+function resolutionChecklist(sentences) {
+  if (!sentences || !sentences.length) return ""
+  return sentences.map(s => `
+    <div class="rule-check-item">
+      <span class="rule-check-icon">○</span>
+      <span class="rule-check-text">${esc(s)}</span>
+    </div>`).join("")
+}
+
+// ── Volume-weighted consensus ─────────────────────────────────────────────────
+function volumeWeightedConsensusCard(outcomes) {
+  if (!outcomes || outcomes.length < 3) return ""
+  const withVol = outcomes.filter(o => o.vol && o.vol !== "—")
+  if (withVol.length < 3) return ""
+  const vols = withVol.map(o => parseInt(String(o.vol).replace(/,/g, ""), 10))
+  const totalVol = vols.reduce((s, v) => s + v, 0)
+  if (totalVol <= 0) return ""
+  const ranked = withVol.map((o, i) => ({ ...o, volPct: Math.round(vols[i] / totalVol * 100) }))
+    .sort((a, b) => b.volPct - a.volPct)
+  const top = ranked[0]
+  const consensus = top.volPct >= 50
+    ? `<strong style="color:${top.color}">${esc(top.label)}</strong> has ${top.volPct}% of all volume`
+    : `No clear money consensus — <strong style="color:${top.color}">${esc(top.label)}</strong> leads with ${top.volPct}%`
+  return `
+    <div class="mi-card">
+      <div class="section-label">VOLUME-WEIGHTED CONSENSUS</div>
+      <div class="consensus-body">${consensus}<span class="consensus-sep"> · </span>price: ${top.pct}%</div>
+    </div>`
+}
+
+// ── "Find similar open markets" card (resolved pages only) ────────────────────
+function findSimilarMarketsCard(platform, title) {
+  if (!title) return ""
+  const keywords = title.split(/\s+/).filter(w => w.length > 4).slice(0, 4).join(" ")
+  const kq = encodeURIComponent(keywords)
+  const links = []
+  if (platform !== "kalshi")    links.push(`<a href="https://kalshi.com/markets?search=${kq}" target="_blank" rel="noopener" class="similar-link">Search Kalshi ↗</a>`)
+  if (platform !== "polymarket") links.push(`<a href="https://polymarket.com/?q=${kq}" target="_blank" rel="noopener" class="similar-link">Search Polymarket ↗</a>`)
+  if (platform !== "gemini")     links.push(`<a href="https://www.gemini.com/prediction-markets" target="_blank" rel="noopener" class="similar-link">Browse Gemini ↗</a>`)
+  if (!links.length) return ""
+  const shortTitle = title.length > 65 ? title.slice(0, 64) + "…" : title
+  return `
+    <div class="mi-card similar-markets-card">
+      <div class="section-label">FIND SIMILAR OPEN MARKETS</div>
+      <div class="similar-markets-body">Looking for active markets about <em>${esc(shortTitle)}</em>?</div>
+      <div class="similar-links">${links.join("")}</div>
+    </div>`
+}
+
 function resolvedBoxHtml(info) {
   if (!info) return ""
   const isNo = info.resolution === "no"
@@ -332,6 +413,64 @@ function updateBetSim() {
     <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
     <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${bet.toFixed(2)}</strong></div>
   `
+}
+
+// ── "What's your edge?" personal Kelly calculator ─────────────────────────────
+function edgeCalculatorHtml(outcomes) {
+  const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100)
+  if (!valid.length) return ""
+  const first = valid[0]
+  const askFrac = Number.isFinite(first.ask) && first.ask > 0 ? first.ask : first.pct / 100
+  // Store for callback
+  window._edgeCalcAsk = askFrac
+  window._edgeCalcLabel = first.label
+  return `
+    <div class="mi-card edge-calc-card">
+      <div class="section-label">WHAT'S YOUR EDGE?</div>
+      <div class="edge-calc-body">
+        <div class="edge-input-row">
+          <label class="edge-input-label">My probability for <strong>${esc(first.label)}</strong>:</label>
+          <div class="edge-input-wrap">
+            <input type="number" id="edgeProbInput" class="edge-prob-input"
+              value="${first.pct}" min="1" max="99" step="1" oninput="updateEdgeCalc()" />
+            <span class="edge-pct-sign">%</span>
+          </div>
+        </div>
+        <div id="edgeCalcResult" class="edge-calc-result"></div>
+      </div>
+    </div>`
+}
+
+window.updateEdgeCalc = function() {
+  const input = document.getElementById("edgeProbInput")
+  const resultEl = document.getElementById("edgeCalcResult")
+  if (!input || !resultEl) return
+  const myProb = Math.max(1, Math.min(99, parseFloat(input.value) || 50)) / 100
+  const ask = window._edgeCalcAsk || myProb
+  const b = (1 - ask) / ask
+  if (b <= 0) { resultEl.innerHTML = ""; return }
+  const kelly = (myProb * b - (1 - myProb)) / b
+  const kellyPct = Math.round(kelly * 100 * 10) / 10
+  const marketPct = Math.round(ask * 100)
+  const myPct = Math.round(myProb * 100)
+  if (kelly <= 0) {
+    const msg = myPct < marketPct
+      ? `Market is more bullish (${marketPct}%) than you (${myPct}%) — no edge betting YES.`
+      : `Edge too thin at these odds to justify a bet.`
+    resultEl.innerHTML = `<div class="edge-result-row val-red"><strong>No edge</strong> — ${esc(msg)}</div>`
+    return
+  }
+  const half = Math.round(kellyPct / 2 * 10) / 10
+  const quarter = Math.round(kellyPct / 4 * 10) / 10
+  resultEl.innerHTML = `
+    <div class="edge-result-row val-green">
+      You have a <strong>+${myPct - marketPct}pt edge</strong> (you: ${myPct}% vs market: ${marketPct}%)
+    </div>
+    <div class="edge-kelly-rows">
+      <div class="edge-kelly-row"><span class="edge-kelly-label">Full Kelly:</span> <span class="val-amber">${kellyPct}% of bankroll</span> <span class="edge-kelly-hint">(aggressive)</span></div>
+      <div class="edge-kelly-row"><span class="edge-kelly-label">Half Kelly:</span> <span class="val-green">${half}%</span> <span class="edge-kelly-hint">(recommended)</span></div>
+      <div class="edge-kelly-row"><span class="edge-kelly-label">Quarter Kelly:</span> <span class="val-green">${quarter}%</span> <span class="edge-kelly-hint">(conservative)</span></div>
+    </div>`
 }
 
 function calcAnalyticsRow(label, prob, ask, bid, color) {
@@ -488,32 +627,78 @@ function numList(sentences) {
     </div>`).join("")
 }
 
+// ── Plain talk probability label ───────────────────────────────────────────────
+function pctToPlainTalk(pct) {
+  if (pct >= 95) return "Near certain"
+  if (pct >= 85) return "Very likely"
+  if (pct >= 70) return "Likely"
+  if (pct >= 55) return "More likely than not"
+  if (pct >= 45) return "Coin flip"
+  if (pct >= 30) return "Unlikely"
+  if (pct >= 15) return "Long shot"
+  return "Very unlikely"
+}
+
 function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const ml = toMoneyline(pct)
-  // Feature 10: label delta as "pts" with a tooltip so users know it's a price change
+
+  // Momentum arrow next to outcome name (↑/↓ based on delta direction)
+  const momentumArrow = delta !== null && delta !== 0
+    ? `<span class="momentum-arrow ${delta > 0 ? "momentum-up" : "momentum-dn"}" title="${delta > 0 ? "Rising" : "Falling"} (${delta > 0 ? "+" : ""}${delta} pts)">${delta > 0 ? "↑" : "↓"}</span>`
+    : ""
+
+  // Feature 10: label delta as "pts" with a tooltip
   const deltaHtml = delta !== null && delta !== 0
     ? `<span class="outcome-delta ${delta > 0 ? 'delta-up' : 'delta-dn'}" title="Price change vs. last trade: ${delta > 0 ? "+" : ""}${delta} percentage points">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}<span class="delta-label">pts</span></span>`
     : ""
+
+  // Plain talk label below outcome name
+  const plainTalkHtml = `<div class="outcome-plain-talk">${pctToPlainTalk(pct)}</div>`
+
   const estTag = extras.isEstimate ? `<span class="est-tag">(est.)</span>` : ""
   const metaParts = []
+
+  // Dead money indicator: spread > 15% of mid = illiquid
+  let deadMoneyHtml = ""
+  if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask) && extras.ask > extras.bid && extras.ask > 0) {
+    const spread = extras.ask - extras.bid
+    const mid = (extras.bid + extras.ask) / 2
+    if (mid > 0 && spread / mid > 0.15) {
+      deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+    }
+  }
+
   if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask)) {
     metaParts.push(`${tip("Bid", "BID / ASK")} ${Math.round(extras.bid * 100)}¢ · ${tip("Ask", "BID / ASK")} ${Math.round(extras.ask * 100)}¢`)
   }
+
+  // Spread cost visualization: ~$X spread per $100 bet
+  if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask) && extras.ask > extras.bid) {
+    const spreadCost = Math.round((extras.ask - extras.bid) * 100)
+    if (spreadCost > 0) {
+      metaParts.push(`<span class="spread-cost-note" title="Estimated round-trip spread cost per $100 payout">~$${spreadCost} spread per $100</span>`)
+    }
+  }
+
   if (extras.vol) metaParts.push(`Vol $${extras.vol}`)
   if (extras.oi) metaParts.push(`OI $${extras.oi}`)
-  const metaHtml = metaParts.length
-    ? `<div class="outcome-meta">${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
+
+  const metaHtml = (metaParts.length || deadMoneyHtml)
+    ? `<div class="outcome-meta">${deadMoneyHtml ? `<span>${deadMoneyHtml}</span>` : ""}${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
     : ""
-  // Feature 10: show "ML" micro-label above moneyline number so users know what it is
+
+  // Feature 10: "ML" micro-label above moneyline
   const mlBlock = ml !== "—"
     ? `<div class="outcome-ml-wrap"><div class="ml-label">ML</div><span class="outcome-ml">${tip(ml, "MONEYLINE")}</span></div>`
     : `<span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>`
+
   return `
     <div class="outcome-row">
       <div class="outcome-top">
-        <div>
-          <div class="outcome-name" style="color:${color}">${esc(label)}</div>
+        <div class="outcome-left-col">
+          <div class="outcome-name" style="color:${color}">${esc(label)}${momentumArrow}</div>
           ${sub ? `<div class="outcome-sub">${esc(sub)}</div>` : ""}
+          ${plainTalkHtml}
         </div>
         <div class="outcome-right">
           <div class="odds-display" style="color:${color}">

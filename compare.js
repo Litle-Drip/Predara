@@ -1,5 +1,12 @@
 // ── Comparison helpers ────────────────────────────────────────────────────────
 
+const PLATFORM_FOOTNOTES = {
+  kalshi:     "US-regulated by the CFTC. Real money. Requires US residency.",
+  polymarket: "Decentralized (Polygon blockchain). Global access. US users may need VPN.",
+  gemini:     "Operated by Gemini exchange. Smaller market selection.",
+  coinbase:   "Powered by Kalshi. US-regulated. Available to Coinbase users.",
+}
+
 function fmtCompareNum(n) {
   if (!n || !Number.isFinite(n) || n <= 0) return "—"
   return "$" + Math.round(n).toLocaleString()
@@ -24,13 +31,17 @@ function extractTopOutcomes(platform, data) {
       const spreads = markets.map(m => parseFloat(m.yes_ask_dollars || 0) - parseFloat(m.yes_bid_dollars || 0)).filter(s => s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
       const overround = markets.reduce((s, m) => s + mktPrice(m), 0)
+      const isBinary = sorted.length === 2
       return {
         title: ev.title || "",
-        topOutcomes: sorted.slice(0, 3).map((m, i) => ({
-          name: m.yes_sub_title,
-          pct: Math.round(mktPrice(m) * 100),
-          color: OUTCOME_COLORS[i],
-        })),
+        isBinary,
+        topOutcomes: sorted.slice(0, 3).map((m, i) => {
+          const name = m.yes_sub_title
+          const nameLower = name.toLowerCase().trim()
+          const normalized = isBinary && (nameLower === "yes" || nameLower === "no")
+            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
+          return { name, pct: Math.round(mktPrice(m) * 100), color: OUTCOME_COLORS[i], rank: i, normalizedName: normalized }
+        }),
         stats: [
           { label: "Volume",        value: fmtCompareNum(vol) },
           { label: "24h Volume",    value: fmtCompareNum(vol24) },
@@ -240,6 +251,12 @@ async function fetchOneMarket(url) {
   }
 }
 
+// ── Binary outcome normalization helper ───────────────────────────────────────
+// Returns the normalized name for matching (handles Yes/No → __LEAD__/__TRAIL__)
+function _normKey(o) {
+  return o.normalizedName || o.name.toLowerCase().trim()
+}
+
 // Feature 4: detect when two platforms disagree by 15+ points on same outcome
 function _detectDivergence(results) {
   const valid = results.filter(r => r && !r.error && r.meta && (r.meta.topOutcomes || []).length)
@@ -249,14 +266,15 @@ function _detectDivergence(results) {
       const aOutcomes = valid[i].meta.topOutcomes || []
       const bOutcomes = valid[j].meta.topOutcomes || []
       for (const ao of aOutcomes) {
-        const aName = ao.name.toLowerCase().trim()
-        const bo = bOutcomes.find(o => o.name.toLowerCase().trim() === aName)
+        const aKey = _normKey(ao)
+        const bo = bOutcomes.find(o => _normKey(o) === aKey)
         if (!bo) continue
         const diff = Math.abs(ao.pct - bo.pct)
         if (diff >= 15) {
           const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
           const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
-          return { name: ao.name, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
+          const displayName = aKey.startsWith("__") ? `${ao.name} / ${bo.name}` : ao.name
+          return { name: displayName, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
         }
       }
     }
@@ -267,18 +285,60 @@ function _detectDivergence(results) {
 // Feature 5: build outcome name → best-platform map
 function _buildBestOddsMap(results) {
   const valid = results.filter(r => r && !r.error && r.meta)
-  const outcomeNames = new Set()
-  valid.forEach(r => (r.meta.topOutcomes || []).forEach(o => outcomeNames.add(o.name.toLowerCase().trim())))
+  const normKeys = new Set()
+  valid.forEach(r => (r.meta.topOutcomes || []).forEach(o => normKeys.add(_normKey(o))))
   const map = {}
-  outcomeNames.forEach(name => {
+  normKeys.forEach(key => {
     let best = { pct: -1, platform: null }
     valid.forEach(r => {
-      const o = (r.meta.topOutcomes || []).find(o => o.name.toLowerCase().trim() === name)
+      const o = (r.meta.topOutcomes || []).find(o => _normKey(o) === key)
       if (o && o.pct > best.pct) best = { pct: o.pct, platform: r.platform }
     })
-    if (best.platform) map[name] = best.platform
+    if (best.platform) map[key] = best.platform
   })
   return map
+}
+
+// ── Arb profit calculator ─────────────────────────────────────────────────────
+// For binary markets: finds if (min_YES + min_NO) < 100
+function _computeArb(results) {
+  const valid = results.filter(r => r && !r.error && r.meta?.topOutcomes?.length >= 1)
+  if (valid.length < 2) return null
+  let bestArb = null
+  for (let i = 0; i < valid.length - 1; i++) {
+    for (let j = i + 1; j < valid.length; j++) {
+      const aTop = valid[i].meta.topOutcomes[0]
+      const bTop = valid[j].meta.topOutcomes[0]
+      if (!aTop || !bTop) continue
+      const aKey = _normKey(aTop)
+      const bKey = _normKey(bTop)
+      // Only compute arb when outcomes appear to be the same or are __LEAD__ placeholders
+      if (aKey !== bKey && !aKey.startsWith("__") && !bKey.startsWith("__")) continue
+      const yesA = aTop.pct, yesB = bTop.pct
+      const noA = 100 - yesA, noB = 100 - yesB
+      const bestYes = Math.min(yesA, yesB)
+      const bestNo  = Math.min(noA, noB)
+      const totalCost = bestYes + bestNo
+      if (totalCost < 100) {
+        const profit = 100 - totalCost
+        const roi    = (profit / totalCost * 100).toFixed(1)
+        const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
+        const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
+        if (!bestArb || profit > parseFloat(bestArb.profit)) {
+          bestArb = {
+            profit: profit.toFixed(2),
+            roi,
+            totalCost: totalCost.toFixed(0),
+            yesPlatform: yesA < yesB ? pA : pB,
+            yesPct: bestYes,
+            noPlatform: noA < noB ? pA : pB,
+            noPct: bestNo,
+          }
+        }
+      }
+    }
+  }
+  return bestArb
 }
 
 function renderComparison(results) {
@@ -294,7 +354,21 @@ function renderComparison(results) {
       </div>
     </div>` : ""
 
-  // Feature 5: best odds per outcome
+  // Arb calculator card
+  const arb = _computeArb(results)
+  const arbHtml = arb ? `
+    <div class="mi-card arb-card">
+      <div class="section-label arb-label">⚡ ARB OPPORTUNITY DETECTED</div>
+      <div class="arb-body">
+        Buy <strong>YES</strong> on <strong>${esc(arb.yesPlatform)}</strong> at ${arb.yesPct}¢
+        + Buy <strong>NO</strong> on <strong>${esc(arb.noPlatform)}</strong> at ${arb.noPct}¢
+        = <span class="arb-cost">$${arb.totalCost} total cost</span>
+        → <span class="arb-profit">$${arb.profit} guaranteed profit (${arb.roi}% ROI)</span>
+      </div>
+      <div class="arb-disclaimer">⚠ Only risk-free if both markets resolve identically. Verify resolution rules before trading.</div>
+    </div>` : ""
+
+  // Feature 5: best odds per outcome (using normalized keys)
   const bestOddsMap = _buildBestOddsMap(results)
 
   const cols = results.map((r, i) => {
@@ -307,7 +381,8 @@ function renderComparison(results) {
     const { meta, accent, platform } = r
     const platformLabel = (PLATFORMS[platform] || {}).label || platform.toUpperCase()
     const outcomesHtml = (meta.topOutcomes || []).map(o => {
-      const isBest = bestOddsMap[o.name.toLowerCase().trim()] === platform
+      const key = _normKey(o)
+      const isBest = bestOddsMap[key] === platform
       const bestBadge = isBest ? ` <span class="best-odds-badge">BEST</span>` : ""
       return `<div class="compare-outcome">
         <span class="compare-outcome-name" style="color:${o.color};${isBest ? "font-weight:700" : ""}">${esc(o.name)}${bestBadge}</span>
@@ -322,24 +397,26 @@ function renderComparison(results) {
           </div>`
         ).join("")}</div>`
       : ""
+    const footnote = PLATFORM_FOOTNOTES[platform] || ""
     return `<div class="compare-col">
       <span class="tag-platform" style="background:${accent};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
       <div class="compare-col-title">${esc(meta.title || "")}</div>
       ${outcomesHtml}
       ${statsHtml}
+      ${footnote ? `<div class="platform-footnote">${esc(footnote)}</div>` : ""}
     </div>`
   }).join("")
 
-  // Feature 9: swipe hint shown on mobile (hidden via CSS on desktop)
+  // Feature 9: swipe hint shown on mobile
   const swipeHint = results.length > 1
     ? `<div class="compare-swipe-hint">← swipe to see all platforms →</div>` : ""
 
-  return `${divergenceHtml}<div class="mi-card" style="margin-bottom:${divergence ? "0" : "24px"}">
+  return `${divergenceHtml}${arbHtml}<div class="mi-card" style="margin-bottom:${divergence || arb ? "0" : "24px"}">
     <div class="section-label">COMPARING ${results.length} MARKETS</div>
     <div class="compare-cols">${cols}</div>
     ${swipeHint}
   </div>
-  <div class="compare-details-label" style="margin-top:${divergence ? "16px" : "0"}">FULL ANALYSES</div>`
+  <div class="compare-details-label" style="margin-top:${divergence || arb ? "16px" : "0"}">FULL ANALYSES</div>`
 }
 
 let _compareMode = false

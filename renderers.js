@@ -46,6 +46,12 @@ function renderMarket(norm, accent) {
   const newsMoveHtml     = norm.resolvedInfo ? "" : newsMoveHint(norm.outcomes, norm.title)
   const resolvedInsights = resolvedInsightsCard(norm.resolvedInfo, norm.stats, norm.outcomes)
 
+  // Round 3 features
+  const volConsensusHtml  = volumeWeightedConsensusCard(norm.outcomes)
+  const edgeCalcHtml      = edgeCalculatorHtml(norm.outcomes)
+  const findSimilarHtml   = norm.resolvedInfo ? findSimilarMarketsCard(norm.platform, norm.title) : ""
+  const resConfidenceHtml = resolutionConfidenceHtml(norm.rawRulesText || "")
+
   return `
     <div class="mi-card">
       <div class="event-head">
@@ -76,7 +82,8 @@ function renderMarket(norm, accent) {
     ${hasRules ? `
     <div class="mi-card">
       <div class="section-label">HOW IT RESOLVES</div>
-      <div class="num-list">${numList(norm.ruleSentences)}</div>
+      ${resConfidenceHtml}
+      <div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>
     </div>` : ""}
 
     ${ruleAlertsHtml}
@@ -100,6 +107,8 @@ function renderMarket(norm, accent) {
 
     ${volDistHtml}
 
+    ${volConsensusHtml}
+
     ${volSpikeHtml}
 
     ${newsMoveHtml}
@@ -110,7 +119,11 @@ function renderMarket(norm, accent) {
 
     ${betSimHtml}
 
+    ${edgeCalcHtml}
+
     ${analyticsHtml}
+
+    ${findSimilarHtml}
   `
 }
 
