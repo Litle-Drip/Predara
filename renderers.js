@@ -21,10 +21,18 @@ function renderMarket(norm, accent) {
   window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform }
   const betSimHtml = betSimulatorHtml(norm.outcomes)
 
+  // Feature 2: volume distribution bar
+  const volDistHtml = volumeDistBar(norm.outcomes)
+
+  // Feature 3: compute overround (sum of all outcome %) — key quality signal
+  const overroundVal = norm.outcomes.length > 1
+    ? Math.round(norm.outcomes.reduce((s, o) => s + o.pct, 0))
+    : null
+
   const analyticsRows = norm.analyticsSource.slice(0, 3)
     .map(c => calcAnalyticsRow(c.label, c.prob, c.ask, c.bid, c.color))
     .filter(Boolean)
-  const analyticsHtml = analyticsCard(analyticsRows, timeLeft)
+  const analyticsHtml = analyticsCard(analyticsRows, timeLeft, overroundVal)
 
   const statsHtml = norm.stats.map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
 
@@ -79,6 +87,8 @@ function renderMarket(norm, accent) {
       <div class="section-label">CURRENT ODDS</div>
       ${outcomesHtml}
     </div>
+
+    ${volDistHtml}
 
     <div class="stats-grid">
       ${statsHtml}
