@@ -1,26 +1,60 @@
 // ── Comparison helpers ────────────────────────────────────────────────────────
 
+function fmtCompareNum(n) {
+  if (!n || !Number.isFinite(n) || n <= 0) return "—"
+  return "$" + Math.round(n).toLocaleString()
+}
+
 function extractTopOutcomes(platform, data) {
   try {
     if (platform === "kalshi") {
       const ev = data.event || (data.market ? { title: data.market.title, markets: [data.market] } : null)
-      if (!ev) return { title: "", topOutcomes: [] }
+      if (!ev) return { title: "", topOutcomes: [], stats: [] }
       const markets = (ev.markets || []).filter(m => m.yes_sub_title)
-      const sorted = [...markets].sort((a, b) => parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
+      // Use bid/ask midpoint as the live price; fall back to last trade when unavailable
+      const mktPrice = m => {
+        const bid = parseFloat(m.yes_bid_dollars || 0)
+        const ask = parseFloat(m.yes_ask_dollars || 0)
+        return (bid > 0 && ask > 0) ? (bid + ask) / 2 : parseFloat(m.last_price_dollars || 0)
+      }
+      const sorted = [...markets].sort((a, b) => mktPrice(b) - mktPrice(a))
+      const vol   = markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100
+      const vol24 = markets.reduce((s, m) => s + parseFloat(m.volume_24h_fp || 0), 0) / 100
+      const oi    = markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100
+      const spreads = markets.map(m => parseFloat(m.yes_ask_dollars || 0) - parseFloat(m.yes_bid_dollars || 0)).filter(s => s > 0)
+      const minSpread = spreads.length ? Math.min(...spreads) : null
+      const overround = markets.reduce((s, m) => s + mktPrice(m), 0)
       return {
         title: ev.title || "",
         topOutcomes: sorted.slice(0, 3).map((m, i) => ({
           name: m.yes_sub_title,
-          pct: Math.round(parseFloat(m.last_price_dollars || 0) * 100),
+          pct: Math.round(mktPrice(m) * 100),
           color: OUTCOME_COLORS[i],
         })),
+        stats: [
+          { label: "Volume",        value: fmtCompareNum(vol) },
+          { label: "24h Volume",    value: fmtCompareNum(vol24) },
+          { label: "Open Interest", value: fmtCompareNum(oi) },
+          { label: "Best Spread",   value: minSpread != null ? Math.round(minSpread * 100) + "¢" : "—" },
+          { label: "Overround",     value: overround > 0 ? Math.round(overround * 100) + "%" : "—" },
+        ],
       }
     }
-    if (platform === "polymarket" || platform === "coinbase") {
+    if (platform === "coinbase") {
+      // Coinbase uppercase-ticker URLs resolve through Kalshi — reuse that logic
+      if (data && data.event) return extractTopOutcomes("kalshi", data)
+      return { title: "", topOutcomes: [], stats: [] }
+    }
+    if (platform === "polymarket") {
       const event = Array.isArray(data) ? data[0] : data
-      if (!event) return { title: "", topOutcomes: [] }
+      if (!event) return { title: "", topOutcomes: [], stats: [] }
+      const allMarkets = event.markets || []
+      // Mirror the adapter's moneyline filter for sports events
+      const isSportsEvent = allMarkets.some(m => m.sportsMarketType)
+      const mlOnly = isSportsEvent ? allMarkets.filter(m => m.sportsMarketType === "moneyline") : []
+      const markets = isSportsEvent ? (mlOnly.length ? mlOnly : allMarkets.slice(0, 1)) : allMarkets
       const all = []
-      ;(event.markets || []).forEach(market => {
+      markets.forEach(market => {
         let outcomes, prices
         try {
           outcomes = typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : market.outcomes
@@ -32,10 +66,26 @@ function extractTopOutcomes(platform, data) {
         })
       })
       all.sort((a, b) => b.pct - a.pct)
-      return { title: event.title || "", topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })) }
+      const spreads = markets.map(m => {
+        const ask = parseFloat(m.bestAsk || 0)
+        const bid = parseFloat(m.bestBid || 0)
+        return ask > 0 && bid > 0 ? ask - bid : null
+      }).filter(s => s !== null && s > 0)
+      const minSpread = spreads.length ? Math.min(...spreads) : null
+      return {
+        title: event.title || "",
+        topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })),
+        stats: [
+          { label: "Volume",        value: fmtCompareNum(parseFloat(event.volume || 0)) },
+          { label: "24h Volume",    value: fmtCompareNum(parseFloat(event.volume24hr || 0)) },
+          { label: "Open Interest", value: fmtCompareNum(parseFloat(event.openInterest || 0)) },
+          { label: "Liquidity",     value: fmtCompareNum(parseFloat(event.liquidity || 0)) },
+          { label: "Best Spread",   value: minSpread != null ? Math.round(minSpread * 100) + "¢" : "—" },
+        ],
+      }
     }
     if (platform === "gemini") {
-      if (!data || !data.title) return { title: "", topOutcomes: [] }
+      if (!data || !data.title) return { title: "", topOutcomes: [], stats: [] }
       const contracts = Array.isArray(data.contracts) ? data.contracts : []
       const extracted = contracts.map((c, i) => {
         const price = geminiExtractPrice(c)
@@ -43,10 +93,28 @@ function extractTopOutcomes(platform, data) {
         return { name, pct: Math.round(price * 100), color: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }
       })
       extracted.sort((a, b) => b.pct - a.pct)
-      return { title: data.title, topOutcomes: extracted.slice(0, 3) }
+      const vol   = parseFloat(data.volume || 0)
+      const vol24 = parseFloat(data.volume24h || 0)
+      const spreads = contracts.map(c => {
+        const ask = parseFloat((c.prices || {}).bestAsk || 0)
+        const bid = parseFloat((c.prices || {}).bestBid || 0)
+        return ask > 0 && bid > 0 ? ask - bid : null
+      }).filter(s => s !== null && s > 0)
+      const minSpread = spreads.length ? Math.min(...spreads) : null
+      return {
+        title: data.title,
+        topOutcomes: extracted.slice(0, 3),
+        stats: [
+          { label: "Volume",        value: fmtCompareNum(vol) },
+          { label: "24h Volume",    value: fmtCompareNum(vol24) },
+          { label: "Open Interest", value: "—" },
+          { label: "Best Spread",   value: minSpread != null ? Math.round(minSpread * 100) + "¢" : "—" },
+          { label: "Overround",     value: "~100%" },
+        ],
+      }
     }
   } catch (e) {}
-  return { title: "", topOutcomes: [] }
+  return { title: "", topOutcomes: [], stats: [] }
 }
 
 // Fetch one market URL and return { html, meta, platform, accent, rawData, error }
@@ -69,9 +137,15 @@ async function fetchOneMarket(url) {
     if (platform === "polymarket" || platform === "coinbase") {
       let slug = ""
       if (platform === "polymarket") {
-        const part = expandedUrl.split("/event/")[1]
+        let part = expandedUrl.split("/event/")[1]
+        if (!part) {
+          // Support /sports/, /esports/, and other path-based URLs — use last path segment as slug
+          const cleanPath = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
+          const lastSegment = cleanPath.split("/").pop()
+          if (lastSegment && lastSegment !== "polymarket.com") part = lastSegment
+        }
         if (!part) return { error: "Invalid Polymarket URL", platform, accent }
-        slug = part.split("?")[0].split("#")[0].replace(/\/$/, "")
+        slug = part.split("?")[0].split("#")[0].replace(/\/$/, "").split("/")[0]
       } else {
         const clean = expandedUrl.split("?")[0].split("#")[0].replace(/\/$/, "")
         slug = clean.split("/").pop()
@@ -166,7 +240,63 @@ async function fetchOneMarket(url) {
   }
 }
 
+// Feature 4: detect when two platforms disagree by 15+ points on same outcome
+function _detectDivergence(results) {
+  const valid = results.filter(r => r && !r.error && r.meta && (r.meta.topOutcomes || []).length)
+  if (valid.length < 2) return null
+  for (let i = 0; i < valid.length - 1; i++) {
+    for (let j = i + 1; j < valid.length; j++) {
+      const aOutcomes = valid[i].meta.topOutcomes || []
+      const bOutcomes = valid[j].meta.topOutcomes || []
+      for (const ao of aOutcomes) {
+        const aName = ao.name.toLowerCase().trim()
+        const bo = bOutcomes.find(o => o.name.toLowerCase().trim() === aName)
+        if (!bo) continue
+        const diff = Math.abs(ao.pct - bo.pct)
+        if (diff >= 15) {
+          const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
+          const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
+          return { name: ao.name, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
+        }
+      }
+    }
+  }
+  return null
+}
+
+// Feature 5: build outcome name → best-platform map
+function _buildBestOddsMap(results) {
+  const valid = results.filter(r => r && !r.error && r.meta)
+  const outcomeNames = new Set()
+  valid.forEach(r => (r.meta.topOutcomes || []).forEach(o => outcomeNames.add(o.name.toLowerCase().trim())))
+  const map = {}
+  outcomeNames.forEach(name => {
+    let best = { pct: -1, platform: null }
+    valid.forEach(r => {
+      const o = (r.meta.topOutcomes || []).find(o => o.name.toLowerCase().trim() === name)
+      if (o && o.pct > best.pct) best = { pct: o.pct, platform: r.platform }
+    })
+    if (best.platform) map[name] = best.platform
+  })
+  return map
+}
+
 function renderComparison(results) {
+  // Feature 4: divergence callout
+  const divergence = _detectDivergence(results)
+  const divergenceHtml = divergence ? `
+    <div class="divergence-callout">
+      <span class="divergence-icon">⚠</span>
+      <div class="divergence-body">
+        <strong>${esc(divergence.pA)} and ${esc(divergence.pB)} disagree by ${divergence.diff} points on &ldquo;${esc(divergence.name)}&rdquo;</strong>
+        — ${esc(divergence.pA)}: ${divergence.pctA}% · ${esc(divergence.pB)}: ${divergence.pctB}%.
+        Potential arbitrage opportunity.
+      </div>
+    </div>` : ""
+
+  // Feature 5: best odds per outcome
+  const bestOddsMap = _buildBestOddsMap(results)
+
   const cols = results.map((r, i) => {
     if (!r || r.error) {
       return `<div class="compare-col">
@@ -176,24 +306,40 @@ function renderComparison(results) {
     }
     const { meta, accent, platform } = r
     const platformLabel = (PLATFORMS[platform] || {}).label || platform.toUpperCase()
-    const outcomesHtml = (meta.topOutcomes || []).map(o =>
-      `<div class="compare-outcome">
-        <span class="compare-outcome-name" style="color:${o.color}">${esc(o.name)}</span>
-        <span class="compare-outcome-pct" style="color:${o.color}">${o.pct}%</span>
+    const outcomesHtml = (meta.topOutcomes || []).map(o => {
+      const isBest = bestOddsMap[o.name.toLowerCase().trim()] === platform
+      const bestBadge = isBest ? ` <span class="best-odds-badge">BEST</span>` : ""
+      return `<div class="compare-outcome">
+        <span class="compare-outcome-name" style="color:${o.color};${isBest ? "font-weight:700" : ""}">${esc(o.name)}${bestBadge}</span>
+        <span class="compare-outcome-pct" style="color:${o.color};${isBest ? "font-weight:900" : ""}">${o.pct}%</span>
       </div>`
-    ).join("") || `<div class="compare-col-empty">No outcome data</div>`
+    }).join("") || `<div class="compare-col-empty">No outcome data</div>`
+    const statsHtml = (meta.stats || []).length
+      ? `<div class="compare-stats">${(meta.stats).map(s =>
+          `<div class="compare-stat-row">
+            <span class="compare-stat-label">${tip(s.label, s.label.toUpperCase())}</span>
+            <span class="compare-stat-value">${esc(s.value)}</span>
+          </div>`
+        ).join("")}</div>`
+      : ""
     return `<div class="compare-col">
       <span class="tag-platform" style="background:${accent};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
       <div class="compare-col-title">${esc(meta.title || "")}</div>
       ${outcomesHtml}
+      ${statsHtml}
     </div>`
   }).join("")
 
-  return `<div class="mi-card" style="margin-bottom:24px">
+  // Feature 9: swipe hint shown on mobile (hidden via CSS on desktop)
+  const swipeHint = results.length > 1
+    ? `<div class="compare-swipe-hint">← swipe to see all platforms →</div>` : ""
+
+  return `${divergenceHtml}<div class="mi-card" style="margin-bottom:${divergence ? "0" : "24px"}">
     <div class="section-label">COMPARING ${results.length} MARKETS</div>
     <div class="compare-cols">${cols}</div>
+    ${swipeHint}
   </div>
-  <div class="compare-details-label">FULL ANALYSES</div>`
+  <div class="compare-details-label" style="margin-top:${divergence ? "16px" : "0"}">FULL ANALYSES</div>`
 }
 
 let _compareMode = false
@@ -249,6 +395,24 @@ function addShareBar(marketUrl) {
   if (shareBarEl) shareBarEl.style.display = "flex"
   const copyBtn = document.getElementById("copyLinkBtn")
   if (copyBtn) copyBtn.textContent = "COPY LINK ↗"
+
+  // Set contextual label: "KALSHI · Market title..."
+  const labelEl = document.getElementById("shareBarLabel")
+  if (labelEl) {
+    const firstUrl = marketUrl.split("\n")[0]
+    const lower = firstUrl.toLowerCase()
+    const platform = lower.includes("kalshi") ? "KALSHI"
+      : lower.includes("polymarket") ? "POLYMARKET"
+      : lower.includes("coinbase") ? "COINBASE"
+      : lower.includes("gemini") ? "GEMINI"
+      : ""
+    const titleEl = document.querySelector("#result .event-title")
+    const title = titleEl ? titleEl.textContent.trim() : ""
+    const truncated = title.length > 45 ? title.slice(0, 44) + "…" : title
+    labelEl.textContent = platform && truncated
+      ? `${platform} · ${truncated}`
+      : platform || "Analysis ready"
+  }
 
   // Auto-expand compare markets section on event load
   if (!_compareMode) {

@@ -65,7 +65,7 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 48px 32px 100px;
+      padding: 48px 32px 80px;
     }
 
     .app { max-width: 1240px; margin: 0 auto; }
@@ -137,7 +137,7 @@
     .mi-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       margin-bottom: 16px;
       overflow: hidden;
     }
@@ -164,6 +164,7 @@
       font-size: 10px;
       letter-spacing: 1.5px;
     }
+    .tag-cat.tip { border-bottom: 1px solid currentColor; }
     .tag-cat {
       padding: 3px 8px;
       border-radius: 3px;
@@ -217,6 +218,7 @@
     /* ── Outcomes section ── */
     .section-label {
       font-size: 11px;
+      font-weight: 700;
       letter-spacing: 2px;
       color: var(--muted);
       padding: 18px 32px 14px;
@@ -316,7 +318,7 @@
     .stat-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 22px 28px 24px;
     }
     .stat-label {
@@ -396,7 +398,6 @@
     }
 
     /* ── Bet simulator ── */
-    .bet-sim-card { }
     .bet-sim-body { padding: 20px 32px 24px; }
     .bet-sim-input-row {
       display: flex;
@@ -441,6 +442,16 @@
     }
     .bet-sim-win strong { color: var(--text-bright); }
     .bet-sim-lose strong { color: var(--text-bright); }
+    .bet-sim-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 16px 32px 0; }
+    .bet-sim-tab {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      padding: 4px 12px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+      font-family: inherit;
+    }
+    .bet-sim-tab:hover { border-color: var(--orange); color: var(--orange); }
 
     /* ── Tooltips ── */
     .tip {
@@ -480,6 +491,25 @@
     }
 
     /* ── Urgency banner ── */
+    .market-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 24px;
+      border-left: 3px solid #f59e0b;
+      background: rgba(245, 158, 11, 0.07);
+    }
+    .market-notice-icon {
+      color: #f59e0b;
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .market-notice-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
     .urgency-banner {
       display: inline-flex;
       align-items: center;
@@ -521,9 +551,9 @@
     .odds-toggle:hover { border-color: var(--orange); color: var(--orange); }
     body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--orange); }
 
-    /* odds-display: container for pct + ml, inherits outcome color */
-    .odds-display { display: flex; align-items: center; }
-    .odds-display .outcome-ml { color: var(--muted); }
+    /* odds-display: pct stacked above ml, right-aligned */
+    .odds-display { display: flex; flex-direction: column; align-items: flex-end; }
+    .odds-display .outcome-ml { color: var(--muted); margin-left: 0; }
     /* ML mode: hide %, show moneyline large in outcome color */
     body.odds-ml .odds-display .outcome-pct { display: none; }
     body.odds-ml .odds-display .outcome-ml {
@@ -667,6 +697,10 @@
     .compare-outcome-name { font-weight: 600; flex: 1; overflow-wrap: break-word; }
     .compare-outcome-pct { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; flex-shrink: 0; }
     .compare-col-empty { color: var(--red); font-size: 12px; padding: 8px 0; }
+    .compare-stats { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
+    .compare-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    .compare-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .compare-stat-value { font-size: 13px; font-weight: 600; color: var(--text-mid); }
     .compare-separator {
       border: none;
       border-top: 2px dashed var(--border);
@@ -689,15 +723,14 @@
       font-size: 15px;
       line-height: 1;
       padding: 7px 11px;
-      margin-left: auto;
       transition: border-color 0.2s, color 0.2s, background 0.2s;
-      flex-shrink: 0;
     }
     .theme-toggle:hover { background: var(--orange); color: var(--bg); }
+    .header-controls { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     /* ── Footer ── */
     .footer {
-      margin-top: 60px;
+      margin-top: 48px;
       font-size: 10px;
       letter-spacing: 2.5px;
       color: var(--muted);
@@ -871,7 +904,318 @@
       color: var(--muted);
       letter-spacing: 1px;
       line-height: 1.8;
+      text-align: center;
     }
+
+    /* ── Feature 10: ML label above moneyline ── */
+    .outcome-ml-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .ml-label {
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      font-weight: 700;
+      opacity: 0.7;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .delta-label {
+      font-size: 8px;
+      font-weight: 400;
+      margin-left: 2px;
+      opacity: 0.8;
+    }
+
+    /* ── Feature 6: Kelly visual bar ── */
+    .info-row-kelly .info-val { display: flex; align-items: center; }
+    .kelly-val-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .kelly-visual {
+      width: 80px;
+      height: 6px;
+      background: var(--bar-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .kelly-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* ── Feature 3: overround note ── */
+    .overround-note {
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      font-weight: 400;
+      margin-left: 4px;
+      opacity: 0.85;
+    }
+
+    /* ── Feature 2: volume distribution bar ── */
+    .vd-wrap { padding: 16px 32px 22px; }
+    .vd-bar {
+      display: flex;
+      height: 24px;
+      border-radius: 4px;
+      overflow: hidden;
+      gap: 2px;
+    }
+    .vd-seg {
+      height: 100%;
+      transition: width 0.6s ease;
+      min-width: 2px;
+    }
+    .vd-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      margin-top: 10px;
+    }
+    .vd-legend-item {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* ── Feature 4: divergence callout ── */
+    .divergence-callout {
+      background: rgba(245, 158, 11, 0.07);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-left: 3px solid #f59e0b;
+      border-radius: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 20px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .divergence-icon { color: #f59e0b; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .divergence-body { color: var(--text); }
+
+    /* ── Feature 5: best odds badge ── */
+    .best-odds-badge {
+      display: inline-block;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: var(--green);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    /* ── Feature 1: refresh diff banner ── */
+    .diff-banner {
+      border-radius: 6px;
+      padding: 12px 20px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .diff-no-change {
+      background: rgba(160, 158, 140, 0.07);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+    .diff-has-change {
+      background: rgba(0, 112, 243, 0.06);
+      border: 1px solid rgba(0, 112, 243, 0.25);
+      border-left: 3px solid #0070f3;
+    }
+    .diff-banner-title {
+      display: block;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-mid);
+      margin-bottom: 8px;
+      font-size: 10px;
+    }
+    .diff-changes { color: var(--text); }
+    .diff-change-item { padding: 3px 0; }
+    .diff-item-name { color: var(--muted); }
+    .diff-up { color: var(--green); font-size: 11px; }
+    .diff-dn { color: var(--red); font-size: 11px; }
+
+    /* ── Feature 9: mobile swipeable compare ── */
+    .compare-swipe-hint {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+
+    /* ── Rule alerts card ── */
+    .rule-alerts-card { border-left: 3px solid #f59e0b; }
+    .rule-alerts-label { color: #f59e0b !important; }
+    .rule-flag-item {
+      padding: 14px 32px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .rule-flag-item:first-of-type { border-top: none; }
+    .rule-flag-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .rule-flag-icon { color: #f59e0b; font-size: 13px; }
+    .rule-flag-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #f59e0b;
+    }
+    .rule-flag-desc {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .rule-flag-quote {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-style: italic;
+      background: var(--rule-bg);
+      border-left: 2px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 0 3px 3px 0;
+    }
+
+    /* ── Volume spike alert ── */
+    .volume-spike-card {
+      border-left: 3px solid #6366f1;
+      padding: 14px 20px 16px;
+    }
+    .volume-spike-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .volume-spike-icon { font-size: 14px; }
+    .volume-spike-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #6366f1;
+    }
+    .volume-spike-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ── News correlation hint ── */
+    .news-hint-card {
+      border-left: 3px solid #0ea5e9;
+      padding: 14px 20px 16px;
+    }
+    .news-hint-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .news-hint-icon { font-size: 14px; }
+    .news-hint-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #0ea5e9;
+    }
+    .news-hint-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .news-hint-link {
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .news-hint-link:hover { text-decoration: underline; }
+
+    /* ── Resolved market insights card ── */
+    .resolved-insights-card { overflow: visible; }
+    .ri-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 13px 32px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ri-row:last-child { border-bottom: none; }
+    .ri-label {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .ri-val { color: var(--text); text-align: right; }
+    .ri-sub { font-size: 11px; color: var(--muted); }
+
+    /* ── Upset banner ── */
+    .upset-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 32px;
+      background: rgba(239, 68, 68, 0.07);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .upset-icon { font-size: 18px; flex-shrink: 0; }
+    .upset-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .upset-body strong { color: var(--red); }
+
+    /* ── Feature 11: skeleton loading ── */
+    .skeleton { animation: sk-pulse 1.5s ease-in-out infinite; }
+    @keyframes sk-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    .sk-block { background: var(--bar-bg); border-radius: 4px; }
+    .sk-event-head { padding: 28px 32px; }
+    .sk-tags { display: flex; gap: 8px; margin-bottom: 16px; }
+    .sk-outcome-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 32px;
+    }
+    .sk-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .sk-stat-card { height: 88px; border-radius: 10px; }
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
@@ -908,6 +1252,7 @@
 
       .bet-explainer-body { padding: 12px 18px 18px; font-size: 13px; }
       .bet-sim-body { padding: 16px 18px 20px; }
+      .bet-sim-tabs { padding: 12px 18px 0; }
       .bet-sim-input-row { font-size: 13px; }
       .bet-sim-input { width: 80px; font-size: 15px; padding: 6px 10px; }
 
@@ -918,9 +1263,35 @@
       /* Keep tooltips from overflowing the right edge */
       .tip::after { left: auto; right: 0; max-width: 220px; }
 
-      .compare-col { border-right: none; border-bottom: 1px solid var(--border); padding: 16px 18px; }
-      .compare-col:last-child { border-bottom: none; }
+      /* Feature 9: swipeable compare columns on mobile */
+      .compare-cols {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 0;
+        scrollbar-width: none;
+      }
+      .compare-cols::-webkit-scrollbar { display: none; }
+      .compare-col {
+        min-width: min(82vw, 300px);
+        scroll-snap-align: start;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        border-bottom: none;
+        padding: 16px 18px;
+      }
+      .compare-col:last-child { border-right: none; }
       .share-bar { font-size: 10px; }
+
+      .resolved-header { padding: 14px 18px 12px; }
+      .resolved-body   { padding: 16px 18px 20px; }
+
+      .compare-submit-btn { width: 100%; justify-self: stretch; text-align: center; }
+
+      .empty-state { padding: 32px 18px; }
+
+      .market-notice { padding: 12px 18px; }
     }
 
     /* ── Small phones (< 400px) ── */
@@ -936,13 +1307,17 @@
 <div class="app">
 
   <div class="app-header">
-    <div class="app-logo">✦</div>
-    <div>
-      <div class="app-title">Predara</div>
-      <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="document.getElementById('urlInput').value='';document.getElementById('result').innerHTML='<div class=\'empty-state\'>Paste a Kalshi, Polymarket, Gemini, or Coinbase market URL above to analyze odds, volume, and trading data.</div>';document.getElementById('hint').textContent='';document.getElementById('hint').className='input-hint';document.getElementById('urlInput').classList.remove('input-valid','input-invalid');" title="Back to home">
+      <div class="app-logo">✦</div>
+      <div>
+        <div class="app-title">Predara</div>
+        <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
+      </div>
     </div>
-    <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
-    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="header-controls">
+      <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    </div>
   </div>
 
   <div class="search-row">
@@ -959,7 +1334,7 @@
   <div id="compareSection" class="compare-section" style="display:none">
     <div class="compare-input-row">
       <span class="compare-input-num">2</span>
-      <input id="urlInput2" class="compare-url-input" placeholder="Second market URL (Kalshi, Polymarket, Gemini, or Coinbase)…" />
+      <input id="urlInput2" class="compare-url-input" placeholder="Second market URL…" />
     </div>
     <div class="compare-input-row">
       <span class="compare-input-num">3</span>
@@ -969,22 +1344,26 @@
   </div>
 
   <div id="shareBar" class="share-bar" style="display:none">
-    <span>Analysis ready</span>
-    <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
+    <span id="shareBarLabel">Analysis ready</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ REFRESH</button>
+      <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
+      <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">SHARE CARD ↓</button>
+    </div>
   </div>
 
   <div id="result"><div class="empty-state">Paste a Kalshi, Polymarket, Gemini, or Coinbase market URL above to analyze odds, volume, and trading data.</div></div>
 
-  <div class="footer"><span class="dot-sm">●</span> PREDARA · EDISON LABS LLC · 2026</div>
+  <div class="footer"><span class="dot-sm">●</span> PREDARA · <a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">EDISON LABS LLC</a> · 2026</div>
 
 </div>
 
-<script src="utils.js?v=6"></script>
-<script src="components.js?v=6"></script>
-<script src="adapters.js?v=6"></script>
-<script src="renderers.js?v=6"></script>
-<script src="compare.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="utils.js?v=9"></script>
+<script src="components.js?v=9"></script>
+<script src="adapters.js?v=9"></script>
+<script src="renderers.js?v=9"></script>
+<script src="compare.js?v=9"></script>
+<script src="app.js?v=9"></script>
 <script>
   (function () {
     // Theme
@@ -1016,6 +1395,28 @@
     localStorage.setItem('predara-odds', isML ? 'ml' : 'pct')
     document.getElementById('oddsToggle').textContent = isML ? 'ML' : '%'
   }
+
+  // Feature 1: capture previous state before re-analyzing, then show diff
+  function refreshMarket() {
+    const btn = document.getElementById('refreshBtn')
+    if (btn) { btn.textContent = '↺ LOADING…'; btn.disabled = true }
+    const prevSnap = _captureOutcomeSnapshot()
+    Promise.resolve(analyze()).then(() => {
+      if (prevSnap) _showRefreshDiff(prevSnap)
+    }).finally(() => {
+      if (btn) { btn.textContent = '↺ REFRESH'; btn.disabled = false }
+    })
+  }
+
+  // Feature 8: keyboard shortcut — Ctrl/Cmd+K focuses search, Escape blurs
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      const inp = document.getElementById('urlInput')
+      if (inp) { inp.focus(); inp.select() }
+    }
+    if (e.key === 'Escape' && document.activeElement) document.activeElement.blur()
+  })
 
   function copyShareLink() {
     const btn = document.getElementById('copyLinkBtn')

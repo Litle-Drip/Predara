@@ -114,6 +114,33 @@ module.exports = async (req, res) => {
       return res.status(502).json({ error: "Invalid response from Kalshi API" })
     }
 
+    // For event responses, supplement nested markets with a direct /markets?event_ticker
+    // query so we capture all markets — including longer-duration ones added later —
+    // regardless of any default pagination limit on with_nested_markets=true.
+    if (data.event) {
+      const eventTicker = data.event.event_ticker || ticker
+      for (const hostname of KALSHI_HOSTS) {
+        try {
+          const mr = await kalshiRequest(
+            hostname,
+            `/trade-api/v2/markets?event_ticker=${encodeURIComponent(eventTicker)}&limit=200`,
+            keyId,
+            normalizedKey,
+          )
+          if (mr.status === 200) {
+            const md = JSON.parse(mr.body)
+            if (Array.isArray(md.markets) && md.markets.length > 0) {
+              // Merge: keep all markets from the direct listing, but overlay any
+              // richer nested-market data from with_nested_markets=true.
+              const nested = new Map((data.event.markets || []).map(m => [m.ticker, m]))
+              data.event.markets = md.markets.map(m => nested.get(m.ticker) || m)
+            }
+            break
+          }
+        } catch (_) { /* best-effort */ }
+      }
+    }
+
     // Enrich with series contract_url so the front-end can surface "View full rules"
     // series_ticker lives on market objects, not always on the event itself — fall back to first nested market
     const seriesTicker = (data.event || data.market || {}).series_ticker

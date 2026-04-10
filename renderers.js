@@ -19,18 +19,32 @@ function renderMarket(norm, accent) {
   const outcomesHtml = buildOutcomesHtml(allRows)
 
   window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform }
-  const betSimHtml = betSimulatorHtml(norm.leadPct)
+  const betSimHtml = betSimulatorHtml(norm.outcomes)
+
+  // Feature 2: volume distribution bar
+  const volDistHtml = volumeDistBar(norm.outcomes)
+
+  // Feature 3: compute overround (sum of all outcome %) — key quality signal
+  const overroundVal = norm.outcomes.length > 1
+    ? Math.round(norm.outcomes.reduce((s, o) => s + o.pct, 0))
+    : null
 
   const analyticsRows = norm.analyticsSource.slice(0, 3)
     .map(c => calcAnalyticsRow(c.label, c.prob, c.ask, c.bid, c.color))
     .filter(Boolean)
-  const analyticsHtml = analyticsCard(analyticsRows, timeLeft)
+  const analyticsHtml = analyticsCard(analyticsRows, timeLeft, overroundVal)
 
   const statsHtml = norm.stats.map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
 
   const platformLabel = (PLATFORMS[norm.platform] || {}).label || norm.platform.toUpperCase()
   const hasRules = norm.ruleSentences.length > 0
   const hasTimeline = norm.hasTimeline
+
+  // New features: rule alerts, volume spike, news hint, resolved insights
+  const ruleAlertsHtml   = ruleAlertsCard(norm.rawRulesText || "")
+  const volSpikeHtml     = volumeSpikeHtml(norm.stats, norm.outcomes)
+  const newsMoveHtml     = norm.resolvedInfo ? "" : newsMoveHint(norm.outcomes, norm.title)
+  const resolvedInsights = resolvedInsightsCard(norm.resolvedInfo, norm.stats, norm.outcomes)
 
   return `
     <div class="mi-card">
@@ -49,6 +63,14 @@ function renderMarket(norm, accent) {
 
     ${resolvedBoxHtml(norm.resolvedInfo)}
 
+    ${resolvedInsights}
+
+    ${norm.notification ? `
+    <div class="mi-card market-notice">
+      <div class="market-notice-icon">⚠</div>
+      <div class="market-notice-text">${esc(norm.notification)}</div>
+    </div>` : ""}
+
     ${whatsTheBetCard(norm.betExplainerText)}
 
     ${hasRules ? `
@@ -56,6 +78,8 @@ function renderMarket(norm, accent) {
       <div class="section-label">HOW IT RESOLVES</div>
       <div class="num-list">${numList(norm.ruleSentences)}</div>
     </div>` : ""}
+
+    ${ruleAlertsHtml}
 
     ${hasTimeline ? `
     <div class="mi-card">
@@ -70,9 +94,15 @@ function renderMarket(norm, accent) {
     </div>` : ""}
 
     <div class="mi-card">
-      <div class="section-label">OUTCOMES &amp; PROBABILITY</div>
+      <div class="section-label">CURRENT ODDS</div>
       ${outcomesHtml}
     </div>
+
+    ${volDistHtml}
+
+    ${volSpikeHtml}
+
+    ${newsMoveHtml}
 
     <div class="stats-grid">
       ${statsHtml}

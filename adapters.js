@@ -35,19 +35,25 @@
 // displayed probability tracks the current market rather than an old trade.
 function geminiExtractPrice(c) {
   const cp = c.prices || {}
-  // Current live bid/ask midpoint is the most accurate market probability
-  const bid = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || 0) || 0
-  const ask = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || 0) || 0
-  if (bid > 0 && ask > 0) return (bid + ask) / 2
-  // Fall back to theoretical fair-value fields, then stale last-trade price
-  return parseFloat(
-    cp.mark || cp.mid ||
-    cp.lastTradePrice || cp.last || cp.close ||
-    c.lastPrice || c.currentPrice || c.lastSalePrice ||
-    c.midpoint || c.mid || c.mark || c.price ||
-    c.bestAsk || c.ask || c.probability ||
-    ask || bid || 0
-  )
+  // Gemini sometimes nests YES-side prices under prices.yes (categorical markets)
+  const yp = cp.yes || cp.YES || {}
+
+  // Gemini displays the ASK price as the "Yes %" — the cost to buy a YES contract.
+  // This is the primary displayed value on their website and must be matched exactly.
+  const ask = parseFloat(cp.bestAsk || cp.ask || yp.bestAsk || yp.ask || c.bestAsk || c.ask || 0) || 0
+  if (ask > 0) return ask
+
+  // Fallbacks: mark/mid, last trade, bid, then direct fields
+  const mark = parseFloat(cp.mark || cp.mid || yp.mark || yp.mid || c.mark || c.midpoint || c.mid || 0) || 0
+  if (mark > 0) return mark
+
+  const last = parseFloat(cp.lastTradePrice || cp.last || cp.close || yp.lastTradePrice || yp.last || c.lastPrice || c.lastSalePrice || 0) || 0
+  if (last > 0) return last
+
+  const bid = parseFloat(cp.bestBid || cp.bid || yp.bestBid || yp.bid || c.bestBid || c.bid || 0) || 0
+  if (bid > 0) return bid
+
+  return parseFloat(c.currentPrice || c.probability || c.price || 0) || 0
 }
 
 // ── Gemini contract name extraction ───────────────────────────────────────────
@@ -104,7 +110,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
 
   // Resolution banner
   const isFinished = status === "finalized" || status === "closed"
-  const resolvedMarket = sorted.find(m => m.result === "yes") ||
+  const resolvedYesMarkets = sorted.filter(m => m.result === "yes")
+  const resolvedMarket = resolvedYesMarkets[0] ||
     (isFinished ? sorted.find(m => m.result === "no") : null)
   const resolution  = resolvedMarket?.result || ""
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
@@ -123,10 +130,13 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
     const yesBid    = parseFloat(m.yes_bid_dollars || 0)
     const yesAsk    = parseFloat(m.yes_ask_dollars || 0)
-    const isEstimate = lastPrice <= 0
-    const pct = lastPrice > 0
-      ? Math.round(lastPrice * 100)
-      : yesAsk > 0 ? Math.round((yesBid + yesAsk) / 2 * 100) : Math.round(yesBid * 100)
+    // Prefer live bid/ask midpoint over potentially-stale last trade price
+    const hasMid = yesBid > 0 && yesAsk > 0
+    const isEstimate = !hasMid && lastPrice <= 0
+    const pct = hasMid
+      ? Math.round((yesBid + yesAsk) / 2 * 100)
+      : lastPrice > 0 ? Math.round(lastPrice * 100)
+      : yesAsk > 0 ? Math.round(yesAsk * 100) : Math.round(yesBid * 100)
 
     const prevDollars = parseFloat(m.previous_price_dollars || (m.previous_price != null ? m.previous_price / 100 : 0))
     const prevPct = prevDollars > 0 ? Math.round(prevDollars * 100) : null
@@ -210,11 +220,11 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const hasTimeline = !!(eventOpenTime || first.close_time || first.expected_expiration_time)
 
   // Analytics source
-  const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : sorted.slice(0, 1)).map((m, i) => {
+  const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : markets.length === 2 ? sorted.slice(0, 2) : sorted.slice(0, 1)).map((m, i) => {
     const lp  = parseFloat(m.last_price_dollars || 0)
     const bid = parseFloat(m.yes_bid_dollars || 0)
     let ask   = parseFloat(m.yes_ask_dollars || 0)
-    const prob = lp > 0 ? lp : (ask > 0 ? (bid + ask) / 2 : bid)
+    const prob = (bid > 0 && ask > 0) ? (bid + ask) / 2 : lp > 0 ? lp : ask > 0 ? ask : bid
     if (!Number.isFinite(ask) || ask <= 0) {
       ask = Number.isFinite(bid) && bid > 0 ? (bid + prob) / 2 : prob
     }
@@ -226,7 +236,9 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lp = parseFloat(sorted[0].last_price_dollars || 0)
     const yb = parseFloat(sorted[0].yes_bid_dollars || 0)
     const ya = parseFloat(sorted[0].yes_ask_dollars || 0)
-    return lp > 0 ? Math.round(lp * 100) : ya > 0 ? Math.round((yb + ya) / 2 * 100) : Math.round(yb * 100)
+    return (yb > 0 && ya > 0) ? Math.round((yb + ya) / 2 * 100)
+      : lp > 0 ? Math.round(lp * 100)
+      : ya > 0 ? Math.round(ya * 100) : Math.round(yb * 100)
   })()
 
   // Bet explainer
@@ -234,7 +246,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   if (!isMultiOutcome && markets.length === 2) {
     const labelA = sorted[0]?.yes_sub_title || "one outcome"
     const labelB = sorted[1]?.yes_sub_title || "the other outcome"
-    betExplainerText = `Pick a side: bet YES on ${labelA} if you think they win, or YES on ${labelB} if you think they win. Each contract pays $1 — only one side can resolve YES.`
+    betExplainerText = `Pick a side: bet YES on ${esc(labelA)} if you think they win, or YES on ${esc(labelB)} if you think they win. Each contract pays $1 — only one side can resolve YES.`
   } else if (!isMultiOutcome && first.rules_primary) {
     betExplainerText = first.rules_primary
       .split(/[.!?]\s/)[0]
@@ -249,8 +261,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const eventName = (ev.title || ev.event_ticker || "this event").replace(/[?!.]+$/, "").trim()
     const sampleOutcome = (sorted[0]?.yes_sub_title || "").replace(/[.!?]+$/, "")
     betExplainerText = sampleOutcome
-      ? `Bet on which outcome will happen for ${eventName} — for example, "${sampleOutcome}." You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
-      : `Bet on which outcome will happen for ${eventName}. You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
+      ? `Bet on which outcome will happen for ${esc(eventName)} — for example, &ldquo;${esc(sampleOutcome)}.&rdquo; You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
+      : `Bet on which outcome will happen for ${esc(eventName)}. You win if your chosen outcome is correct.${ev.mutually_exclusive ? " Only one outcome can win — winner takes all." : ""}`
   }
 
   // Resolution sources — prefer structured settlement_sources, fall back to URLs in rules text
@@ -293,17 +305,46 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const exclusiveTag = ev.mutually_exclusive
     ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : ""
 
-  const resolvedInfo = (isFinished && resolution) ? {
+  // Show resolved box when finished OR when some sub-markets have already resolved YES
+  // (e.g. cumulative-threshold markets where lower thresholds resolve before the event closes)
+  const hasPartialResolution = isMultiOutcome && resolvedYesMarkets.length > 0
+
+  // Pre-settlement trading odds for sharpness score and upset detection
+  let winnerCloseOdds = null, winnerPrevOdds = null
+  if (resolvedMarket) {
+    const rLast = parseFloat(resolvedMarket.last_price_dollars || 0)
+    const rPrev = parseFloat(resolvedMarket.previous_price_dollars || 0)
+    const isYesWin = resolvedYesMarkets.length > 0
+    // At settlement, last_price = ~1.0 (YES win) or ~0.0 (NO win) — use previous_price for the actual trading close
+    const isSettled = isYesWin ? rLast >= 0.99 : rLast <= 0.01
+    const tradingP  = isSettled ? rPrev : rLast
+    if (tradingP > 0.01 && tradingP < 0.99) {
+      winnerCloseOdds = Math.round((isYesWin ? tradingP : 1 - tradingP) * 100)
+      if (!isSettled && rPrev > 0.01 && rPrev < 0.99 && rPrev !== rLast) {
+        winnerPrevOdds = Math.round((isYesWin ? rPrev : 1 - rPrev) * 100)
+      }
+    }
+  }
+
+  const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
+    winners: isMultiOutcome && resolvedYesMarkets.length > 1
+      ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
+      : null,
     winner: resolvedMarket
       ? (isMultiOutcome
           ? resolvedMarket.yes_sub_title
           : (resolution === "yes" ? (resolvedMarket.yes_sub_title || "YES") : "NO"))
       : null,
-    resolution,
-    resolvedAt: first.close_time || "",
+    winnersCount: resolvedYesMarkets.length || null,
+    totalOutcomes: isMultiOutcome ? sorted.length : null,
+    resolution: resolvedYesMarkets.length > 0 ? "yes" : resolution,
+    resolvedAt: isFinished ? (first.close_time || "") : "",
     value: expValue || null,
-    totalVol: totalVol || null,
+    totalVol: isFinished ? (totalVol || null) : null,
     isMultiOutcome,
+    winnerCloseOdds,
+    winnerPrevOdds,
+    wasUpset: winnerCloseOdds != null && winnerCloseOdds < 50,
   } : null
 
   return {
@@ -327,6 +368,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     betExplainerText,
     ruleSentences,
     resSourceHtml,
+    rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
   }
 }
 
@@ -349,33 +391,45 @@ function normalizeGemini(event) {
     const cp    = c.prices || {}
     const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
     const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-    const pctYes = Math.round(price * 100)
+    // If the market is settled and resolutionSide is explicit, use it to override
+    // price-derived percentages (which go to 0 after settlement, making NO look like winner).
+    const resSide = (c.resolutionSide || "").toLowerCase()
+    const pctYes = resSide === "yes" ? 100 : resSide === "no" ? 0 : Math.round(price * 100)
     const pctNo  = 100 - pctYes
     const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
-    outcomes.push({ label: "YES", sub: "", pct: pctYes, color: OUTCOME_COLORS[0], delta: null, ...extras })
-    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  color: OUTCOME_COLORS[1], delta: null })
+    // Carry _resolutionSide so geminiWinner can use the explicit field (cleaned up below).
+    outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), color: OUTCOME_COLORS[0], delta: null, ...extras })
+    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), color: OUTCOME_COLORS[1], delta: null })
     if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
-    contracts.forEach((c, idx) => {
+    const sortedContracts = [...contracts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+    sortedContracts.forEach((c, idx) => {
       const name  = geminiExtractName(c, `Outcome ${idx + 1}`)
       const price = geminiExtractPrice(c)
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      console.log("[gemini price debug]", name, "price:", price, "bid:", bid, "ask:", ask)
-      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
+      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
       outcomes.push(out)
       if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
     })
-    // Normalize raw prices to sum to exactly 100%, eliminating over-round from bid/ask spread.
-    const rawSum = outcomes.reduce((s, o) => s + (o._rawPrice || 0), 0)
+    // Convert raw prices (0–1 range) to percentages directly — no normalisation.
+    // Normalising by dividing each price by the field total breaks any market with
+    // more than ~5 outcomes (NASCAR 40 drivers, golf 150 players, etc.) because
+    // the sum of individual win-probabilities far exceeds 1. Each raw price already
+    // represents the contract's market-implied probability; multiply by 100 as-is.
     outcomes.forEach(o => {
-      o.pct = rawSum > 0 ? Math.round((o._rawPrice || 0) / rawSum * 100) : 0
+      o.pct = Math.round((o._rawPrice || 0) * 100)
       delete o._rawPrice
     })
+    // Sort by probability descending (highest % first), matching Polymarket behaviour.
+    outcomes.sort((a, b) => b.pct - a.pct)
+    outcomes.forEach((o, i) => { o.color = OUTCOME_COLORS[i % OUTCOME_COLORS.length] })
+    // Remove internal flag after normalization (before geminiWinner reads it below)
+    // _resolutionSide is read by geminiWinner and then deleted before returning outcomes.
   }
 
   if (!outcomes.length) return null
@@ -404,7 +458,7 @@ function normalizeGemini(event) {
     ? (contracts[0].closeDate || contracts[0].expiryDate || contracts[0].endDate || "")
     : ""
   const expiryIso = event.closeDate || event.expiryDate || event.endDate || contractCloseDate || event.resolvedAt || ""
-  const startIso  = event.openDate || event.startDate || event.effectiveDate || event.createdAt || ""
+  const startIso  = event.openDate || event.startDate || event.startTime || event.effectiveDate || event.createdAt || ""
 
   // Timeline
   const timelineRows = [
@@ -429,7 +483,7 @@ function normalizeGemini(event) {
       .slice(0, 3)
       .join(" ")
     // Only use if it contains substantive information beyond the title
-    if (candidate && candidate.trim() !== eventTitle) betExplainerText = candidate
+    if (candidate && candidate.trim() !== eventTitle) betExplainerText = esc(candidate)
   }
 
   // Rules — only use description if it contains actual resolution criteria,
@@ -509,9 +563,16 @@ function normalizeGemini(event) {
       }</span></div>`
     : ""
 
+  // Prefer the contract's explicit resolutionSide field ("yes" = winner).
+  // This is populated by Gemini on settlement even when prices have gone to 0.
+  // Fall back to price-percentage comparison for live/open markets.
   const geminiWinner = !isOpen && outcomes.length > 0
-    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
+    ? (outcomes.find(o => o._resolutionSide === "yes") ||
+       outcomes.find(o => o.pct === 100) ||
+       outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
     : null
+  // Clean up the internal flag so it doesn't reach the UI renderer.
+  outcomes.forEach(o => { delete o._resolutionSide })
   const resolvedInfo = (!isOpen && geminiWinner) ? {
     winner: geminiWinner.label,
     resolution: isBinary ? (geminiWinner.label === "YES" ? "yes" : "no") : "",
@@ -526,7 +587,7 @@ function normalizeGemini(event) {
     title: event.title || "Gemini Prediction Market",
     subtitle: "",
     statusDot, statusText,
-    resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
+    resolvedBanner: "", resolvedInfo, exclusiveTag: (!isBinary && contracts.length >= 2) ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : "", tagsHtml,
     staleIso: event.updatedAt || event.lastUpdated || "",
     closeIso: expiryIso,
     timelineRows, hasTimeline,
@@ -549,6 +610,7 @@ function normalizeGemini(event) {
     betExplainerText,
     ruleSentences,
     resSourceHtml,
+    rawRulesText: event.description || "",
   }
 }
 
@@ -556,7 +618,18 @@ function normalizeGemini(event) {
 function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const outcomes = []
   const analyticsSource = []
+  const categoricalEntries = []
   let colorIdx = 0
+  let hasCategorical = false
+
+  // Sports events (NBA, NFL, etc.) return 40+ sub-markets per game:
+  // one moneyline + many spread lines + totals + player props.
+  // Only the moneyline market should drive the outcomes display.
+  const isSportsEvent = markets.some(m => m.sportsMarketType)
+  if (isSportsEvent) {
+    const moneyline = markets.filter(m => m.sportsMarketType === "moneyline")
+    markets = moneyline.length > 0 ? moneyline : markets.slice(0, 1)
+  }
 
   markets.forEach(market => {
     let outs, prices
@@ -570,6 +643,38 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     const rawBid = parseFloat(market.bestBid)
     const bestAsk = Number.isFinite(rawAsk) && rawAsk > 0 ? rawAsk : null
     const bestBid = Number.isFinite(rawBid) && rawBid > 0 ? rawBid : null
+
+    // Categorical market: each market in the event represents one named outcome
+    // (e.g. a candidate). groupItemTitle holds the outcome name; outcomes are
+    // always ["Yes","No"] so we only use the Yes (i=0) price as the probability.
+    const groupLabel = market.groupItemTitle || ""
+    const isCategorical = groupLabel && outs.length === 2 &&
+      outs[0] && outs[0].toLowerCase() === "yes" &&
+      outs[1] && outs[1].toLowerCase() === "no"
+
+    if (isCategorical) {
+      hasCategorical = true
+      const prob = parseFloat(prices[0])
+      const vol = parseFloat(market.volume || 0)
+
+      // For open events: skip inactive/closed individual markets (stale prices)
+      // and placeholder markets with no activity. For resolved events keep all
+      // markets so the historical result is still shown.
+      if (!event.closed) {
+        if (market.active === false || market.closed === true || market.archived === true) return
+        const hasLiveOrders = bestBid != null || bestAsk != null
+        if (vol === 0 && !hasLiveOrders) return
+      }
+
+      categoricalEntries.push({
+        label: groupLabel,
+        prob: Number.isFinite(prob) ? prob : 0,
+        vol: Number.isFinite(vol) ? vol : 0,
+        bestAsk, bestBid,
+        groupItemId: market.groupItemId || null,
+      })
+      return
+    }
 
     outs.forEach((name, i) => {
       if (i >= prices.length) return
@@ -600,6 +705,46 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     })
   })
 
+  // For categorical markets: sort by odds desc, then volume desc; show top 10
+  if (hasCategorical) {
+    // Filter to the dominant groupItemId (the main categorical group).
+    // Events can contain stray standalone binary markets sharing the same event
+    // but with a different groupItemId — those would have wildly different
+    // probabilities and should be excluded.
+    const groupCounts = {}
+    categoricalEntries.forEach(e => {
+      if (e.groupItemId != null) groupCounts[e.groupItemId] = (groupCounts[e.groupItemId] || 0) + 1
+    })
+    const dominantGroupId = Object.keys(groupCounts).sort((a, b) => groupCounts[b] - groupCounts[a])[0]
+    const filtered = dominantGroupId
+      ? categoricalEntries.filter(e => e.groupItemId === dominantGroupId || e.groupItemId == null)
+      : categoricalEntries
+    filtered.sort((a, b) => b.prob - a.prob || b.vol - a.vol)
+    const top10 = filtered.slice(0, 10)
+    top10.forEach(entry => {
+      const pct = Math.round(entry.prob * 100)
+      const volStr = entry.vol > 0 ? `$${fmtNum(entry.vol)} traded` : ""
+      const out = {
+        label: entry.label, sub: volStr, pct,
+        color: OUTCOME_COLORS[colorIdx % OUTCOME_COLORS.length],
+        delta: null,
+        bid: entry.bestBid != null ? entry.bestBid : undefined,
+        ask: entry.bestAsk != null ? entry.bestAsk : undefined,
+      }
+      colorIdx++
+      outcomes.push(out)
+      if (entry.prob > 0) {
+        analyticsSource.push({
+          prob: entry.prob,
+          label: entry.label,
+          ask: out.ask != null ? out.ask : entry.prob,
+          bid: out.bid != null ? out.bid : entry.prob,
+          color: out.color,
+        })
+      }
+    })
+  }
+
   if (!outcomes.length) return null
 
   const first = markets[0] || {}
@@ -612,12 +757,33 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   let tags = event.tags || []
   if (typeof tags === "string") { try { tags = JSON.parse(tags) } catch(e) { tags = [] } }
   if (!Array.isArray(tags)) tags = []
-  const tagsHtml = tags
+  // Filter and deduplicate tags before rendering.
+  // 1. Drop internal Polymarket grouping tags (macro-*, numbered suffixes, etc.)
+  // 2. Drop tags that are substrings of another tag already in the set
+  //    e.g. "World" is redundant when "World Elections" is present
+  const INTERNAL_TAG_RE = /^macro[\s_-]|^\d+$|^(group|bucket|cat|tag)-?\d/i
+  const rawLabels = tags
     .filter(t => t != null)
-    .map(t => {
-      const label = t.label || t.slug || String(t)
-      const col = categoryColor(label)
-      return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${esc(label.toUpperCase())}</span>`
+    .map(t => (t.label || t.slug || String(t)).trim())
+    .filter(l => l && !INTERNAL_TAG_RE.test(l))
+
+  // Remove labels that are fully contained in a longer label (case-insensitive)
+  const dedupedLabels = rawLabels.filter((label, _, arr) => {
+    const lower = label.toLowerCase()
+    return !arr.some(other => {
+      const otherLower = other.toLowerCase()
+      return otherLower !== lower && otherLower.includes(lower)
+    })
+  })
+
+  const tagsHtml = dedupedLabels.map(label => {
+      const isEarn = /^earn\b/i.test(label.trim())
+      const col = isEarn ? "#c9a227" : categoryColor(label)
+      const classes = isEarn ? "tag-cat tip tip-bottom" : "tag-cat"
+      const tipAttr = isEarn
+        ? ` data-tip="Polymarket rewards liquidity providers on this market. The % shown is the annualized return earned by placing resting limit orders (making markets)."`
+        : ""
+      return `<span class="${classes}" style="color:${col};border-color:${col};background:${col}1a"${tipAttr}>${esc(label.toUpperCase())}</span>`
     }).join("")
 
   analyticsSource.sort((a, b) => b.prob - a.prob)
@@ -625,55 +791,92 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
 
   // Bet explainer
   let betExplainerText = ""
-  const firstDesc = first.description || first.question || event.description || ""
-  if (firstDesc) {
-    betExplainerText = applyResolveText(firstDesc)
-      .split(/(?<=[.!?])\s+/)
-      .filter(s => s.trim().length > 10)
-      .slice(0, 3)
-      .join(" ")
+  const title = event.title || ""
+
+  // Detect sports matchup: "Padres vs Red Sox", "Man City v Arsenal", etc.
+  const vsMatch = title.match(/^(.+?)\s+v\.?s\.?\s+(.+)$/i)
+
+  if (hasCategorical) {
+    const tidyTitle = title.replace(/\s+(20\d\d)$/, " in $1")
+    const boldTitle = title ? `<strong>&ldquo;${esc(tidyTitle)}&rdquo;</strong>` : ""
+    const isPersonMarket = /nominee|winner|candidate|president|minister|ceo|leader|champion|mvp/i.test(title)
+    const isElection = /election/i.test(title)
+    // If the title is itself phrased as a question (starts with What/Who/Which/How/Will)
+    // don't wrap it in a "Pick what the ... will be" construction — just reference it directly.
+    const titleIsQuestion = /^(what|who|which|how|will|when)\b/i.test(title.trim())
+    let sentence
+    if (!title) {
+      sentence = `Pick who you think will win. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (titleIsQuestion) {
+      sentence = `Pick the outcome for ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (isElection) {
+      sentence = `Pick who will win ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else if (isPersonMarket) {
+      sentence = `Pick who will be the ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    } else {
+      sentence = `Pick the outcome for ${boldTitle}. The correct pick pays $1 per contract — wrong picks expire at $0.`
+    }
+    betExplainerText = sentence
+  } else if (vsMatch) {
+    const teamA = esc(vsMatch[1].trim())
+    const teamB = esc(vsMatch[2].trim())
+    const q = first.question || first.groupItemTitle || ""
+    const isSpread  = /spread|handicap|cover/i.test(q)
+    const isTotal   = /total|over|under/i.test(q)
+    const isInning  = /inning|half|quarter|period/i.test(q)
+    if (isSpread) {
+      betExplainerText = `Bet on whether <strong>${teamA}</strong> covers the spread against <strong>${teamB}</strong>. YES pays $1 if they cover — NO pays $1 if they don't.`
+    } else if (isTotal) {
+      betExplainerText = `Bet on whether the combined score goes over or under the line in <strong>${teamA}</strong> vs <strong>${teamB}</strong>. Correct side pays $1 per contract.`
+    } else if (isInning) {
+      betExplainerText = `Bet on a specific game event in <strong>${teamA}</strong> vs <strong>${teamB}</strong>. YES pays $1 if it happens — NO pays $1 if it doesn't.`
+    } else {
+      betExplainerText = `Bet on the winner of <strong>${teamA}</strong> vs <strong>${teamB}</strong>. Back ${teamA} or ${teamB} — the winning side pays $1 per contract, the losing side expires at $0.`
+    }
+  } else if (markets.length === 1) {
+    const q = first.question || title
+    if (q) {
+      const subject = esc(q.replace(/^will\s+/i, "").replace(/\?$/, "").trim())
+      betExplainerText = `Bet YES if you think ${subject}. Bet NO if you don't. The winning side pays $1 per contract.`
+    }
   }
-  if (!betExplainerText && markets.length > 1) {
-    betExplainerText = `Pick which outcome you think will happen. You win if your chosen outcome is correct.`
-  }
-  if (!betExplainerText && event.title) {
-    betExplainerText = `This market is about: ${event.title}. Check the outcomes below to see the options and their current odds.`
+  if (!betExplainerText) {
+    betExplainerText = `Bet YES if you think it happens, NO if you don't. Winning contracts pay $1 each.`
   }
 
-  // Rules
+  // Rules — only use the first market's description (or event description).
+  // For multi-market events (sports, categoricals) including all markets'
+  // descriptions/questions causes bleed-in from unrelated sub-markets and
+  // raw question strings that look like incomplete sentences.
   const ruleSentences = []
-  const seenTexts = new Set()
   const seenSentences = new Set()
-  markets.forEach(m => {
-    ;[m.description || "", m.question || ""].forEach(text => {
-      if (!text || seenTexts.has(text)) return
-      seenTexts.add(text)
-      plainEnglishRules(text).forEach(s => {
-        if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
-      })
-    })
+  const ruleText = first.description || event.description || ""
+  plainEnglishRules(ruleText).forEach(s => {
+    if (!seenSentences.has(s)) { seenSentences.add(s); ruleSentences.push(s) }
   })
   const limitedRules = ruleSentences.slice(0, 8)
 
-  // Resolution source
-  let resSource = ""
+  // Resolution sources — check dedicated field first, then extract URLs from description
+  const resUrls = []
   for (const m of markets) {
     if (m.resolutionSource && typeof m.resolutionSource === "string") {
       try {
         const u = new URL(m.resolutionSource)
-        if (u.protocol === "http:" || u.protocol === "https:") { resSource = m.resolutionSource; break }
+        if ((u.protocol === "http:" || u.protocol === "https:") && !resUrls.includes(m.resolutionSource))
+          resUrls.push(m.resolutionSource)
       } catch(e) {}
     }
   }
-  let resSourceLabel = ""
-  if (resSource) {
-    try {
-      const u = new URL(resSource)
-      resSourceLabel = u.hostname.replace(/^www\./, "")
-    } catch { resSourceLabel = resSource.replace(/^https?:\/\//, "").split("/")[0] }
-  }
-  const resSourceHtml = resSource
-    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(resSource)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(resSourceLabel)}</a></span></div>`
+  // Also extract any https:// URLs embedded in the first market's description
+  const urlsInDesc = (first.description || event.description || "").match(/https?:\/\/[^\s"'<>)\]]+/g) || []
+  urlsInDesc.forEach(u => { if (!resUrls.includes(u)) resUrls.push(u) })
+
+  const resSourceHtml = resUrls.length
+    ? resUrls.map(url => {
+        let label = url
+        try { label = new URL(url).hostname.replace(/^www\./, "") } catch(e) {}
+        return `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(label)}</a></span></div>`
+      }).join("")
     : ""
 
   // Timeline
@@ -687,17 +890,58 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const statusDot  = event.closed ? "dot-red" : "dot-green"
   const statusText = event.closed ? "CLOSED" : "OPEN"
 
-  const polyWinner = event.closed && outcomes.length > 0
-    ? (outcomes.find(o => o.pct === 100) || outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
-    : null
-  const resolvedInfo = (event.closed && polyWinner) ? {
-    winner: polyWinner.label,
-    resolution: outcomes.length === 2 ? (polyWinner.label === "No" ? "no" : "yes") : "",
-    resolvedAt: event.closedTime || event.endDate || "",
-    value: null,
-    totalVol: totalVol || null,
-    isMultiOutcome: outcomes.length > 2,
-  } : null
+  let resolvedInfo = null
+  if (event.closed && outcomes.length > 0) {
+    // Collect all YES-resolved outcomes (pct === 100). For events where
+    // multiple outcomes resolved YES (e.g. "who did Trump talk to?"), show
+    // all of them. Fall back to the highest-probability outcome if none hit 100.
+    const definiteWinners = outcomes.filter(o => o.pct === 100)
+    const winners = definiteWinners.length > 0
+      ? definiteWinners.map(o => o.label)
+      : [outcomes.reduce((a, b) => a.pct > b.pct ? a : b).label]
+
+    // Runner-up: highest-volume non-winner from categorical entries
+    const winnerSet = new Set(winners)
+    const nonWinners = categoricalEntries.filter(e => !winnerSet.has(e.label))
+    const runnerUpEntry = nonWinners.length > 0
+      ? nonWinners.reduce((a, b) => b.vol > a.vol ? b : a)
+      : null
+    const runnerUp = runnerUpEntry && runnerUpEntry.vol > 0
+      ? { label: runnerUpEntry.label, vol: `$${fmtNum(runnerUpEntry.vol)}` }
+      : null
+
+    // Duration
+    const startMs = event.startDate ? new Date(event.startDate).getTime() : null
+    const endMs   = new Date(event.closedTime || event.endDate || "").getTime()
+    const durationDays = startMs && endMs && !isNaN(endMs)
+      ? Math.round((endMs - startMs) / 86400000)
+      : null
+
+    // Upset detection: was winner the most-backed outcome by volume?
+    let winnerVolRank = null, pmWasUpset = false
+    if (hasCategorical && winners[0]) {
+      const sortedByVol = [...categoricalEntries].sort((a, b) => b.vol - a.vol)
+      const rank = sortedByVol.findIndex(e => e.label === winners[0])
+      winnerVolRank = rank >= 0 ? rank + 1 : null
+      pmWasUpset = winnerVolRank != null && winnerVolRank > 1
+    }
+
+    resolvedInfo = {
+      winners,
+      winner: winners[0],
+      resolution: outcomes.length === 2 ? (winners[0] === "No" ? "no" : "yes") : "",
+      resolvedAt: event.closedTime || event.endDate || "",
+      value: null,
+      totalVol: totalVol || null,
+      isMultiOutcome: outcomes.length > 2,
+      runnerUp,
+      durationDays,
+      totalOutcomes: hasCategorical ? categoricalEntries.length : null,
+      winnersCount: winners.length,
+      winnerVolRank,
+      wasUpset: pmWasUpset,
+    }
+  }
 
   return {
     platform: platformKey,
@@ -705,6 +949,21 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     subtitle: "",
     statusDot, statusText,
     resolvedBanner: "", resolvedInfo, exclusiveTag: "", tagsHtml,
+    notification: (() => {
+      // Polymarket sometimes attaches a notifications array to events or markets
+      // when the framing/orientation has changed (e.g. Yes↔No swap, refund notice).
+      const sources = [event, first, ...markets.slice(1)]
+      for (const src of sources) {
+        const n = src.notifications || src.notification || src.alert || src.warning
+        if (!n) continue
+        if (Array.isArray(n) && n.length > 0) {
+          const msg = n[0].message || n[0].text || n[0].content || String(n[0])
+          if (msg && msg.length > 5) return msg
+        }
+        if (typeof n === "string" && n.length > 5) return n
+      }
+      return null
+    })(),
     staleIso: event.updatedAt || first.lastTradeTime || first.updatedAt || "",
     closeIso: event.endDate || "",
     timelineRows, hasTimeline,
@@ -720,5 +979,6 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     betExplainerText,
     ruleSentences: limitedRules,
     resSourceHtml,
+    rawRulesText: first.description || event.description || "",
   }
 }
