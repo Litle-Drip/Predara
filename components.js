@@ -1,3 +1,211 @@
+// ── Rule flag patterns ─────────────────────────────────────────────────────────
+const RULE_FLAG_PATTERNS = [
+  { re: /(?:can|may|will)\s+close\s+early|early\s+(?:close|resolution|resolv)|resolves?\s+early/i,
+    label: "EARLY RESOLUTION", desc: "This market may resolve before its scheduled close date." },
+  { re: /mathematically impossible|cannot\s+(?:be\s+)?(?:reached?|achieved?|attained?|exceeded?)|no longer possible/i,
+    label: "THRESHOLD TRIGGER", desc: "The market can auto-resolve once an outcome becomes mathematically locked in." },
+  { re: /emergency\s+(?:session|meeting|vote|order|declaration|measure)|extraordinary\s+(?:session|measure|circumstance)|special\s+session/i,
+    label: "EMERGENCY CLAUSE", desc: "Emergency or extraordinary governmental events could affect how this market resolves." },
+  { re: /force\s+majeure/i,
+    label: "FORCE MAJEURE", desc: "Force majeure events may void or alter resolution." },
+  { re: /(?:at\s+the?\s+)?sole\s+discretion|at\s+the?\s+discretion\s+of|platform['s\s]+judgment|determined\s+(?:solely\s+)?by\s+(?:the\s+)?(?:exchange|platform|admin|operator|kalshi|polymarket|gemini)/i,
+    label: "DISCRETIONARY", desc: "Resolution may involve subjective platform judgment, not just a clear objective trigger." },
+  { re: /\bvoid\b|\bcancell?ed?\b|\bpostponed?\b|\babandoned?\b|\bcalled\s+off\b/i,
+    label: "CANCELLATION RISK", desc: "This market may be voided, cancelled, or postponed under certain conditions." },
+  { re: /resolves?\s+(?:to\s+)?(?:N\.?A\.?|no[- ]?action|N\.?O\.?)|50[\s-\/]50\s*(?:split)?|50\s*\/\s*50|refunded?/i,
+    label: "PARTIAL REFUND", desc: "Market may resolve to N/A or a 50-50 split (partial refund) rather than a clear winner." },
+  { re: /includes?\s+(?:any\s+)?(?:overtime|extra\s+time|extra\s+innings|shootout|penalty\s+kicks?|\bOT\b|playoffs?)/i,
+    label: "OVERTIME INCLUDED", desc: "The result includes overtime or extra periods — not just regulation time." },
+  { re: /regardless\s+of|irrespective\s+of|notwithstanding/i,
+    label: "OVERRIDE CLAUSE", desc: "A clause that may override what seems like the obvious real-world result." },
+  { re: /as\s+of\s+(?:the\s+)?(?:market\s+)?close|at\s+(?:the\s+)?(?:time\s+of\s+)?(?:close|resolution|settlement|expir)|price\s+at\s+(?:market\s+)?close/i,
+    label: "TIMING SENSITIVE", desc: "Resolution is tied to data at a precise moment — small timing differences can flip the outcome." },
+]
+
+// Feature: Rule highlights / edge case detector
+function ruleAlertsCard(rawRulesText) {
+  if (!rawRulesText || typeof rawRulesText !== "string" || rawRulesText.length < 30) return ""
+  const sentences = rawRulesText
+    .replace(/\n{2,}/g, ". ")
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 25)
+  const flagged = []
+  const seen = new Set()
+  for (const sentence of sentences) {
+    for (const flag of RULE_FLAG_PATTERNS) {
+      if (!seen.has(flag.label) && flag.re.test(sentence)) {
+        seen.add(flag.label)
+        const q = sentence.length > 220 ? sentence.slice(0, 220) + "…" : sentence
+        flagged.push({ label: flag.label, desc: flag.desc, quote: q })
+        break
+      }
+    }
+  }
+  if (!flagged.length) return ""
+  const items = flagged.map(f => `
+    <div class="rule-flag-item">
+      <div class="rule-flag-header">
+        <span class="rule-flag-icon">⚠</span>
+        <span class="rule-flag-label">${esc(f.label)}</span>
+      </div>
+      <div class="rule-flag-desc">${esc(f.desc)}</div>
+      <div class="rule-flag-quote">&ldquo;${esc(f.quote)}&rdquo;</div>
+    </div>`).join("")
+  return `
+    <div class="mi-card rule-alerts-card">
+      <div class="section-label rule-alerts-label">⚠ RULE ALERTS</div>
+      ${items}
+    </div>`
+}
+
+// Helper: parse "$1,234,567" or "—" stat values to a raw number
+function _parseStatVol(stats, labelKey) {
+  const s = (stats || []).find(s => s.label === labelKey)
+  if (!s || !s.value || s.value === "—") return 0
+  return parseInt(String(s.value).replace(/[$,]/g, ""), 10) || 0
+}
+
+// Feature: Volume spike alert — fires when 24h vol is ≥25% of lifetime vol
+function volumeSpikeHtml(stats, outcomes) {
+  const totalVol = _parseStatVol(stats, "VOLUME TRADED")
+  const vol24h   = _parseStatVol(stats, "24H VOLUME")
+  if (!vol24h || !totalVol || totalVol < 5000) return ""
+  const ratio = vol24h / totalVol
+  if (ratio < 0.25) return ""
+  const pctOfTotal = Math.round(ratio * 100)
+  const mover = [...outcomes]
+    .filter(o => o.delta != null)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0]
+  const moverNote = mover && Math.abs(mover.delta) >= 2
+    ? ` &ldquo;${esc(mover.label)}&rdquo; is the biggest mover (${mover.delta > 0 ? "+" : ""}${mover.delta} pts).`
+    : ""
+  return `
+    <div class="mi-card volume-spike-card">
+      <div class="volume-spike-header">
+        <span class="volume-spike-icon">⚡</span>
+        <span class="volume-spike-title">UNUSUAL VOLUME</span>
+      </div>
+      <div class="volume-spike-body">
+        <strong>${pctOfTotal}%</strong> of this market's lifetime volume traded in the last 24 hours.${moverNote}
+        Something may have changed — check recent news for a catalyst.
+      </div>
+    </div>`
+}
+
+// Feature: News correlation hint — fires when any outcome has moved ≥5 points
+function newsMoveHint(outcomes, title) {
+  const movers = [...outcomes]
+    .filter(o => o.delta != null && Math.abs(o.delta) >= 5)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+  if (!movers.length) return ""
+  const top = movers[0]
+  const dir = top.delta > 0 ? "up" : "down"
+  const pts = Math.abs(top.delta)
+  const q = encodeURIComponent((title ? title + " " : "") + top.label)
+  const newsUrl = "https://news.google.com/search?q=" + q
+  return `
+    <div class="mi-card news-hint-card">
+      <div class="news-hint-header">
+        <span class="news-hint-icon">📰</span>
+        <span class="news-hint-title">PRICE MOVEMENT DETECTED</span>
+      </div>
+      <div class="news-hint-body">
+        &ldquo;${esc(top.label)}&rdquo; moved ${dir} ${pts} pts since the last trade.
+        Check for a catalyst:
+        <a href="${newsUrl}" target="_blank" rel="noopener" class="news-hint-link">Search news ↗</a>
+      </div>
+    </div>`
+}
+
+// Feature: Resolved market insights — upset, sharpness score, money breakdown, odds journey
+function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
+  if (!resolvedInfo) return ""
+  const winners = resolvedInfo.winners || (resolvedInfo.winner ? [resolvedInfo.winner] : [])
+  if (!winners.length) return ""
+
+  const totalVol     = _parseStatVol(stats, "VOLUME TRADED")
+  const closeOdds    = resolvedInfo.winnerCloseOdds ?? null
+  const prevOdds     = resolvedInfo.winnerPrevOdds  ?? null
+  const wasUpset     = resolvedInfo.wasUpset || false
+  const winnerVolRank = resolvedInfo.winnerVolRank ?? null
+
+  // Sharpness label — based on winner's closing odds (Kalshi only)
+  let sharpnessHtml = ""
+  if (closeOdds != null) {
+    let label, cls, sub
+    if      (closeOdds >= 80) { label = "CALLED IT";    cls = "val-green"; sub = "market was very confident" }
+    else if (closeOdds >= 60) { label = "LEANED RIGHT"; cls = "val-green"; sub = "market slightly favored winner" }
+    else if (closeOdds >= 45) { label = "PHOTO FINISH"; cls = "val-amber"; sub = "market was nearly 50/50" }
+    else if (closeOdds >= 25) { label = "SURPRISED";    cls = "val-red";   sub = "market didn't expect this" }
+    else                      { label = "SHOCKED";      cls = "val-red";   sub = "major upset — market was wrong" }
+    sharpnessHtml = `
+      <div class="ri-row">
+        <span class="ri-label">MARKET ACCURACY</span>
+        <span class="ri-val ${cls}">${label} <span class="ri-sub">· ${sub} (winner at ${closeOdds}% at close)</span></span>
+      </div>`
+  }
+
+  // Odds journey (Kalshi only: prev_price → close)
+  let oddsJourneyHtml = ""
+  if (prevOdds != null && closeOdds != null && prevOdds !== closeOdds) {
+    const arrow = closeOdds > prevOdds ? "↑" : "↓"
+    oddsJourneyHtml = `
+      <div class="ri-row">
+        <span class="ri-label">ODDS AT CLOSE</span>
+        <span class="ri-val">Before final trade: ${prevOdds}% ${arrow} Final: ${closeOdds}%</span>
+      </div>`
+  }
+
+  // Money won/lost estimate (when we have close odds + total vol)
+  let moneyHtml = ""
+  if (totalVol > 0 && closeOdds != null && closeOdds > 0 && closeOdds < 100) {
+    const transfer = Math.round(totalVol * (100 - closeOdds) / 100)
+    const fmt = n => "$" + n.toLocaleString()
+    moneyHtml = `
+      <div class="ri-row">
+        <span class="ri-label">WINNERS GAINED (EST.)</span>
+        <span class="ri-val val-green">~${fmt(transfer)}</span>
+      </div>
+      <div class="ri-row">
+        <span class="ri-label">LOSERS PAID (EST.)</span>
+        <span class="ri-val val-red">~${fmt(transfer)}</span>
+      </div>`
+  } else if (totalVol > 0) {
+    const fmt = n => "$" + n.toLocaleString()
+    moneyHtml = `
+      <div class="ri-row">
+        <span class="ri-label">TOTAL TRADED</span>
+        <span class="ri-val">${fmt(totalVol)} moved through this market</span>
+      </div>`
+  }
+
+  // Upset banner — fires for Kalshi (closeOdds<50) or Polymarket categorical (volRank>1)
+  const upsetLabel = closeOdds != null
+    ? `${esc(winners[0])} was priced at only ${closeOdds}% at close`
+    : winnerVolRank != null && winnerVolRank > 1
+      ? `${esc(winners[0])} was the #${winnerVolRank}-backed outcome by volume`
+      : ""
+  const upsetBanner = wasUpset && upsetLabel ? `
+    <div class="upset-banner">
+      <span class="upset-icon">🔥</span>
+      <div class="upset-body">
+        <strong>UNDERDOG WINS</strong> — ${upsetLabel}. The market got this one wrong.
+      </div>
+    </div>` : ""
+
+  if (!sharpnessHtml && !oddsJourneyHtml && !moneyHtml && !upsetBanner) return ""
+
+  return `
+    <div class="mi-card resolved-insights-card">
+      <div class="section-label">MARKET INSIGHTS</div>
+      ${upsetBanner}
+      ${sharpnessHtml}
+      ${oddsJourneyHtml}
+      ${moneyHtml}
+    </div>`
+}
+
 function resolvedBoxHtml(info) {
   if (!info) return ""
   const isNo = info.resolution === "no"

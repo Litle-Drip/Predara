@@ -308,6 +308,24 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   // Show resolved box when finished OR when some sub-markets have already resolved YES
   // (e.g. cumulative-threshold markets where lower thresholds resolve before the event closes)
   const hasPartialResolution = isMultiOutcome && resolvedYesMarkets.length > 0
+
+  // Pre-settlement trading odds for sharpness score and upset detection
+  let winnerCloseOdds = null, winnerPrevOdds = null
+  if (resolvedMarket) {
+    const rLast = parseFloat(resolvedMarket.last_price_dollars || 0)
+    const rPrev = parseFloat(resolvedMarket.previous_price_dollars || 0)
+    const isYesWin = resolvedYesMarkets.length > 0
+    // At settlement, last_price = ~1.0 (YES win) or ~0.0 (NO win) — use previous_price for the actual trading close
+    const isSettled = isYesWin ? rLast >= 0.99 : rLast <= 0.01
+    const tradingP  = isSettled ? rPrev : rLast
+    if (tradingP > 0.01 && tradingP < 0.99) {
+      winnerCloseOdds = Math.round((isYesWin ? tradingP : 1 - tradingP) * 100)
+      if (!isSettled && rPrev > 0.01 && rPrev < 0.99 && rPrev !== rLast) {
+        winnerPrevOdds = Math.round((isYesWin ? rPrev : 1 - rPrev) * 100)
+      }
+    }
+  }
+
   const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
     winners: isMultiOutcome && resolvedYesMarkets.length > 1
       ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
@@ -324,6 +342,9 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     value: expValue || null,
     totalVol: isFinished ? (totalVol || null) : null,
     isMultiOutcome,
+    winnerCloseOdds,
+    winnerPrevOdds,
+    wasUpset: winnerCloseOdds != null && winnerCloseOdds < 50,
   } : null
 
   return {
@@ -347,6 +368,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     betExplainerText,
     ruleSentences,
     resSourceHtml,
+    rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
   }
 }
 
@@ -588,6 +610,7 @@ function normalizeGemini(event) {
     betExplainerText,
     ruleSentences,
     resSourceHtml,
+    rawRulesText: event.description || "",
   }
 }
 
@@ -894,6 +917,15 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       ? Math.round((endMs - startMs) / 86400000)
       : null
 
+    // Upset detection: was winner the most-backed outcome by volume?
+    let winnerVolRank = null, pmWasUpset = false
+    if (hasCategorical && winners[0]) {
+      const sortedByVol = [...categoricalEntries].sort((a, b) => b.vol - a.vol)
+      const rank = sortedByVol.findIndex(e => e.label === winners[0])
+      winnerVolRank = rank >= 0 ? rank + 1 : null
+      pmWasUpset = winnerVolRank != null && winnerVolRank > 1
+    }
+
     resolvedInfo = {
       winners,
       winner: winners[0],
@@ -906,6 +938,8 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       durationDays,
       totalOutcomes: hasCategorical ? categoricalEntries.length : null,
       winnersCount: winners.length,
+      winnerVolRank,
+      wasUpset: pmWasUpset,
     }
   }
 
@@ -945,5 +979,6 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     betExplainerText,
     ruleSentences: limitedRules,
     resSourceHtml,
+    rawRulesText: first.description || event.description || "",
   }
 }

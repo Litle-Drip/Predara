@@ -40,6 +40,12 @@ function renderMarket(norm, accent) {
   const hasRules = norm.ruleSentences.length > 0
   const hasTimeline = norm.hasTimeline
 
+  // New features: rule alerts, volume spike, news hint, resolved insights
+  const ruleAlertsHtml   = ruleAlertsCard(norm.rawRulesText || "")
+  const volSpikeHtml     = volumeSpikeHtml(norm.stats, norm.outcomes)
+  const newsMoveHtml     = norm.resolvedInfo ? "" : newsMoveHint(norm.outcomes, norm.title)
+  const resolvedInsights = resolvedInsightsCard(norm.resolvedInfo, norm.stats, norm.outcomes)
+
   return `
     <div class="mi-card">
       <div class="event-head">
@@ -57,6 +63,8 @@ function renderMarket(norm, accent) {
 
     ${resolvedBoxHtml(norm.resolvedInfo)}
 
+    ${resolvedInsights}
+
     ${norm.notification ? `
     <div class="mi-card market-notice">
       <div class="market-notice-icon">⚠</div>
@@ -70,6 +78,8 @@ function renderMarket(norm, accent) {
       <div class="section-label">HOW IT RESOLVES</div>
       <div class="num-list">${numList(norm.ruleSentences)}</div>
     </div>` : ""}
+
+    ${ruleAlertsHtml}
 
     ${hasTimeline ? `
     <div class="mi-card">
@@ -89,6 +99,10 @@ function renderMarket(norm, accent) {
     </div>
 
     ${volDistHtml}
+
+    ${volSpikeHtml}
+
+    ${newsMoveHtml}
 
     <div class="stats-grid">
       ${statsHtml}

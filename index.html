@@ -1063,6 +1063,137 @@
       padding: 8px 0 4px;
     }
 
+    /* ── Rule alerts card ── */
+    .rule-alerts-card { border-left: 3px solid #f59e0b; }
+    .rule-alerts-label { color: #f59e0b !important; }
+    .rule-flag-item {
+      padding: 14px 32px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .rule-flag-item:first-of-type { border-top: none; }
+    .rule-flag-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .rule-flag-icon { color: #f59e0b; font-size: 13px; }
+    .rule-flag-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #f59e0b;
+    }
+    .rule-flag-desc {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .rule-flag-quote {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-style: italic;
+      background: var(--rule-bg);
+      border-left: 2px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 0 3px 3px 0;
+    }
+
+    /* ── Volume spike alert ── */
+    .volume-spike-card {
+      border-left: 3px solid #6366f1;
+      padding: 14px 20px 16px;
+    }
+    .volume-spike-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .volume-spike-icon { font-size: 14px; }
+    .volume-spike-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #6366f1;
+    }
+    .volume-spike-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ── News correlation hint ── */
+    .news-hint-card {
+      border-left: 3px solid #0ea5e9;
+      padding: 14px 20px 16px;
+    }
+    .news-hint-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .news-hint-icon { font-size: 14px; }
+    .news-hint-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #0ea5e9;
+    }
+    .news-hint-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .news-hint-link {
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .news-hint-link:hover { text-decoration: underline; }
+
+    /* ── Resolved market insights card ── */
+    .resolved-insights-card { overflow: visible; }
+    .ri-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 13px 32px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ri-row:last-child { border-bottom: none; }
+    .ri-label {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .ri-val { color: var(--text); text-align: right; }
+    .ri-sub { font-size: 11px; color: var(--muted); }
+
+    /* ── Upset banner ── */
+    .upset-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 32px;
+      background: rgba(239, 68, 68, 0.07);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .upset-icon { font-size: 18px; flex-shrink: 0; }
+    .upset-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .upset-body strong { color: var(--red); }
+
     /* ── Feature 11: skeleton loading ── */
     .skeleton { animation: sk-pulse 1.5s ease-in-out infinite; }
     @keyframes sk-pulse {
@@ -1227,12 +1358,12 @@
 
 </div>
 
-<script src="utils.js?v=8"></script>
-<script src="components.js?v=8"></script>
-<script src="adapters.js?v=8"></script>
-<script src="renderers.js?v=8"></script>
-<script src="compare.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="utils.js?v=9"></script>
+<script src="components.js?v=9"></script>
+<script src="adapters.js?v=9"></script>
+<script src="renderers.js?v=9"></script>
+<script src="compare.js?v=9"></script>
+<script src="app.js?v=9"></script>
 <script>
   (function () {
     // Theme
