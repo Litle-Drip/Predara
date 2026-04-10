@@ -83,9 +83,16 @@ function extractTopOutcomes(platform, data) {
         return ask > 0 && bid > 0 ? ask - bid : null
       }).filter(s => s !== null && s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
+      const pmIsBinary = all.length === 2
       return {
         title: event.title || "",
-        topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })),
+        isBinary: pmIsBinary,
+        topOutcomes: all.slice(0, 3).map((o, i) => {
+          const nameLower = o.name.toLowerCase().trim()
+          const normalized = pmIsBinary && (nameLower === "yes" || nameLower === "no")
+            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
+          return { ...o, color: OUTCOME_COLORS[i], rank: i, normalizedName: normalized }
+        }),
         stats: [
           { label: "Volume",        value: fmtCompareNum(parseFloat(event.volume || 0)) },
           { label: "24h Volume",    value: fmtCompareNum(parseFloat(event.volume24hr || 0)) },
@@ -112,9 +119,16 @@ function extractTopOutcomes(platform, data) {
         return ask > 0 && bid > 0 ? ask - bid : null
       }).filter(s => s !== null && s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
+      const gemIsBinary = extracted.length === 2
       return {
         title: data.title,
-        topOutcomes: extracted.slice(0, 3),
+        isBinary: gemIsBinary,
+        topOutcomes: extracted.slice(0, 3).map((o, i) => {
+          const nameLower = o.name.toLowerCase().trim()
+          const normalized = gemIsBinary && (nameLower === "yes" || nameLower === "no")
+            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
+          return { ...o, rank: i, normalizedName: normalized }
+        }),
         stats: [
           { label: "Volume",        value: fmtCompareNum(vol) },
           { label: "24h Volume",    value: fmtCompareNum(vol24) },
@@ -460,7 +474,14 @@ async function analyzeCompare() {
   result.innerHTML = renderComparison(results) + detailsHtml
 
   // Share link encodes all URLs joined by newline
-  addShareBar(urls.join("\n"))
+  const compareUrl = urls.join("\n")
+  addShareBar(compareUrl)
+  // Update freshness and bookmark state for compare mode
+  if (typeof _updateFreshnessDisplay === "function") {
+    window._lastFetchedAt = Date.now()
+    _updateFreshnessDisplay()
+  }
+  if (typeof _refreshBookmarkBtn === "function") _refreshBookmarkBtn(compareUrl)
 
   if (btn) { btn.disabled = false; btn.textContent = "COMPARE ↗" }
 }

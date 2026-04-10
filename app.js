@@ -87,7 +87,7 @@ function _renderHistoryPanel() {
   const hist = _getHistory()
   if (!hist.length) { panel.innerHTML = `<div class="history-empty">No recent markets yet</div>`; return }
   panel.innerHTML = hist.slice(0, 12).map(h => `
-    <div class="history-item" onclick="document.getElementById('urlInput').value=${JSON.stringify(h.url)};_closeAllPanels();analyze()">
+    <div class="history-item" data-url="${esc(h.url)}" onclick="_loadAndAnalyze(this.dataset.url)">
       ${h.platform ? `<span class="history-platform">${esc(h.platform.toUpperCase())}</span>` : ""}
       <span class="history-title">${esc(h.title || h.url.slice(-40))}</span>
       <span class="history-time">${_timeAgo(h.ts)}</span>
@@ -95,6 +95,14 @@ function _renderHistoryPanel() {
 }
 let _historyOpen = false
 function toggleHistory() {
+  // Close bookmarks panel if open
+  if (_bookmarksOpen) {
+    _bookmarksOpen = false
+    const bp = document.getElementById("bookmarksPanel")
+    const bb = document.getElementById("bookmarksToggleBtn")
+    if (bp) bp.style.display = "none"
+    if (bb) bb.classList.remove("active")
+  }
   _historyOpen = !_historyOpen
   const panel = document.getElementById("historyPanel")
   const btn   = document.getElementById("historyBtn")
@@ -136,12 +144,20 @@ function _renderBookmarksPanel() {
   panel.innerHTML = bms.slice(0, 20).map(b => `
     <div class="history-item">
       ${b.platform ? `<span class="history-platform">${esc(b.platform.toUpperCase())}</span>` : ""}
-      <span class="history-title" style="cursor:pointer" onclick="document.getElementById('urlInput').value=${JSON.stringify(b.url)};_closeAllPanels();analyze()">${esc(b.title || b.url.slice(-40))}</span>
-      <button class="history-remove" onclick="_removeBookmark(${JSON.stringify(b.url)})" title="Remove">✕</button>
+      <span class="history-title" style="cursor:pointer" data-url="${esc(b.url)}" onclick="_loadAndAnalyze(this.dataset.url)">${esc(b.title || b.url.slice(-40))}</span>
+      <button class="history-remove" data-url="${esc(b.url)}" onclick="_removeBookmark(this.dataset.url)" title="Remove">✕</button>
     </div>`).join("")
 }
 let _bookmarksOpen = false
 function toggleBookmarks() {
+  // Close history panel if open
+  if (_historyOpen) {
+    _historyOpen = false
+    const hp = document.getElementById("historyPanel")
+    const hb = document.getElementById("historyBtn")
+    if (hp) hp.style.display = "none"
+    if (hb) hb.classList.remove("active")
+  }
   _bookmarksOpen = !_bookmarksOpen
   const panel = document.getElementById("bookmarksPanel")
   const btn   = document.getElementById("bookmarksToggleBtn")
@@ -149,6 +165,16 @@ function toggleBookmarks() {
   if (_bookmarksOpen) { _renderBookmarksPanel(); panel.style.display = "block"; if (btn) btn.classList.add("active") }
   else                { panel.style.display = "none"; if (btn) btn.classList.remove("active") }
 }
+// Safe URL loader — used by history/bookmark onclick handlers via data-url attribute
+// Avoids JSON.stringify double-quote injection in HTML attribute strings
+function _loadAndAnalyze(url) {
+  if (!url) return
+  const inp = document.getElementById("urlInput")
+  if (inp) inp.value = url
+  _closeAllPanels()
+  analyze()
+}
+
 function _closeAllPanels() {
   _historyOpen = false; _bookmarksOpen = false
   const hp = document.getElementById("historyPanel")
