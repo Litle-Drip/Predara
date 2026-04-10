@@ -143,15 +143,29 @@ function calcAnalyticsRow(label, prob, ask, bid, color) {
   return { label, breakEven, ev, spread, kelly, color: color || "" }
 }
 
-function analyticsCard(rows, timeLeft) {
-  if ((!rows || !rows.length) && !timeLeft) return ""
+// Feature 3 & 6: analyticsCard now accepts optional overround for prominent display
+function analyticsCard(rows, timeLeft, overround) {
+  if ((!rows || !rows.length) && !timeLeft && overround == null) return ""
   const lines = rows.map((r, idx) => {
     const parts = []
     parts.push(`<div class="info-row"><span class="info-key">${tip("BREAK-EVEN")}</span><span class="info-val val-muted">${r.breakEven}%</span></div>`)
     const evClass = r.ev > 0 ? "val-green" : r.ev < 0 ? "val-red" : "val-muted"
     parts.push(`<div class="info-row"><span class="info-key">${tip("EXPECTED VALUE")}</span><span class="info-val ${evClass}">${r.ev > 0 ? "+" : ""}${r.ev}%</span></div>`)
     if (r.kelly !== null) {
-      parts.push(`<div class="info-row"><span class="info-key">${tip("KELLY CRITERION")}</span><span class="info-val val-muted">${r.kelly}%</span></div>`)
+      // Feature 6: Kelly Criterion visual bar instead of just a number
+      const kellyCapped = Math.min(r.kelly, 25)
+      const kellyBarW = Math.round(kellyCapped / 25 * 100)
+      const kellyClass = r.kelly <= 0 ? "val-muted" : r.kelly < 5 ? "val-green" : r.kelly < 15 ? "val-amber" : "val-red"
+      parts.push(`
+        <div class="info-row info-row-kelly">
+          <span class="info-key">${tip("KELLY CRITERION")}</span>
+          <span class="info-val kelly-val-wrap">
+            <span class="kelly-visual" title="Kelly suggests ${r.kelly}% of bankroll">
+              <span class="kelly-fill" style="width:${kellyBarW}%"></span>
+            </span>
+            <span class="${kellyClass}">${r.kelly}%</span>
+          </span>
+        </div>`)
     }
     if (r.spread !== null) {
       const spClass = r.spread < 3 ? "val-green" : r.spread < 8 ? "val-amber" : "val-red"
@@ -167,11 +181,81 @@ function analyticsCard(rows, timeLeft) {
   const timeRow = timeLeft
     ? `<div class="info-row"><span class="info-key">TIME REMAINING</span><span class="info-val urgency-text-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</span></div>`
     : ""
+  // Feature 3: overround prominently in analytics (key quality signal)
+  let overroundRow = ""
+  if (overround != null && overround > 0) {
+    const edge = overround - 100
+    const orClass = edge <= 1 ? "val-green" : edge <= 5 ? "val-amber" : "val-red"
+    const orNote = edge <= 0 ? "FAIR" : `+${edge}% HOUSE EDGE`
+    overroundRow = `<div class="info-row"><span class="info-key">${tip("OVERROUND")}</span><span class="info-val ${orClass}">${overround}% <span class="overround-note">${orNote}</span></span></div>`
+  }
   return `
     <div class="mi-card">
       <div class="section-label">TRADER ANALYTICS</div>
+      ${overroundRow}
       ${timeRow}
       ${lines}
+    </div>`
+}
+
+// Feature 2: Volume distribution bar — shows where money is concentrated across outcomes
+function volumeDistBar(outcomes) {
+  const withVol = outcomes.filter(o => o.vol && o.vol !== "—")
+  if (withVol.length < 2) return ""
+  const vols = withVol.map(o => parseInt(String(o.vol || "0").replace(/,/g, ""), 10))
+  const total = vols.reduce((s, v) => s + v, 0)
+  if (total <= 0) return ""
+  const segments = withVol.map((o, i) => {
+    const pct = (vols[i] / total * 100).toFixed(1)
+    return `<div class="vd-seg" style="width:${pct}%;background:${o.color}" title="${esc(o.label)}: ${pct}% of volume ($${o.vol} traded)"></div>`
+  }).join("")
+  const legendItems = withVol.map((o, i) => {
+    const pct = Math.round(vols[i] / total * 100)
+    return `<span class="vd-legend-item"><span style="color:${o.color}">●</span> ${esc(o.label)}: ${pct}%</span>`
+  }).join("")
+  return `
+    <div class="mi-card">
+      <div class="section-label">VOLUME DISTRIBUTION</div>
+      <div class="vd-wrap">
+        <div class="vd-bar">${segments}</div>
+        <div class="vd-legend">${legendItems}</div>
+      </div>
+    </div>`
+}
+
+// Feature 11: Skeleton loading state matching the market layout
+function skeletonHtml(platformLabel) {
+  const label = platformLabel ? `<div class="sk-block" style="width:80px;height:22px;border-radius:3px"></div>` : ""
+  return `
+    <div class="skeleton">
+      <div class="mi-card">
+        <div class="sk-event-head">
+          <div class="sk-tags">
+            ${label}
+            <div class="sk-block" style="width:70px;height:22px;border-radius:3px"></div>
+            <div class="sk-block" style="width:50px;height:22px;border-radius:3px"></div>
+          </div>
+          <div class="sk-block" style="width:78%;height:26px;margin-top:18px"></div>
+          <div class="sk-block" style="width:55%;height:26px;margin-top:12px"></div>
+        </div>
+      </div>
+      <div class="mi-card" style="overflow:hidden">
+        <div class="sk-block" style="width:140px;height:13px;margin:18px 32px 14px;border-radius:2px"></div>
+        <div class="sk-outcome-row"><div class="sk-block" style="width:42%;height:16px"></div><div class="sk-block" style="width:64px;height:44px"></div></div>
+        <div class="sk-outcome-row" style="border-top:1px solid var(--border)"><div class="sk-block" style="width:56%;height:16px"></div><div class="sk-block" style="width:54px;height:44px"></div></div>
+        <div class="sk-outcome-row" style="border-top:1px solid var(--border)"><div class="sk-block" style="width:38%;height:16px"></div><div class="sk-block" style="width:48px;height:44px"></div></div>
+      </div>
+      <div class="sk-stats-grid">
+        <div class="sk-block sk-stat-card"></div>
+        <div class="sk-block sk-stat-card"></div>
+        <div class="sk-block sk-stat-card"></div>
+        <div class="sk-block sk-stat-card"></div>
+      </div>
+      <div class="mi-card" style="overflow:hidden">
+        <div class="sk-block" style="width:140px;height:13px;margin:18px 32px 14px;border-radius:2px"></div>
+        <div style="padding:14px 32px"><div class="sk-block" style="width:100%;height:12px"></div></div>
+        <div style="padding:8px 32px 20px"><div class="sk-block" style="width:80%;height:12px"></div></div>
+      </div>
     </div>`
 }
 
@@ -198,8 +282,9 @@ function numList(sentences) {
 
 function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const ml = toMoneyline(pct)
+  // Feature 10: label delta as "pts" with a tooltip so users know it's a price change
   const deltaHtml = delta !== null && delta !== 0
-    ? `<span class="outcome-delta ${delta > 0 ? 'delta-up' : 'delta-dn'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}</span>`
+    ? `<span class="outcome-delta ${delta > 0 ? 'delta-up' : 'delta-dn'}" title="Price change vs. last trade: ${delta > 0 ? "+" : ""}${delta} percentage points">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}<span class="delta-label">pts</span></span>`
     : ""
   const estTag = extras.isEstimate ? `<span class="est-tag">(est.)</span>` : ""
   const metaParts = []
@@ -211,6 +296,10 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const metaHtml = metaParts.length
     ? `<div class="outcome-meta">${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
     : ""
+  // Feature 10: show "ML" micro-label above moneyline number so users know what it is
+  const mlBlock = ml !== "—"
+    ? `<div class="outcome-ml-wrap"><div class="ml-label">ML</div><span class="outcome-ml">${tip(ml, "MONEYLINE")}</span></div>`
+    : `<span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>`
   return `
     <div class="outcome-row">
       <div class="outcome-top">
@@ -221,7 +310,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
         <div class="outcome-right">
           <div class="odds-display" style="color:${color}">
             <span class="outcome-pct">${pct}%${estTag}</span>
-            <span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>
+            ${mlBlock}
           </div>
           ${deltaHtml}
         </div>

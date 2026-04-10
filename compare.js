@@ -240,7 +240,63 @@ async function fetchOneMarket(url) {
   }
 }
 
+// Feature 4: detect when two platforms disagree by 15+ points on same outcome
+function _detectDivergence(results) {
+  const valid = results.filter(r => r && !r.error && r.meta && (r.meta.topOutcomes || []).length)
+  if (valid.length < 2) return null
+  for (let i = 0; i < valid.length - 1; i++) {
+    for (let j = i + 1; j < valid.length; j++) {
+      const aOutcomes = valid[i].meta.topOutcomes || []
+      const bOutcomes = valid[j].meta.topOutcomes || []
+      for (const ao of aOutcomes) {
+        const aName = ao.name.toLowerCase().trim()
+        const bo = bOutcomes.find(o => o.name.toLowerCase().trim() === aName)
+        if (!bo) continue
+        const diff = Math.abs(ao.pct - bo.pct)
+        if (diff >= 15) {
+          const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
+          const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
+          return { name: ao.name, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
+        }
+      }
+    }
+  }
+  return null
+}
+
+// Feature 5: build outcome name → best-platform map
+function _buildBestOddsMap(results) {
+  const valid = results.filter(r => r && !r.error && r.meta)
+  const outcomeNames = new Set()
+  valid.forEach(r => (r.meta.topOutcomes || []).forEach(o => outcomeNames.add(o.name.toLowerCase().trim())))
+  const map = {}
+  outcomeNames.forEach(name => {
+    let best = { pct: -1, platform: null }
+    valid.forEach(r => {
+      const o = (r.meta.topOutcomes || []).find(o => o.name.toLowerCase().trim() === name)
+      if (o && o.pct > best.pct) best = { pct: o.pct, platform: r.platform }
+    })
+    if (best.platform) map[name] = best.platform
+  })
+  return map
+}
+
 function renderComparison(results) {
+  // Feature 4: divergence callout
+  const divergence = _detectDivergence(results)
+  const divergenceHtml = divergence ? `
+    <div class="divergence-callout">
+      <span class="divergence-icon">⚠</span>
+      <div class="divergence-body">
+        <strong>${esc(divergence.pA)} and ${esc(divergence.pB)} disagree by ${divergence.diff} points on &ldquo;${esc(divergence.name)}&rdquo;</strong>
+        — ${esc(divergence.pA)}: ${divergence.pctA}% · ${esc(divergence.pB)}: ${divergence.pctB}%.
+        Potential arbitrage opportunity.
+      </div>
+    </div>` : ""
+
+  // Feature 5: best odds per outcome
+  const bestOddsMap = _buildBestOddsMap(results)
+
   const cols = results.map((r, i) => {
     if (!r || r.error) {
       return `<div class="compare-col">
@@ -250,12 +306,14 @@ function renderComparison(results) {
     }
     const { meta, accent, platform } = r
     const platformLabel = (PLATFORMS[platform] || {}).label || platform.toUpperCase()
-    const outcomesHtml = (meta.topOutcomes || []).map(o =>
-      `<div class="compare-outcome">
-        <span class="compare-outcome-name" style="color:${o.color}">${esc(o.name)}</span>
-        <span class="compare-outcome-pct" style="color:${o.color}">${o.pct}%</span>
+    const outcomesHtml = (meta.topOutcomes || []).map(o => {
+      const isBest = bestOddsMap[o.name.toLowerCase().trim()] === platform
+      const bestBadge = isBest ? ` <span class="best-odds-badge">BEST</span>` : ""
+      return `<div class="compare-outcome">
+        <span class="compare-outcome-name" style="color:${o.color};${isBest ? "font-weight:700" : ""}">${esc(o.name)}${bestBadge}</span>
+        <span class="compare-outcome-pct" style="color:${o.color};${isBest ? "font-weight:900" : ""}">${o.pct}%</span>
       </div>`
-    ).join("") || `<div class="compare-col-empty">No outcome data</div>`
+    }).join("") || `<div class="compare-col-empty">No outcome data</div>`
     const statsHtml = (meta.stats || []).length
       ? `<div class="compare-stats">${(meta.stats).map(s =>
           `<div class="compare-stat-row">
@@ -272,11 +330,16 @@ function renderComparison(results) {
     </div>`
   }).join("")
 
-  return `<div class="mi-card" style="margin-bottom:24px">
+  // Feature 9: swipe hint shown on mobile (hidden via CSS on desktop)
+  const swipeHint = results.length > 1
+    ? `<div class="compare-swipe-hint">← swipe to see all platforms →</div>` : ""
+
+  return `${divergenceHtml}<div class="mi-card" style="margin-bottom:${divergence ? "0" : "24px"}">
     <div class="section-label">COMPARING ${results.length} MARKETS</div>
     <div class="compare-cols">${cols}</div>
+    ${swipeHint}
   </div>
-  <div class="compare-details-label">FULL ANALYSES</div>`
+  <div class="compare-details-label" style="margin-top:${divergence ? "16px" : "0"}">FULL ANALYSES</div>`
 }
 
 let _compareMode = false
