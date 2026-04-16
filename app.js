@@ -317,6 +317,17 @@ function generateShareCard() {
   ctx.fillStyle = textMuted
   ctx.font = "11px 'Courier New', monospace"
   ctx.fillText("✦ PREDARA · PREDICTION MARKET ANALYZER · predara.org", 56, H - 36)
+  const stamp = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date())
+  const stampText = stamp
+  ctx.textAlign = "right"
+  ctx.fillText(stampText, W - 56, H - 36)
+  ctx.textAlign = "left"
 
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob)
