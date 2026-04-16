@@ -1,6 +1,326 @@
 // ── Entry point ───────────────────────────────────────────────────────────────
 // Depends on: utils.js, components.js, adapters.js, renderers.js, compare.js
 
+// ── Feature 1: "What changed?" diff on refresh ────────────────────────────────
+function _captureOutcomeSnapshot() {
+  const url = document.getElementById("urlInput")?.value?.trim()
+  if (!url) return null
+  const outcomes = []
+  document.querySelectorAll(".outcome-row").forEach(row => {
+    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const pctEl = row.querySelector(".outcome-pct")
+    // Strip trailing "(est.)" suffix before parsing
+    const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
+    const pct = parseInt(pctText, 10)
+    if (name && !isNaN(pct)) outcomes.push({ name, pct })
+  })
+  return outcomes.length ? { ts: Date.now(), url, outcomes } : null
+}
+
+function _saveSnapshot(snap) {
+  if (!snap) return
+  try { localStorage.setItem("predara-snap:" + snap.url.slice(0, 200), JSON.stringify(snap)) } catch {}
+}
+
+function _loadSnapshot(url) {
+  if (!url) return null
+  try { return JSON.parse(localStorage.getItem("predara-snap:" + url.slice(0, 200))) || null } catch { return null }
+}
+
+function _timeAgo(ts) {
+  const mins = Math.floor((Date.now() - ts) / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return mins + "m ago"
+  return Math.floor(mins / 60) + "h ago"
+}
+
+function _showRefreshDiff(prevSnap) {
+  if (!prevSnap || !prevSnap.outcomes) return
+  const newOutcomes = []
+  document.querySelectorAll(".outcome-row").forEach(row => {
+    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const pctEl = row.querySelector(".outcome-pct")
+    const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
+    const pct = parseInt(pctText, 10)
+    if (name && !isNaN(pct)) newOutcomes.push({ name, pct })
+  })
+  if (!newOutcomes.length) return
+
+  const oldMap = {}
+  prevSnap.outcomes.forEach(o => { oldMap[o.name] = o.pct })
+  const changes = []
+  newOutcomes.forEach(o => {
+    const old = oldMap[o.name]
+    if (old != null && old !== o.pct) {
+      const diff = o.pct - old
+      changes.push(`<span class="diff-item-name">${esc(o.name)}</span>: ${old}% → <strong>${o.pct}%</strong> <span class="${diff > 0 ? "diff-up" : "diff-dn"}">(${diff > 0 ? "+" : ""}${diff} pts)</span>`)
+    }
+  })
+
+  const banner = document.createElement("div")
+  const ageText = _timeAgo(prevSnap.ts)
+  if (changes.length) {
+    banner.className = "diff-banner diff-has-change"
+    banner.innerHTML = `<span class="diff-banner-title">↺ WHAT CHANGED · since ${ageText}</span><div class="diff-changes">${changes.map(c => `<div class="diff-change-item">${c}</div>`).join("")}</div>`
+  } else {
+    banner.className = "diff-banner diff-no-change"
+    banner.innerHTML = `<span>↺ No price changes since ${ageText}</span>`
+  }
+  const result = document.getElementById("result")
+  if (result?.firstChild) result.insertBefore(banner, result.firstChild)
+}
+
+// ── Analysis history ──────────────────────────────────────────────────────────
+function _getHistory() {
+  try { return JSON.parse(localStorage.getItem("predara-history") || "[]") } catch { return [] }
+}
+function _logHistory(url, title, platform) {
+  if (!url) return
+  const hist = _getHistory().filter(h => h.url !== url)
+  hist.unshift({ url, title: title || "", platform: platform || "", ts: Date.now() })
+  try { localStorage.setItem("predara-history", JSON.stringify(hist.slice(0, 50))) } catch {}
+  _renderHistoryPanel()
+}
+function _renderHistoryPanel() {
+  const panel = document.getElementById("historyPanel")
+  if (!panel) return
+  const hist = _getHistory()
+  if (!hist.length) { panel.innerHTML = `<div class="history-empty">No recent markets yet</div>`; return }
+  panel.innerHTML = hist.slice(0, 12).map(h => `
+    <div class="history-item" data-url="${esc(h.url)}" onclick="_loadAndAnalyze(this.dataset.url)">
+      ${h.platform ? `<span class="history-platform">${esc(h.platform.toUpperCase())}</span>` : ""}
+      <span class="history-title">${esc(h.title || h.url.slice(-40))}</span>
+      <span class="history-time">${_timeAgo(h.ts)}</span>
+    </div>`).join("")
+}
+let _historyOpen = false
+function toggleHistory() {
+  // Close bookmarks panel if open
+  if (_bookmarksOpen) {
+    _bookmarksOpen = false
+    const bp = document.getElementById("bookmarksPanel")
+    const bb = document.getElementById("bookmarksToggleBtn")
+    if (bp) bp.style.display = "none"
+    if (bb) bb.classList.remove("active")
+  }
+  _historyOpen = !_historyOpen
+  const panel = document.getElementById("historyPanel")
+  const btn   = document.getElementById("historyBtn")
+  if (!panel) return
+  if (_historyOpen) { _renderHistoryPanel(); panel.style.display = "block"; if (btn) btn.classList.add("active") }
+  else              { panel.style.display = "none"; if (btn) btn.classList.remove("active") }
+}
+
+// ── Bookmarks ─────────────────────────────────────────────────────────────────
+function _getBookmarks() {
+  try { return JSON.parse(localStorage.getItem("predara-bookmarks") || "[]") } catch { return [] }
+}
+function _saveBookmark(url, title, platform) {
+  if (!url) return
+  const bms = _getBookmarks().filter(b => b.url !== url)
+  bms.unshift({ url, title: title || "", platform: platform || "", ts: Date.now() })
+  try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms.slice(0, 100))) } catch {}
+  _renderBookmarksPanel(); _refreshBookmarkBtn(url)
+}
+function _removeBookmark(url) {
+  const bms = _getBookmarks().filter(b => b.url !== url)
+  try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms)) } catch {}
+  _renderBookmarksPanel(); _refreshBookmarkBtn(url)
+}
+function _isBookmarked(url) { return _getBookmarks().some(b => b.url === url) }
+function _refreshBookmarkBtn(url) {
+  const btn = document.getElementById("bookmarkBtn")
+  if (!btn) return
+  const saved = url ? _isBookmarked(url) : false
+  btn.textContent = saved ? "★ SAVED" : "☆ SAVE"
+  btn.classList.toggle("bookmarked", saved)
+  btn.onclick = () => saved ? _removeBookmark(url) : _saveBookmark(url, _currentTitle(), _currentPlatform())
+}
+function _renderBookmarksPanel() {
+  const panel = document.getElementById("bookmarksPanel")
+  if (!panel) return
+  const bms = _getBookmarks()
+  if (!bms.length) { panel.innerHTML = `<div class="history-empty">No saved markets yet</div>`; return }
+  panel.innerHTML = bms.slice(0, 20).map(b => `
+    <div class="history-item">
+      ${b.platform ? `<span class="history-platform">${esc(b.platform.toUpperCase())}</span>` : ""}
+      <span class="history-title" style="cursor:pointer" data-url="${esc(b.url)}" onclick="_loadAndAnalyze(this.dataset.url)">${esc(b.title || b.url.slice(-40))}</span>
+      <button class="history-remove" data-url="${esc(b.url)}" onclick="_removeBookmark(this.dataset.url)" title="Remove">✕</button>
+    </div>`).join("")
+}
+let _bookmarksOpen = false
+function toggleBookmarks() {
+  // Close history panel if open
+  if (_historyOpen) {
+    _historyOpen = false
+    const hp = document.getElementById("historyPanel")
+    const hb = document.getElementById("historyBtn")
+    if (hp) hp.style.display = "none"
+    if (hb) hb.classList.remove("active")
+  }
+  _bookmarksOpen = !_bookmarksOpen
+  const panel = document.getElementById("bookmarksPanel")
+  const btn   = document.getElementById("bookmarksToggleBtn")
+  if (!panel) return
+  if (_bookmarksOpen) { _renderBookmarksPanel(); panel.style.display = "block"; if (btn) btn.classList.add("active") }
+  else                { panel.style.display = "none"; if (btn) btn.classList.remove("active") }
+}
+// Safe URL loader — used by history/bookmark onclick handlers via data-url attribute
+// Avoids JSON.stringify double-quote injection in HTML attribute strings
+function _loadAndAnalyze(url) {
+  if (!url) return
+  const inp = document.getElementById("urlInput")
+  if (inp) inp.value = url
+  _closeAllPanels()
+  analyze()
+}
+
+function _closeAllPanels() {
+  _historyOpen = false; _bookmarksOpen = false
+  const hp = document.getElementById("historyPanel")
+  const bp = document.getElementById("bookmarksPanel")
+  const hb = document.getElementById("historyBtn")
+  const bb = document.getElementById("bookmarksToggleBtn")
+  if (hp) hp.style.display = "none"
+  if (bp) bp.style.display = "none"
+  if (hb) hb.classList.remove("active")
+  if (bb) bb.classList.remove("active")
+}
+
+function _currentTitle() {
+  return document.querySelector("#result .event-title")?.textContent?.trim() || ""
+}
+function _currentPlatform() {
+  const lower = (document.getElementById("urlInput")?.value || "").toLowerCase()
+  return lower.includes("kalshi") ? "kalshi" : lower.includes("polymarket") ? "polymarket"
+    : lower.includes("coinbase") ? "coinbase" : lower.includes("gemini") ? "gemini" : ""
+}
+
+// ── Data freshness indicator ───────────────────────────────────────────────────
+function _updateFreshnessDisplay() {
+  const el = document.getElementById("fetchedAt")
+  if (!el || !window._lastFetchedAt) return
+  el.textContent = "Fetched " + _timeAgo(window._lastFetchedAt)
+  el.style.display = "inline"
+}
+
+// ── Feature 7: Share card image generator ────────────────────────────────────
+function _wrapText(ctx, text, maxWidth) {
+  const words = text.split(" ")
+  const lines = []
+  let line = ""
+  for (const word of words) {
+    const test = line ? line + " " + word : word
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word }
+    else line = test
+  }
+  if (line) lines.push(line)
+  return lines
+}
+
+function generateShareCard() {
+  const titleEl = document.querySelector(".event-title")
+  const title = titleEl?.textContent?.trim() || "Market Analysis"
+  const platformEl = document.querySelector(".tag-platform")
+  const platformLabel = platformEl?.textContent?.trim() || "PREDARA"
+  const accentStyle = platformEl ? getComputedStyle(platformEl).backgroundColor : "#d94f20"
+
+  const outcomes = []
+  document.querySelectorAll(".outcome-row").forEach(row => {
+    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const pctEl = row.querySelector(".outcome-pct")
+    const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
+    const pct = parseInt(pctText, 10)
+    const colorStr = row.querySelector(".outcome-name")?.style?.color || "#22c55e"
+    if (name && !isNaN(pct)) outcomes.push({ name, pct, color: colorStr })
+  })
+
+  if (!outcomes.length) return
+
+  const W = 1200, H = 630
+  const canvas = document.createElement("canvas")
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext("2d")
+
+  const isDark = !document.body.classList.contains("light")
+  const bgColor   = isDark ? "#141210" : "#f5f3ee"
+  const cardColor = isDark ? "#1d1c18" : "#ffffff"
+  const textBright = isDark ? "#f2f0e6" : "#1a1916"
+  const textMuted = isDark ? "#a09e8c" : "#7a7868"
+  const borderColor = isDark ? "#2e2c26" : "#dddbd0"
+
+  // Background
+  ctx.fillStyle = bgColor
+  ctx.fillRect(0, 0, W, H)
+
+  // Top accent bar
+  ctx.fillStyle = accentStyle
+  ctx.fillRect(0, 0, W, 5)
+
+  // Platform badge
+  ctx.font = "bold 13px 'Courier New', monospace"
+  const badgeW = ctx.measureText(platformLabel).width + 32
+  ctx.fillStyle = accentStyle
+  ctx.beginPath()
+  ctx.roundRect(56, 52, badgeW, 28, 3)
+  ctx.fill()
+  ctx.fillStyle = "#ffffff"
+  ctx.fillText(platformLabel, 72, 71)
+
+  // Title
+  ctx.font = "bold 38px 'Courier New', monospace"
+  const titleLines = _wrapText(ctx, title, W - 120)
+  ctx.fillStyle = textBright
+  titleLines.slice(0, 2).forEach((line, i) => ctx.fillText(line, 56, 124 + i * 52))
+
+  // Outcomes
+  const baseY = titleLines.length > 1 ? 230 : 196
+  const maxOutcomes = Math.min(outcomes.length, 4)
+  const rowH = Math.min(80, (H - baseY - 80) / maxOutcomes)
+  outcomes.slice(0, maxOutcomes).forEach((o, i) => {
+    const y = baseY + i * rowH
+    const barW = W - 112
+    // Row background
+    ctx.fillStyle = cardColor
+    ctx.beginPath(); ctx.roundRect(56, y, barW, rowH - 6, 4); ctx.fill()
+    ctx.strokeStyle = borderColor; ctx.lineWidth = 1
+    ctx.beginPath(); ctx.roundRect(56, y, barW, rowH - 6, 4); ctx.stroke()
+    // Probability fill
+    ctx.fillStyle = o.color + "2a"
+    ctx.beginPath(); ctx.roundRect(56, y, barW * (o.pct / 100), rowH - 6, 4); ctx.fill()
+    // Outcome name
+    ctx.fillStyle = o.color
+    ctx.font = `600 ${rowH > 70 ? 18 : 15}px 'Courier New', monospace`
+    ctx.fillText(o.name.slice(0, 55), 78, y + rowH * 0.58)
+    // Percentage
+    ctx.font = `bold ${rowH > 70 ? 30 : 24}px 'Courier New', monospace`
+    const pctStr = o.pct + "%"
+    ctx.fillText(pctStr, W - 56 - ctx.measureText(pctStr).width - 24, y + rowH * 0.62)
+  })
+
+  // Footer
+  ctx.fillStyle = textMuted
+  ctx.font = "11px 'Courier New', monospace"
+  ctx.fillText("✦ PREDARA · PREDICTION MARKET ANALYZER · predara.org", 56, H - 36)
+
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url; a.download = "predara-market.png"; a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1500)
+  })
+}
+
+// ── Post-fetch success handler — call once after each successful render ───────
+function _afterSuccessfulFetch(url) {
+  _saveSnapshot(_captureOutcomeSnapshot())
+  window._lastFetchedAt = Date.now()
+  _logHistory(url, _currentTitle(), _currentPlatform())
+  _refreshBookmarkBtn(url)
+  _updateFreshnessDisplay()
+  addShareBar(url)
+}
+
 function showError(msg, hint = "") {
   const hintHtml = hint ? `<div class="error-hint">${esc(hint)}</div>` : ""
   document.getElementById("result").innerHTML =
@@ -27,7 +347,11 @@ function onInputChange() {
   const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
 
   if (geminiTickerRe.test(raw) && !raw.startsWith("http")) {
-    hint.textContent = `Gemini ticker detected — will search for ${raw.toUpperCase()}`
+    // GEMI-{eventTicker}-{contract} instrument symbols — extract event ticker
+    const eventTicker = /^GEMI-/i.test(raw)
+      ? raw.slice(5).replace(/-[^-]+$/, "").toUpperCase()
+      : raw.toUpperCase()
+    hint.textContent = `Gemini ticker detected — will search for ${eventTicker}`
     hint.className = "input-hint hint-info"
     input.classList.remove("input-invalid", "input-valid")
     return
@@ -116,14 +440,14 @@ async function analyze() {
   const shareBarEl = document.getElementById("shareBar")
   if (shareBarEl) shareBarEl.style.display = "none"
 
-  // Detect platform early for a contextual loading message
+  // Detect platform early for contextual skeleton loading state (Feature 11)
   const earlyLower = url.toLowerCase()
   const loadingPlatform = earlyLower.includes("kalshi") ? "KALSHI"
     : earlyLower.includes("polymarket") ? "POLYMARKET"
     : earlyLower.includes("coinbase") ? "COINBASE"
     : earlyLower.includes("gemini") ? "GEMINI"
     : ""
-  result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>ANALYZING${loadingPlatform ? " " + loadingPlatform : ""}\u2026</div>`
+  result.innerHTML = skeletonHtml(loadingPlatform)
 
   function resetBtn() {
     _analyzing = false
@@ -133,10 +457,15 @@ async function analyze() {
     btn.style.cursor = ""
   }
 
-  // Expand a bare Gemini ticker (e.g. "NBA-2603151930-DET-TOR-M") to a full URL
+  // Expand a bare Gemini ticker or instrument symbol to a full URL.
+  // GEMI-{eventTicker}-{contract} instrument symbols need the GEMI- prefix
+  // and trailing contract segment stripped to recover the event ticker.
   const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
   if (geminiTickerRe.test(url)) {
-    url = `https://www.gemini.com/predictions/${url.toUpperCase()}`
+    const eventTicker = /^GEMI-/i.test(url)
+      ? url.slice(5).replace(/-[^-]+$/, "").toUpperCase()
+      : url.toUpperCase()
+    url = `https://www.gemini.com/predictions/${eventTicker}`
   }
 
   const lowerUrl = url.toLowerCase()
@@ -186,7 +515,7 @@ async function analyze() {
               const fakeEvent = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {} }
               result.innerHTML = renderKalshiEvent(fakeEvent, accent, "coinbase")
             }
-            addShareBar(url)
+            _afterSuccessfulFetch(url)
             return
           }
           if (kr.status === 503) {
@@ -228,7 +557,7 @@ async function analyze() {
       if (!markets.length) throw new Error("No market data found.")
 
       result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
-      addShareBar(url)
+      _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
@@ -244,10 +573,14 @@ async function analyze() {
       const cleanPath = url.split("?")[0].split("#")[0].replace(/\/$/, "")
       const pathParts = cleanPath.split("/")
       const marketsIdx = pathParts.findIndex(p => p === "markets" || p === "events")
-      const eventTicker = marketsIdx !== -1 && pathParts[marketsIdx + 1]
+      const ticker = pathParts[pathParts.length - 1].toUpperCase()
+      // For 3-segment URLs like /markets/{series}/{slug}/{ticker}, pathParts[marketsIdx+1]
+      // is the series, not the event ticker — fetching it returns the entire series (wrong).
+      // Only use it as a prefetch hint for 2-segment URLs: /markets/{series}/{ticker}.
+      const segmentsAfterMarkets = marketsIdx !== -1 ? pathParts.length - 1 - marketsIdx : 0
+      const eventTicker = (segmentsAfterMarkets === 2 && pathParts[marketsIdx + 1])
         ? pathParts[marketsIdx + 1].toUpperCase()
         : null
-      const ticker = pathParts[pathParts.length - 1].toUpperCase()
 
       let data = null
       if (eventTicker && eventTicker !== ticker) {
@@ -291,7 +624,7 @@ async function analyze() {
           if (specific.length > 0) data.event.markets = specific
         }
         result.innerHTML = renderKalshiEvent(data.event, accent)
-        addShareBar(url)
+        _afterSuccessfulFetch(url)
       } else if (data.market) {
         const m = data.market
         const fakeEvent = {
@@ -304,7 +637,7 @@ async function analyze() {
           _contract_url: m._contract_url,
         }
         result.innerHTML = renderKalshiEvent(fakeEvent, accent)
-        addShareBar(url)
+        _afterSuccessfulFetch(url)
       } else {
         throw new Error("Unexpected API response.")
       }
@@ -352,7 +685,7 @@ async function analyze() {
       if (!data || (!data.title && !data.contracts && !data.ticker)) throw new Error("No event data returned.")
 
       result.innerHTML = renderGeminiEvent(data, accent)
-      addShareBar(url)
+      _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)

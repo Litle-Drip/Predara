@@ -1,5 +1,12 @@
 // ── Comparison helpers ────────────────────────────────────────────────────────
 
+const PLATFORM_FOOTNOTES = {
+  kalshi:     "US-regulated by the CFTC. Real money. Requires US residency.",
+  polymarket: "Decentralized (Polygon blockchain). Global access. US users may need VPN.",
+  gemini:     "Operated by Gemini exchange. Smaller market selection.",
+  coinbase:   "Powered by Kalshi. US-regulated. Available to Coinbase users.",
+}
+
 function fmtCompareNum(n) {
   if (!n || !Number.isFinite(n) || n <= 0) return "—"
   return "$" + Math.round(n).toLocaleString()
@@ -11,20 +18,30 @@ function extractTopOutcomes(platform, data) {
       const ev = data.event || (data.market ? { title: data.market.title, markets: [data.market] } : null)
       if (!ev) return { title: "", topOutcomes: [], stats: [] }
       const markets = (ev.markets || []).filter(m => m.yes_sub_title)
-      const sorted = [...markets].sort((a, b) => parseFloat(b.last_price_dollars || 0) - parseFloat(a.last_price_dollars || 0))
+      // Use bid/ask midpoint as the live price; fall back to last trade when unavailable
+      const mktPrice = m => {
+        const bid = parseFloat(m.yes_bid_dollars || 0)
+        const ask = parseFloat(m.yes_ask_dollars || 0)
+        return (bid > 0 && ask > 0) ? (bid + ask) / 2 : parseFloat(m.last_price_dollars || 0)
+      }
+      const sorted = [...markets].sort((a, b) => mktPrice(b) - mktPrice(a))
       const vol   = markets.reduce((s, m) => s + parseFloat(m.volume_fp || 0), 0) / 100
       const vol24 = markets.reduce((s, m) => s + parseFloat(m.volume_24h_fp || 0), 0) / 100
       const oi    = markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100
       const spreads = markets.map(m => parseFloat(m.yes_ask_dollars || 0) - parseFloat(m.yes_bid_dollars || 0)).filter(s => s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
-      const overround = markets.reduce((s, m) => s + parseFloat(m.last_price_dollars || 0), 0)
+      const overround = markets.reduce((s, m) => s + mktPrice(m), 0)
+      const isBinary = sorted.length === 2
       return {
         title: ev.title || "",
-        topOutcomes: sorted.slice(0, 3).map((m, i) => ({
-          name: m.yes_sub_title,
-          pct: Math.round(parseFloat(m.last_price_dollars || 0) * 100),
-          color: OUTCOME_COLORS[i],
-        })),
+        isBinary,
+        topOutcomes: sorted.slice(0, 3).map((m, i) => {
+          const name = m.yes_sub_title
+          const nameLower = name.toLowerCase().trim()
+          const normalized = isBinary && (nameLower === "yes" || nameLower === "no")
+            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
+          return { name, pct: Math.round(mktPrice(m) * 100), color: OUTCOME_COLORS[i], rank: i, normalizedName: normalized }
+        }),
         stats: [
           { label: "Volume",        value: fmtCompareNum(vol) },
           { label: "24h Volume",    value: fmtCompareNum(vol24) },
@@ -66,9 +83,16 @@ function extractTopOutcomes(platform, data) {
         return ask > 0 && bid > 0 ? ask - bid : null
       }).filter(s => s !== null && s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
+      const pmIsBinary = all.length === 2
       return {
         title: event.title || "",
-        topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i] })),
+        isBinary: pmIsBinary,
+        topOutcomes: all.slice(0, 3).map((o, i) => {
+          const nameLower = o.name.toLowerCase().trim()
+          const normalized = pmIsBinary && (nameLower === "yes" || nameLower === "no")
+            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
+          return { ...o, color: OUTCOME_COLORS[i], rank: i, normalizedName: normalized }
+        }),
         stats: [
           { label: "Volume",        value: fmtCompareNum(parseFloat(event.volume || 0)) },
           { label: "24h Volume",    value: fmtCompareNum(parseFloat(event.volume24hr || 0)) },
@@ -95,9 +119,16 @@ function extractTopOutcomes(platform, data) {
         return ask > 0 && bid > 0 ? ask - bid : null
       }).filter(s => s !== null && s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
+      const gemIsBinary = extracted.length === 2
       return {
         title: data.title,
-        topOutcomes: extracted.slice(0, 3),
+        isBinary: gemIsBinary,
+        topOutcomes: extracted.slice(0, 3).map((o, i) => {
+          const nameLower = o.name.toLowerCase().trim()
+          const normalized = gemIsBinary && (nameLower === "yes" || nameLower === "no")
+            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
+          return { ...o, rank: i, normalizedName: normalized }
+        }),
         stats: [
           { label: "Volume",        value: fmtCompareNum(vol) },
           { label: "24h Volume",    value: fmtCompareNum(vol24) },
@@ -234,7 +265,126 @@ async function fetchOneMarket(url) {
   }
 }
 
+// ── Binary outcome normalization helper ───────────────────────────────────────
+// Returns the normalized name for matching (handles Yes/No → __LEAD__/__TRAIL__)
+function _normKey(o) {
+  return o.normalizedName || o.name.toLowerCase().trim()
+}
+
+// Feature 4: detect when two platforms disagree by 15+ points on same outcome
+function _detectDivergence(results) {
+  const valid = results.filter(r => r && !r.error && r.meta && (r.meta.topOutcomes || []).length)
+  if (valid.length < 2) return null
+  for (let i = 0; i < valid.length - 1; i++) {
+    for (let j = i + 1; j < valid.length; j++) {
+      const aOutcomes = valid[i].meta.topOutcomes || []
+      const bOutcomes = valid[j].meta.topOutcomes || []
+      for (const ao of aOutcomes) {
+        const aKey = _normKey(ao)
+        const bo = bOutcomes.find(o => _normKey(o) === aKey)
+        if (!bo) continue
+        const diff = Math.abs(ao.pct - bo.pct)
+        if (diff >= 15) {
+          const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
+          const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
+          const displayName = aKey.startsWith("__") ? `${ao.name} / ${bo.name}` : ao.name
+          return { name: displayName, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
+        }
+      }
+    }
+  }
+  return null
+}
+
+// Feature 5: build outcome name → best-platform map
+function _buildBestOddsMap(results) {
+  const valid = results.filter(r => r && !r.error && r.meta)
+  const normKeys = new Set()
+  valid.forEach(r => (r.meta.topOutcomes || []).forEach(o => normKeys.add(_normKey(o))))
+  const map = {}
+  normKeys.forEach(key => {
+    let best = { pct: -1, platform: null }
+    valid.forEach(r => {
+      const o = (r.meta.topOutcomes || []).find(o => _normKey(o) === key)
+      if (o && o.pct > best.pct) best = { pct: o.pct, platform: r.platform }
+    })
+    if (best.platform) map[key] = best.platform
+  })
+  return map
+}
+
+// ── Arb profit calculator ─────────────────────────────────────────────────────
+// For binary markets: finds if (min_YES + min_NO) < 100
+function _computeArb(results) {
+  const valid = results.filter(r => r && !r.error && r.meta?.topOutcomes?.length >= 1)
+  if (valid.length < 2) return null
+  let bestArb = null
+  for (let i = 0; i < valid.length - 1; i++) {
+    for (let j = i + 1; j < valid.length; j++) {
+      const aTop = valid[i].meta.topOutcomes[0]
+      const bTop = valid[j].meta.topOutcomes[0]
+      if (!aTop || !bTop) continue
+      const aKey = _normKey(aTop)
+      const bKey = _normKey(bTop)
+      // Only compute arb when outcomes appear to be the same or are __LEAD__ placeholders
+      if (aKey !== bKey && !aKey.startsWith("__") && !bKey.startsWith("__")) continue
+      const yesA = aTop.pct, yesB = bTop.pct
+      const noA = 100 - yesA, noB = 100 - yesB
+      const bestYes = Math.min(yesA, yesB)
+      const bestNo  = Math.min(noA, noB)
+      const totalCost = bestYes + bestNo
+      if (totalCost < 100) {
+        const profit = 100 - totalCost
+        const roi    = (profit / totalCost * 100).toFixed(1)
+        const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
+        const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
+        if (!bestArb || profit > parseFloat(bestArb.profit)) {
+          bestArb = {
+            profit: profit.toFixed(2),
+            roi,
+            totalCost: totalCost.toFixed(0),
+            yesPlatform: yesA < yesB ? pA : pB,
+            yesPct: bestYes,
+            noPlatform: noA < noB ? pA : pB,
+            noPct: bestNo,
+          }
+        }
+      }
+    }
+  }
+  return bestArb
+}
+
 function renderComparison(results) {
+  // Feature 4: divergence callout
+  const divergence = _detectDivergence(results)
+  const divergenceHtml = divergence ? `
+    <div class="divergence-callout">
+      <span class="divergence-icon">⚠</span>
+      <div class="divergence-body">
+        <strong>${esc(divergence.pA)} and ${esc(divergence.pB)} disagree by ${divergence.diff} points on &ldquo;${esc(divergence.name)}&rdquo;</strong>
+        — ${esc(divergence.pA)}: ${divergence.pctA}% · ${esc(divergence.pB)}: ${divergence.pctB}%.
+        Potential arbitrage opportunity.
+      </div>
+    </div>` : ""
+
+  // Arb calculator card
+  const arb = _computeArb(results)
+  const arbHtml = arb ? `
+    <div class="mi-card arb-card">
+      <div class="section-label arb-label">⚡ ARB OPPORTUNITY DETECTED</div>
+      <div class="arb-body">
+        Buy <strong>YES</strong> on <strong>${esc(arb.yesPlatform)}</strong> at ${arb.yesPct}¢
+        + Buy <strong>NO</strong> on <strong>${esc(arb.noPlatform)}</strong> at ${arb.noPct}¢
+        = <span class="arb-cost">$${arb.totalCost} total cost</span>
+        → <span class="arb-profit">$${arb.profit} guaranteed profit (${arb.roi}% ROI)</span>
+      </div>
+      <div class="arb-disclaimer">⚠ Only risk-free if both markets resolve identically. Verify resolution rules before trading.</div>
+    </div>` : ""
+
+  // Feature 5: best odds per outcome (using normalized keys)
+  const bestOddsMap = _buildBestOddsMap(results)
+
   const cols = results.map((r, i) => {
     if (!r || r.error) {
       return `<div class="compare-col">
@@ -244,12 +394,15 @@ function renderComparison(results) {
     }
     const { meta, accent, platform } = r
     const platformLabel = (PLATFORMS[platform] || {}).label || platform.toUpperCase()
-    const outcomesHtml = (meta.topOutcomes || []).map(o =>
-      `<div class="compare-outcome">
-        <span class="compare-outcome-name" style="color:${o.color}">${esc(o.name)}</span>
-        <span class="compare-outcome-pct" style="color:${o.color}">${o.pct}%</span>
+    const outcomesHtml = (meta.topOutcomes || []).map(o => {
+      const key = _normKey(o)
+      const isBest = bestOddsMap[key] === platform
+      const bestBadge = isBest ? ` <span class="best-odds-badge">BEST</span>` : ""
+      return `<div class="compare-outcome">
+        <span class="compare-outcome-name" style="color:${o.color};${isBest ? "font-weight:700" : ""}">${esc(o.name)}${bestBadge}</span>
+        <span class="compare-outcome-pct" style="color:${o.color};${isBest ? "font-weight:900" : ""}">${o.pct}%</span>
       </div>`
-    ).join("") || `<div class="compare-col-empty">No outcome data</div>`
+    }).join("") || `<div class="compare-col-empty">No outcome data</div>`
     const statsHtml = (meta.stats || []).length
       ? `<div class="compare-stats">${(meta.stats).map(s =>
           `<div class="compare-stat-row">
@@ -258,19 +411,26 @@ function renderComparison(results) {
           </div>`
         ).join("")}</div>`
       : ""
+    const footnote = PLATFORM_FOOTNOTES[platform] || ""
     return `<div class="compare-col">
       <span class="tag-platform" style="background:${accent};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
       <div class="compare-col-title">${esc(meta.title || "")}</div>
       ${outcomesHtml}
       ${statsHtml}
+      ${footnote ? `<div class="platform-footnote">${esc(footnote)}</div>` : ""}
     </div>`
   }).join("")
 
-  return `<div class="mi-card" style="margin-bottom:24px">
+  // Feature 9: swipe hint shown on mobile
+  const swipeHint = results.length > 1
+    ? `<div class="compare-swipe-hint">← swipe to see all platforms →</div>` : ""
+
+  return `${divergenceHtml}${arbHtml}<div class="mi-card" style="margin-bottom:${divergence || arb ? "0" : "24px"}">
     <div class="section-label">COMPARING ${results.length} MARKETS</div>
     <div class="compare-cols">${cols}</div>
+    ${swipeHint}
   </div>
-  <div class="compare-details-label">FULL ANALYSES</div>`
+  <div class="compare-details-label" style="margin-top:${divergence || arb ? "16px" : "0"}">FULL ANALYSES</div>`
 }
 
 let _compareMode = false
@@ -314,7 +474,14 @@ async function analyzeCompare() {
   result.innerHTML = renderComparison(results) + detailsHtml
 
   // Share link encodes all URLs joined by newline
-  addShareBar(urls.join("\n"))
+  const compareUrl = urls.join("\n")
+  addShareBar(compareUrl)
+  // Update freshness and bookmark state for compare mode
+  if (typeof _updateFreshnessDisplay === "function") {
+    window._lastFetchedAt = Date.now()
+    _updateFreshnessDisplay()
+  }
+  if (typeof _refreshBookmarkBtn === "function") _refreshBookmarkBtn(compareUrl)
 
   if (btn) { btn.disabled = false; btn.textContent = "COMPARE ↗" }
 }

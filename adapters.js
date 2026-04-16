@@ -35,19 +35,25 @@
 // displayed probability tracks the current market rather than an old trade.
 function geminiExtractPrice(c) {
   const cp = c.prices || {}
-  // Current live bid/ask midpoint is the most accurate market probability
-  const bid = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || 0) || 0
-  const ask = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || 0) || 0
-  if (bid > 0 && ask > 0) return (bid + ask) / 2
-  // Fall back to theoretical fair-value fields, then stale last-trade price
-  return parseFloat(
-    cp.mark || cp.mid ||
-    cp.lastTradePrice || cp.last || cp.close ||
-    c.lastPrice || c.currentPrice || c.lastSalePrice ||
-    c.midpoint || c.mid || c.mark || c.price ||
-    c.bestAsk || c.ask || c.probability ||
-    ask || bid || 0
-  )
+  // Gemini sometimes nests YES-side prices under prices.yes (categorical markets)
+  const yp = cp.yes || cp.YES || {}
+
+  // Gemini displays the ASK price as the "Yes %" — the cost to buy a YES contract.
+  // This is the primary displayed value on their website and must be matched exactly.
+  const ask = parseFloat(cp.bestAsk || cp.ask || yp.bestAsk || yp.ask || c.bestAsk || c.ask || 0) || 0
+  if (ask > 0) return ask
+
+  // Fallbacks: mark/mid, last trade, bid, then direct fields
+  const mark = parseFloat(cp.mark || cp.mid || yp.mark || yp.mid || c.mark || c.midpoint || c.mid || 0) || 0
+  if (mark > 0) return mark
+
+  const last = parseFloat(cp.lastTradePrice || cp.last || cp.close || yp.lastTradePrice || yp.last || c.lastPrice || c.lastSalePrice || 0) || 0
+  if (last > 0) return last
+
+  const bid = parseFloat(cp.bestBid || cp.bid || yp.bestBid || yp.bid || c.bestBid || c.bid || 0) || 0
+  if (bid > 0) return bid
+
+  return parseFloat(c.currentPrice || c.probability || c.price || 0) || 0
 }
 
 // ── Gemini contract name extraction ───────────────────────────────────────────
@@ -104,7 +110,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
 
   // Resolution banner
   const isFinished = status === "finalized" || status === "closed"
-  const resolvedMarket = sorted.find(m => m.result === "yes") ||
+  const resolvedYesMarkets = sorted.filter(m => m.result === "yes")
+  const resolvedMarket = resolvedYesMarkets[0] ||
     (isFinished ? sorted.find(m => m.result === "no") : null)
   const resolution  = resolvedMarket?.result || ""
   const expValue    = resolvedMarket?.expiration_value || first.expiration_value || ""
@@ -123,10 +130,13 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lastPrice = parseFloat(m.last_price_dollars || 0)
     const yesBid    = parseFloat(m.yes_bid_dollars || 0)
     const yesAsk    = parseFloat(m.yes_ask_dollars || 0)
-    const isEstimate = lastPrice <= 0
-    const pct = lastPrice > 0
-      ? Math.round(lastPrice * 100)
-      : yesAsk > 0 ? Math.round((yesBid + yesAsk) / 2 * 100) : Math.round(yesBid * 100)
+    // Prefer live bid/ask midpoint over potentially-stale last trade price
+    const hasMid = yesBid > 0 && yesAsk > 0
+    const isEstimate = !hasMid && lastPrice <= 0
+    const pct = hasMid
+      ? Math.round((yesBid + yesAsk) / 2 * 100)
+      : lastPrice > 0 ? Math.round(lastPrice * 100)
+      : yesAsk > 0 ? Math.round(yesAsk * 100) : Math.round(yesBid * 100)
 
     const prevDollars = parseFloat(m.previous_price_dollars || (m.previous_price != null ? m.previous_price / 100 : 0))
     const prevPct = prevDollars > 0 ? Math.round(prevDollars * 100) : null
@@ -214,7 +224,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lp  = parseFloat(m.last_price_dollars || 0)
     const bid = parseFloat(m.yes_bid_dollars || 0)
     let ask   = parseFloat(m.yes_ask_dollars || 0)
-    const prob = lp > 0 ? lp : (ask > 0 ? (bid + ask) / 2 : bid)
+    const prob = (bid > 0 && ask > 0) ? (bid + ask) / 2 : lp > 0 ? lp : ask > 0 ? ask : bid
     if (!Number.isFinite(ask) || ask <= 0) {
       ask = Number.isFinite(bid) && bid > 0 ? (bid + prob) / 2 : prob
     }
@@ -226,7 +236,9 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const lp = parseFloat(sorted[0].last_price_dollars || 0)
     const yb = parseFloat(sorted[0].yes_bid_dollars || 0)
     const ya = parseFloat(sorted[0].yes_ask_dollars || 0)
-    return lp > 0 ? Math.round(lp * 100) : ya > 0 ? Math.round((yb + ya) / 2 * 100) : Math.round(yb * 100)
+    return (yb > 0 && ya > 0) ? Math.round((yb + ya) / 2 * 100)
+      : lp > 0 ? Math.round(lp * 100)
+      : ya > 0 ? Math.round(ya * 100) : Math.round(yb * 100)
   })()
 
   // Bet explainer
@@ -293,17 +305,46 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const exclusiveTag = ev.mutually_exclusive
     ? `<span class="tag-exclusive">WINNER TAKES ALL</span>` : ""
 
-  const resolvedInfo = (isFinished && resolution) ? {
+  // Show resolved box when finished OR when some sub-markets have already resolved YES
+  // (e.g. cumulative-threshold markets where lower thresholds resolve before the event closes)
+  const hasPartialResolution = isMultiOutcome && resolvedYesMarkets.length > 0
+
+  // Pre-settlement trading odds for sharpness score and upset detection
+  let winnerCloseOdds = null, winnerPrevOdds = null
+  if (resolvedMarket) {
+    const rLast = parseFloat(resolvedMarket.last_price_dollars || 0)
+    const rPrev = parseFloat(resolvedMarket.previous_price_dollars || 0)
+    const isYesWin = resolvedYesMarkets.length > 0
+    // At settlement, last_price = ~1.0 (YES win) or ~0.0 (NO win) — use previous_price for the actual trading close
+    const isSettled = isYesWin ? rLast >= 0.99 : rLast <= 0.01
+    const tradingP  = isSettled ? rPrev : rLast
+    if (tradingP > 0.01 && tradingP < 0.99) {
+      winnerCloseOdds = Math.round((isYesWin ? tradingP : 1 - tradingP) * 100)
+      if (!isSettled && rPrev > 0.01 && rPrev < 0.99 && rPrev !== rLast) {
+        winnerPrevOdds = Math.round((isYesWin ? rPrev : 1 - rPrev) * 100)
+      }
+    }
+  }
+
+  const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
+    winners: isMultiOutcome && resolvedYesMarkets.length > 1
+      ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
+      : null,
     winner: resolvedMarket
       ? (isMultiOutcome
           ? resolvedMarket.yes_sub_title
           : (resolution === "yes" ? (resolvedMarket.yes_sub_title || "YES") : "NO"))
       : null,
-    resolution,
-    resolvedAt: first.close_time || "",
+    winnersCount: resolvedYesMarkets.length || null,
+    totalOutcomes: isMultiOutcome ? sorted.length : null,
+    resolution: resolvedYesMarkets.length > 0 ? "yes" : resolution,
+    resolvedAt: isFinished ? (first.close_time || "") : "",
     value: expValue || null,
-    totalVol: totalVol || null,
+    totalVol: isFinished ? (totalVol || null) : null,
     isMultiOutcome,
+    winnerCloseOdds,
+    winnerPrevOdds,
+    wasUpset: winnerCloseOdds != null && winnerCloseOdds < 50,
   } : null
 
   return {
@@ -327,6 +368,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     betExplainerText,
     ruleSentences,
     resSourceHtml,
+    rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
   }
 }
 
@@ -374,12 +416,18 @@ function normalizeGemini(event) {
       outcomes.push(out)
       if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
     })
-    // Normalize raw prices to sum to exactly 100%, eliminating over-round from bid/ask spread.
-    const rawSum = outcomes.reduce((s, o) => s + (o._rawPrice || 0), 0)
+    // Convert raw prices (0–1 range) to percentages directly — no normalisation.
+    // Normalising by dividing each price by the field total breaks any market with
+    // more than ~5 outcomes (NASCAR 40 drivers, golf 150 players, etc.) because
+    // the sum of individual win-probabilities far exceeds 1. Each raw price already
+    // represents the contract's market-implied probability; multiply by 100 as-is.
     outcomes.forEach(o => {
-      o.pct = rawSum > 0 ? Math.round((o._rawPrice || 0) / rawSum * 100) : 0
+      o.pct = Math.round((o._rawPrice || 0) * 100)
       delete o._rawPrice
     })
+    // Sort by probability descending (highest % first), matching Polymarket behaviour.
+    outcomes.sort((a, b) => b.pct - a.pct)
+    outcomes.forEach((o, i) => { o.color = OUTCOME_COLORS[i % OUTCOME_COLORS.length] })
     // Remove internal flag after normalization (before geminiWinner reads it below)
     // _resolutionSide is read by geminiWinner and then deleted before returning outcomes.
   }
@@ -562,6 +610,7 @@ function normalizeGemini(event) {
     betExplainerText,
     ruleSentences,
     resSourceHtml,
+    rawRulesText: event.description || "",
   }
 }
 
@@ -868,6 +917,15 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       ? Math.round((endMs - startMs) / 86400000)
       : null
 
+    // Upset detection: was winner the most-backed outcome by volume?
+    let winnerVolRank = null, pmWasUpset = false
+    if (hasCategorical && winners[0]) {
+      const sortedByVol = [...categoricalEntries].sort((a, b) => b.vol - a.vol)
+      const rank = sortedByVol.findIndex(e => e.label === winners[0])
+      winnerVolRank = rank >= 0 ? rank + 1 : null
+      pmWasUpset = winnerVolRank != null && winnerVolRank > 1
+    }
+
     resolvedInfo = {
       winners,
       winner: winners[0],
@@ -880,6 +938,8 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       durationDays,
       totalOutcomes: hasCategorical ? categoricalEntries.length : null,
       winnersCount: winners.length,
+      winnerVolRank,
+      wasUpset: pmWasUpset,
     }
   }
 
@@ -919,5 +979,6 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     betExplainerText,
     ruleSentences: limitedRules,
     resSourceHtml,
+    rawRulesText: first.description || event.description || "",
   }
 }

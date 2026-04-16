@@ -907,6 +907,399 @@
       text-align: center;
     }
 
+    /* ── Feature 10: ML label above moneyline ── */
+    .outcome-ml-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .ml-label {
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      font-weight: 700;
+      opacity: 0.7;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .delta-label {
+      font-size: 8px;
+      font-weight: 400;
+      margin-left: 2px;
+      opacity: 0.8;
+    }
+
+    /* ── Feature 6: Kelly visual bar ── */
+    .info-row-kelly .info-val { display: flex; align-items: center; }
+    .kelly-val-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .kelly-visual {
+      width: 80px;
+      height: 6px;
+      background: var(--bar-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .kelly-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* ── Feature 3: overround note ── */
+    .overround-note {
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      font-weight: 400;
+      margin-left: 4px;
+      opacity: 0.85;
+    }
+
+    /* ── Feature 2: volume distribution bar ── */
+    .vd-wrap { padding: 16px 32px 22px; }
+    .vd-bar {
+      display: flex;
+      height: 24px;
+      border-radius: 4px;
+      overflow: hidden;
+      gap: 2px;
+    }
+    .vd-seg {
+      height: 100%;
+      transition: width 0.6s ease;
+      min-width: 2px;
+    }
+    .vd-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      margin-top: 10px;
+    }
+    .vd-legend-item {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* ── Feature 4: divergence callout ── */
+    .divergence-callout {
+      background: rgba(245, 158, 11, 0.07);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-left: 3px solid #f59e0b;
+      border-radius: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 20px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .divergence-icon { color: #f59e0b; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .divergence-body { color: var(--text); }
+
+    /* ── Feature 5: best odds badge ── */
+    .best-odds-badge {
+      display: inline-block;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: var(--green);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    /* ── Feature 1: refresh diff banner ── */
+    .diff-banner {
+      border-radius: 6px;
+      padding: 12px 20px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .diff-no-change {
+      background: rgba(160, 158, 140, 0.07);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+    .diff-has-change {
+      background: rgba(0, 112, 243, 0.06);
+      border: 1px solid rgba(0, 112, 243, 0.25);
+      border-left: 3px solid #0070f3;
+    }
+    .diff-banner-title {
+      display: block;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-mid);
+      margin-bottom: 8px;
+      font-size: 10px;
+    }
+    .diff-changes { color: var(--text); }
+    .diff-change-item { padding: 3px 0; }
+    .diff-item-name { color: var(--muted); }
+    .diff-up { color: var(--green); font-size: 11px; }
+    .diff-dn { color: var(--red); font-size: 11px; }
+
+    /* ── Feature 9: mobile swipeable compare ── */
+    .compare-swipe-hint {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+
+    /* ── Rule alerts card ── */
+    .rule-alerts-card { border-left: 3px solid #f59e0b; }
+    .rule-alerts-label { color: #f59e0b !important; }
+    .rule-flag-item {
+      padding: 14px 32px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .rule-flag-item:first-of-type { border-top: none; }
+    .rule-flag-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .rule-flag-icon { color: #f59e0b; font-size: 13px; }
+    .rule-flag-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #f59e0b;
+    }
+    .rule-flag-desc {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .rule-flag-quote {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-style: italic;
+      background: var(--rule-bg);
+      border-left: 2px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 0 3px 3px 0;
+    }
+
+    /* ── Volume spike alert ── */
+    .volume-spike-card {
+      border-left: 3px solid #6366f1;
+      padding: 14px 20px 16px;
+    }
+    .volume-spike-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .volume-spike-icon { font-size: 14px; }
+    .volume-spike-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #6366f1;
+    }
+    .volume-spike-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ── News correlation hint ── */
+    .news-hint-card {
+      border-left: 3px solid #0ea5e9;
+      padding: 14px 20px 16px;
+    }
+    .news-hint-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .news-hint-icon { font-size: 14px; }
+    .news-hint-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #0ea5e9;
+    }
+    .news-hint-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .news-hint-link {
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .news-hint-link:hover { text-decoration: underline; }
+
+    /* ── Resolved market insights card ── */
+    .resolved-insights-card { overflow: visible; }
+    .ri-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 13px 32px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ri-row:last-child { border-bottom: none; }
+    .ri-label {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .ri-val { color: var(--text); text-align: right; }
+    .ri-sub { font-size: 11px; color: var(--muted); }
+
+    /* ── Upset banner ── */
+    .upset-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 32px;
+      background: rgba(239, 68, 68, 0.07);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .upset-icon { font-size: 18px; flex-shrink: 0; }
+    .upset-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .upset-body strong { color: var(--red); }
+
+    /* ── Round 3: Momentum arrows ── */
+    .momentum-arrow { font-size: 11px; margin-left: 5px; font-weight: 700; vertical-align: middle; }
+    .momentum-up  { color: var(--green); }
+    .momentum-dn  { color: var(--red); }
+
+    /* ── Round 3: Plain talk probability ── */
+    .outcome-left-col { flex: 1; min-width: 0; }
+    .outcome-plain-talk { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    /* ── Round 3: Dead money indicator ── */
+    .dead-money-tag { font-size: 9px; font-weight: 700; color: var(--red); border: 1px solid var(--red); border-radius: 3px; padding: 1px 5px; letter-spacing: 0.5px; opacity: 0.8; }
+
+    /* ── Round 3: Spread cost note ── */
+    .spread-cost-note { font-size: 10px; color: var(--muted); }
+
+    /* ── Round 3: Volume-weighted consensus ── */
+    .consensus-body { padding: 12px 32px 20px; font-size: 13px; color: var(--text); line-height: 1.5; }
+    .consensus-sep { color: var(--muted); }
+
+    /* ── Round 3: Resolution confidence score ── */
+    .resolution-confidence { display: flex; align-items: center; gap: 10px; padding: 10px 32px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .rc-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); }
+    .rc-val   { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+    .rc-hint  { font-size: 11px; color: var(--muted); }
+
+    /* ── Round 3: Resolution checklist ── */
+    .rule-check-item { display: flex; gap: 12px; padding: 10px 32px; border-top: 1px solid var(--border); }
+    .rule-check-item:first-child { border-top: none; }
+    .rule-check-icon { flex-shrink: 0; color: var(--muted); font-size: 13px; margin-top: 1px; }
+    .rule-check-text { font-size: 13px; color: var(--text); line-height: 1.55; }
+
+    /* ── Round 3: Find similar markets ── */
+    .similar-markets-card { }
+    .similar-markets-body { padding: 10px 32px 6px; font-size: 13px; color: var(--muted); }
+    .similar-links { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 32px 18px; }
+    .similar-link { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: var(--orange); text-decoration: none; border: 1px solid var(--orange); border-radius: 3px; padding: 5px 12px; }
+    .similar-link:hover { background: var(--orange); color: #fff; }
+
+    /* ── Round 3: Edge calculator ("What's your edge?") ── */
+    .edge-calc-card { }
+    .edge-calc-body { padding: 14px 32px 20px; }
+    .edge-input-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .edge-input-label { font-size: 12px; color: var(--muted); flex: 1; min-width: 160px; }
+    .edge-input-wrap { display: flex; align-items: center; gap: 4px; }
+    .edge-prob-input { width: 68px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; font-size: 15px; text-align: center; }
+    .edge-prob-input:focus { outline: none; border-color: var(--orange); }
+    .edge-pct-sign { font-size: 14px; color: var(--muted); }
+    .edge-calc-result { font-size: 12px; }
+    .edge-result-row { margin-bottom: 8px; }
+    .edge-kelly-rows { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 4px; border-top: 1px solid var(--border); margin-top: 6px; }
+    .edge-kelly-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+    .edge-kelly-label { color: var(--muted); min-width: 90px; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .edge-kelly-hint { font-size: 10px; color: var(--muted); font-style: italic; }
+
+    /* ── Round 3: Arb calculator in compare ── */
+    .arb-card { border-left: 3px solid var(--green); }
+    .arb-label { color: var(--green) !important; }
+    .arb-body { padding: 10px 32px 6px; font-size: 13px; color: var(--text); line-height: 1.7; }
+    .arb-cost { font-weight: 700; color: var(--muted); }
+    .arb-profit { font-weight: 700; color: var(--green); }
+    .arb-disclaimer { padding: 6px 32px 16px; font-size: 10px; color: var(--muted); }
+
+    /* ── Round 3: Platform footnotes in compare ── */
+    .platform-footnote { font-size: 10px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); line-height: 1.5; }
+
+    /* ── Round 3: Bookmarks & history panels ── */
+    .panel-btn { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; padding: 5px 10px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+    .panel-btn:hover, .panel-btn.active { border-color: var(--orange); color: var(--orange); }
+    .panel-btn.bookmarked { border-color: var(--green); color: var(--green); }
+    .panels-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; position: relative; }
+    .history-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; background: var(--card); border: 1px solid var(--border); border-radius: 6px; min-width: 340px; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); display: none; }
+    .bookmarks-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; background: var(--card); border: 1px solid var(--border); border-radius: 6px; min-width: 340px; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); display: none; }
+    .history-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+    .history-item:last-child { border-bottom: none; }
+    .history-item:hover { background: var(--bg); }
+    .history-platform { font-size: 9px; font-weight: 700; letter-spacing: 0.8px; color: var(--orange); flex-shrink: 0; }
+    .history-title { font-size: 11px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+    .history-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 4px; flex-shrink: 0; }
+    .history-remove:hover { color: var(--red); }
+    .history-empty { padding: 16px; font-size: 11px; color: var(--muted); text-align: center; }
+    .fetched-at { font-size: 10px; color: var(--muted); letter-spacing: 0.3px; }
+
+    /* ── Feature 11: skeleton loading ── */
+    .skeleton { animation: sk-pulse 1.5s ease-in-out infinite; }
+    @keyframes sk-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    .sk-block { background: var(--bar-bg); border-radius: 4px; }
+    .sk-event-head { padding: 28px 32px; }
+    .sk-tags { display: flex; gap: 8px; margin-bottom: 16px; }
+    .sk-outcome-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 32px;
+    }
+    .sk-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .sk-stat-card { height: 88px; border-radius: 10px; }
+
     /* ── Mobile ── */
     @media (max-width: 640px) {
       body { padding: 28px 16px 72px; }
@@ -953,8 +1346,25 @@
       /* Keep tooltips from overflowing the right edge */
       .tip::after { left: auto; right: 0; max-width: 220px; }
 
-      .compare-col { border-right: none; border-bottom: 1px solid var(--border); padding: 16px 18px; }
-      .compare-col:last-child { border-bottom: none; }
+      /* Feature 9: swipeable compare columns on mobile */
+      .compare-cols {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 0;
+        scrollbar-width: none;
+      }
+      .compare-cols::-webkit-scrollbar { display: none; }
+      .compare-col {
+        min-width: min(82vw, 300px);
+        scroll-snap-align: start;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        border-bottom: none;
+        padding: 16px 18px;
+      }
+      .compare-col:last-child { border-right: none; }
       .share-bar { font-size: 10px; }
 
       .resolved-header { padding: 14px 18px 12px; }
@@ -1016,11 +1426,21 @@
     <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">COMPARE ↗</button>
   </div>
 
+  <div class="panels-bar">
+    <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recent markets">⟳ HISTORY</button>
+    <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ SAVED</button>
+    <span id="fetchedAt" class="fetched-at" style="display:none"></span>
+    <div id="historyPanel" class="history-panel"></div>
+    <div id="bookmarksPanel" class="bookmarks-panel"></div>
+  </div>
+
   <div id="shareBar" class="share-bar" style="display:none">
     <span id="shareBarLabel">Analysis ready</span>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ REFRESH</button>
       <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
+      <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">SHARE CARD ↓</button>
+      <button class="panel-btn" id="bookmarkBtn">☆ SAVE</button>
     </div>
   </div>
 
@@ -1030,12 +1450,12 @@
 
 </div>
 
-<script src="utils.js?v=7"></script>
-<script src="components.js?v=7"></script>
-<script src="adapters.js?v=6"></script>
-<script src="renderers.js?v=7"></script>
-<script src="compare.js?v=7"></script>
-<script src="app.js?v=6"></script>
+<script src="utils.js?v=10"></script>
+<script src="components.js?v=10"></script>
+<script src="adapters.js?v=10"></script>
+<script src="renderers.js?v=10"></script>
+<script src="compare.js?v=10"></script>
+<script src="app.js?v=10"></script>
 <script>
   (function () {
     // Theme
@@ -1068,13 +1488,28 @@
     document.getElementById('oddsToggle').textContent = isML ? 'ML' : '%'
   }
 
+  // Feature 1: capture previous state before re-analyzing, then show diff
   function refreshMarket() {
     const btn = document.getElementById('refreshBtn')
     if (btn) { btn.textContent = '↺ LOADING…'; btn.disabled = true }
-    Promise.resolve(analyze()).finally(() => {
+    const prevSnap = _captureOutcomeSnapshot()
+    Promise.resolve(analyze()).then(() => {
+      if (prevSnap) _showRefreshDiff(prevSnap)
+      _updateFreshnessDisplay()
+    }).finally(() => {
       if (btn) { btn.textContent = '↺ REFRESH'; btn.disabled = false }
     })
   }
+
+  // Feature 8: keyboard shortcut — Ctrl/Cmd+K focuses search, Escape blurs
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      const inp = document.getElementById('urlInput')
+      if (inp) { inp.focus(); inp.select() }
+    }
+    if (e.key === 'Escape' && document.activeElement) document.activeElement.blur()
+  })
 
   function copyShareLink() {
     const btn = document.getElementById('copyLinkBtn')
