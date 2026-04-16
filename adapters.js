@@ -464,6 +464,7 @@ function normalizeGemini(event) {
   const timelineRows = [
     infoRow("Start date", fmtDate(startIso)),
     infoRow("End date", fmtDate(expiryIso)),
+    infoRow("Market details", `Event: ${event.event_ticker || event.eventTicker || event.ticker || "—"} · Contract: ${contracts[0]?.label || contracts[0]?.title || contracts[0]?.name || "—"} · Instrument: ${contracts[0]?.instrumentSymbol || contracts[0]?.instrument_symbol || contracts[0]?.ticker || "—"}`),
     event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : "",
   ].join("")
   const hasTimeline = !!(startIso || expiryIso)
