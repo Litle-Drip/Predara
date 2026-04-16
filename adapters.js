@@ -424,9 +424,15 @@ function normalizeGemini(event) {
     const pctYes = resSide === "yes" ? 100 : resSide === "no" ? 0 : Math.round(price * 100)
     const pctNo  = 100 - pctYes
     const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
+    // Pre-settlement closing price: lastTradePrice holds the last traded value before
+    // the settlement push (which sets ASK to 1.0 or 0.0). "price" (from geminiExtractPrice)
+    // prefers bestAsk, which may already be 1.0 at settlement, so we read lastTradePrice first.
+    const lastTradeBin = parseFloat(cp.lastTradePrice || cp.last || cp.close || c.lastPrice || c.lastSalePrice || 0) || 0
+    const preSettBin = (lastTradeBin > 0.01 && lastTradeBin < 0.99) ? lastTradeBin
+      : (price > 0.01 && price < 0.99) ? price : null
     // Carry _resolutionSide so geminiWinner can use the explicit field (cleaned up below).
-    outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), color: OUTCOME_COLORS[0], delta: null, ...extras })
-    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), color: OUTCOME_COLORS[1], delta: null })
+    outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), _closingPrice: preSettBin, color: OUTCOME_COLORS[0], delta: null, ...extras })
+    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), _closingPrice: preSettBin != null ? (1 - preSettBin) : null, color: OUTCOME_COLORS[1], delta: null })
     if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
     const sortedContracts = [...contracts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
@@ -436,7 +442,11 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
+      const yp    = cp.yes || cp.YES || {}
+      const lastTradeMulti = parseFloat(cp.lastTradePrice || cp.last || cp.close || yp.lastTradePrice || yp.last || c.lastPrice || c.lastSalePrice || 0) || 0
+      const preSettMulti = (lastTradeMulti > 0.01 && lastTradeMulti < 0.99) ? lastTradeMulti
+        : (price > 0.01 && price < 0.99) ? price : null
+      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _closingPrice: preSettMulti, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
@@ -605,34 +615,23 @@ function normalizeGemini(event) {
        outcomes.find(o => o.pct === 100) ||
        outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
     : null
-  // Clean up the internal flag so it doesn't reach the UI renderer.
+  // Clean up internal flags before returning.
+  // _closingPrice is read for winnerCloseOdds immediately below, then deleted.
   outcomes.forEach(o => { delete o._resolutionSide })
-  // Compute winner's closing odds from outcome pct (already computed above, before cleanup).
-  // For binary markets the winning outcome's pct reflects the settlement price (100 or 0),
-  // so use the stored raw price before it was overwritten to 100.
-  // For non-binary multi-outcome contracts the pct was derived from _rawPrice (0–1 range × 100).
-  // We reconstruct the pre-settlement price from the winner's pct, clamping to a useful range.
+
+  // winnerCloseOdds: read the pre-settlement price stored on the winner outcome.
+  // Binary YES winner: _closingPrice = lastTradePrice of YES contract (before settlement push to 1.0).
+  // Binary NO winner:  _closingPrice = 1 - lastTradePrice of YES contract (inverted).
+  // Multi-outcome:     _closingPrice = lastTradePrice of the winning contract.
   let geminiWinnerCloseOdds = null
   if (!isOpen && geminiWinner) {
-    // For binary YES winner, resSide=yes means the price settled at 1.0; use the
-    // pre-settlement price stored in the contract's prices field if available.
-    const winnerContract = contracts.find(c => {
-      const name = geminiExtractName(c, "")
-      return name === geminiWinner.label || (geminiWinner.label === "YES" && contracts.indexOf(c) === 0)
-    })
-    const cp = winnerContract ? (winnerContract.prices || {}) : {}
-    const rawPrice = parseFloat(
-      cp.lastPrice || cp.last_price || cp.lastTradedPrice ||
-      winnerContract?.lastPrice || winnerContract?.lastTradedPrice || 0
-    )
-    if (rawPrice > 0.01 && rawPrice < 0.99) {
-      geminiWinnerCloseOdds = Math.round(rawPrice * 100)
-    } else {
-      // Fall back to the pct we already computed — only useful if between 1–99
-      const p = geminiWinner.pct
-      if (p > 1 && p < 99) geminiWinnerCloseOdds = p
+    const cp = geminiWinner._closingPrice
+    if (cp != null && cp > 0.01 && cp < 0.99) {
+      geminiWinnerCloseOdds = Math.round(cp * 100)
     }
   }
+  // Clean up _closingPrice before returning to avoid leaking internal fields.
+  outcomes.forEach(o => { delete o._closingPrice })
 
   // Duration
   const geminiStartMs = startIso ? new Date(startIso).getTime() : null
