@@ -201,13 +201,18 @@ function fmtTimeRemaining(iso) {
   if (isNaN(d)) return null
   const ms = d - Date.now()
   if (ms <= 0) return { text: "CLOSED", urgency: "high" }
-  const hrs = Math.floor(ms / 3600000)
-  const days = Math.floor(hrs / 24)
-  const remHrs = hrs % 24
+  const totalMins = Math.max(1, Math.ceil(ms / 60000))
+  const days = Math.floor(totalMins / 1440)
+  const remMins = totalMins % 1440
+  const hrs = Math.floor(remMins / 60)
+  const mins = remMins % 60
+  const parts = []
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`)
+  if (hrs > 0) parts.push(`${hrs} hr${hrs === 1 ? "" : "s"}`)
+  if (mins > 0) parts.push(`${mins} min${mins === 1 ? "" : "s"}`)
   let text
-  if (days > 0) text = `CLOSES IN ${days} DAY${days > 1 ? "S" : ""}${remHrs > 0 ? ` ${remHrs} HR${remHrs > 1 ? "S" : ""}` : ""}`
-  else if (hrs > 0) text = `CLOSES IN ${hrs} HR${hrs > 1 ? "S" : ""}`
-  else text = `CLOSES IN < 1 HR`
+  if (parts.length) text = `CLOSES IN ${parts.join(" ")}`
+  else text = `CLOSES IN < 1 MIN`
   const urgency = days >= 7 ? "low" : days >= 1 ? "med" : "high"
   return { text, urgency }
 }

@@ -512,17 +512,7 @@ function addShareBar(marketUrl) {
       : platform || "Analysis ready"
   }
 
-  // Auto-expand compare markets section on event load
-  if (!_compareMode) {
-    _compareMode = true
-    const section = document.getElementById("compareSection")
-    const btn = document.getElementById("compareToggleBtn")
-    if (section) section.style.display = "grid"
-    if (btn) {
-      btn.textContent = "− HIDE COMPARE"
-      btn.classList.add("active")
-    }
-  }
+  // Keep compare collapsed unless the user opens it explicitly.
 }
 
 // ── End comparison helpers ────────────────────────────────────────────────────

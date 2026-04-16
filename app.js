@@ -224,6 +224,8 @@ function generateShareCard() {
   const platformEl = document.querySelector(".tag-platform")
   const platformLabel = platformEl?.textContent?.trim() || "PREDARA"
   const accentStyle = platformEl ? getComputedStyle(platformEl).backgroundColor : "#d94f20"
+  const statsEl = document.querySelector(".stats-grid")
+  const volumeText = statsEl?.querySelector('.stat-card .stat-label') ? "" : ""
 
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
@@ -273,6 +275,24 @@ function generateShareCard() {
   ctx.fillStyle = textBright
   titleLines.slice(0, 2).forEach((line, i) => ctx.fillText(line, 56, 124 + i * 52))
 
+  const logoImg = document.querySelector('link[rel="icon"]')?.href ? new Image() : null
+  const drawLogo = () => {
+    if (!logoImg) return
+    const logoW = 84
+    const logoH = 84
+    const logoX = W - logoW - 52
+    const logoY = 48
+    ctx.drawImage(logoImg, logoX, logoY, logoW, logoH)
+  }
+  if (logoImg) {
+    logoImg.onload = drawLogo
+    logoImg.src = "/og-image.png"
+    if (logoImg.complete) drawLogo()
+  }
+
+  const timelineEl = document.querySelector(".mi-card .section-label")
+  const timelineText = timelineEl ? "Timeline included" : ""
+
   // Outcomes
   const baseY = titleLines.length > 1 ? 230 : 196
   const maxOutcomes = Math.min(outcomes.length, 4)
@@ -298,10 +318,30 @@ function generateShareCard() {
     ctx.fillText(pctStr, W - 56 - ctx.measureText(pctStr).width - 24, y + rowH * 0.62)
   })
 
+  ctx.fillStyle = textMuted
+  ctx.font = "12px 'Courier New', monospace"
+  ctx.textAlign = "left"
+  ctx.fillText(timelineText || "Timeline", 56, H - 68)
+  ctx.fillText("Volume traded: see market stats", 56, H - 52)
+
   // Footer
   ctx.fillStyle = textMuted
   ctx.font = "11px 'Courier New', monospace"
   ctx.fillText("✦ PREDARA · PREDICTION MARKET ANALYZER · predara.org", 56, H - 36)
+  const stamp = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date())
+  const zone = new Intl.DateTimeFormat(undefined, {
+    timeZoneName: "short",
+  }).formatToParts(new Date()).find(p => p.type === "timeZoneName")?.value || ""
+  const stampText = zone ? `${stamp} ${zone}` : stamp
+  ctx.textAlign = "right"
+  ctx.fillText(stampText, W - 56, H - 36)
+  ctx.textAlign = "left"
 
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob)

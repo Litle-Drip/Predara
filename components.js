@@ -616,7 +616,7 @@ function statCard(label, value, sub = "") {
 function infoRow(key, val) {
   if (!val || val === "—") return ""
   const keyHtml = GLOSSARY[key.toUpperCase()] ? tip(key, key.toUpperCase()) : esc(key)
-  return `<div class="info-row"><span class="info-key">${keyHtml}</span><span class="info-val">${esc(val)}</span></div>`
+  return `<div class="info-row"><span class="info-key">${keyHtml}</span><span class="info-val info-val-wrap">${esc(val)}</span></div>`
 }
 
 function numList(sentences) {

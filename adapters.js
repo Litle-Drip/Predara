@@ -102,7 +102,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
 
   const status     = first.status || "active"
   const statusDot  = status === "active" ? "dot-green" : status === "closed" ? "dot-red" : "dot-muted"
-  const statusText = status.toUpperCase()
+  const statusText = status === "active" ? "LIVE" : status.toUpperCase()
   const category   = ev.product_metadata?.competition || ev.category || "Markets"
   const catColor   = categoryColor(category)
   const eventTitle = (ev.title || ev.event_ticker || "").replace(/[?!.]+$/, "").trim()
@@ -377,7 +377,7 @@ function normalizeGemini(event) {
   const status = (event.status || "").toLowerCase()
   const isOpen = status === "active" || status === "approved" || status === "open"
   const statusDot  = isOpen ? "dot-green" : "dot-red"
-  const statusText = isOpen ? "OPEN" : status.toUpperCase() || "CLOSED"
+  const statusText = isOpen ? "LIVE" : status.toUpperCase() || "CLOSED"
 
   const contracts = Array.isArray(event.contracts) ? event.contracts : []
   const isBinary  = event.type === "binary"
@@ -463,7 +463,8 @@ function normalizeGemini(event) {
   // Timeline
   const timelineRows = [
     infoRow("Start date", fmtDate(startIso)),
-    infoRow("End date", fmtDate(expiryIso)),
+    infoRow("End date", fmtDateTime(expiryIso)),
+    infoRow("Market details", `Event: ${event.event_ticker || event.eventTicker || event.ticker || "—"} · Contract: ${contracts[0]?.label || contracts[0]?.title || contracts[0]?.name || "—"} · Instrument: ${contracts[0]?.instrumentSymbol || contracts[0]?.instrument_symbol || contracts[0]?.ticker || "—"}`),
     event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : "",
   ].join("")
   const hasTimeline = !!(startIso || expiryIso)
@@ -532,7 +533,7 @@ function normalizeGemini(event) {
     }
   }
   if (ruleSentences.length > 0 && expiryIso) {
-    ruleSentences.push(`Trading closes ${fmtDate(expiryIso)}`)
+    ruleSentences.push(`Trading closes ${fmtDateTime(expiryIso)}`)
   }
 
   // Resolution sources — Gemini wraps Kalshi data so check both field shapes
@@ -888,7 +889,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const hasTimeline = !!event.endDate
 
   const statusDot  = event.closed ? "dot-red" : "dot-green"
-  const statusText = event.closed ? "CLOSED" : "OPEN"
+  const statusText = event.closed ? "CLOSED" : "LIVE"
 
   let resolvedInfo = null
   if (event.closed && outcomes.length > 0) {
