@@ -201,14 +201,18 @@ function fmtTimeRemaining(iso) {
   if (isNaN(d)) return null
   const ms = d - Date.now()
   if (ms <= 0) return { text: "CLOSED", urgency: "high" }
-  const halfHours = Math.max(1, Math.round(ms / 1800000) / 2)
-  const days = Math.floor(halfHours / 24)
-  const remHrs = halfHours % 24
-  const roundHours = n => Number.isInteger(n) ? `${n}` : `${Math.floor(n)}.5`
+  const totalMins = Math.max(1, Math.round(ms / 60000))
+  const days = Math.floor(totalMins / 1440)
+  const remMins = totalMins % 1440
+  const hrs = Math.floor(remMins / 60)
+  const mins = remMins % 60
+  const parts = []
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`)
+  if (hrs > 0) parts.push(`${hrs} hr${hrs === 1 ? "" : "s"}`)
+  if (mins >= 30) parts.push(`30 mins`)
   let text
-  if (days > 0) text = `CLOSES IN ${days} DAY${days > 1 ? "S" : ""}${remHrs > 0 ? ` ${roundHours(remHrs)} HR${remHrs === 1 ? "" : "S"}` : ""}`
-  else if (halfHours > 0) text = `CLOSES IN ${roundHours(halfHours)} HR${halfHours === 1 ? "" : "S"}`
-  else text = `CLOSES IN < 1 HR`
+  if (parts.length) text = `CLOSES IN ${parts.join(" ")}`
+  else text = `CLOSES IN < 30 MINS`
   const urgency = days >= 7 ? "low" : days >= 1 ? "med" : "high"
   return { text, urgency }
 }
