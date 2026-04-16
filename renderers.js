@@ -61,7 +61,7 @@ function renderMarket(norm, accent) {
           ${norm.exclusiveTag}
           <span class="tag-status"><span class="${norm.statusDot}">●</span> ${esc(norm.statusText)}</span>
         </div>
-        ${norm.platform === "gemini" ? "" : `<div class="event-title">${esc(norm.title)}${norm.subtitle ? " — " + esc(norm.subtitle) : ""}</div>`}
+        <div class="event-title">${esc(norm.title)}${norm.subtitle ? " — " + esc(norm.subtitle) : ""}</div>
         ${urgencyHtml}
         ${staleHtml}
       </div>
