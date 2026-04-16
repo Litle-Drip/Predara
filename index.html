@@ -1409,10 +1409,11 @@
       <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
       <div>
         <div class="app-title">Predara</div>
-        <div class="app-subtitle">PREDICTION MARKET ANALYZER</div>
       </div>
     </div>
     <div class="header-controls">
+      <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recent markets">⟳ HISTORY</button>
+      <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ SAVED</button>
       <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
     </div>
@@ -1442,8 +1443,6 @@
   </div>
 
   <div class="panels-bar">
-    <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recent markets">⟳ HISTORY</button>
-    <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ SAVED</button>
     <span id="fetchedAt" class="fetched-at" style="display:none"></span>
     <div id="historyPanel" class="history-panel"></div>
     <div id="bookmarksPanel" class="bookmarks-panel"></div>
