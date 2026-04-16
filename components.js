@@ -240,11 +240,14 @@ function resolutionConfidenceHtml(rawRulesText) {
 // ── Resolution checklist ───────────────────────────────────────────────────────
 function resolutionChecklist(sentences) {
   if (!sentences || !sentences.length) return ""
-  return sentences.map(s => `
+  return sentences.map(s => {
+    const inner = (typeof s === "string" && s.startsWith("<")) ? s : esc(s)
+    return `
     <div class="rule-check-item">
       <span class="rule-check-icon">○</span>
-      <span class="rule-check-text">${esc(s)}</span>
-    </div>`).join("")
+      <span class="rule-check-text">${inner}</span>
+    </div>`
+  }).join("")
 }
 
 // ── Volume-weighted consensus ─────────────────────────────────────────────────

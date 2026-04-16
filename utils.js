@@ -40,6 +40,52 @@ function esc(str) {
     .replace(/'/g, "&#39;")
 }
 
+const KNOWN_SOURCES = [
+  { name: "Associated Press", url: "https://apnews.com" },
+  { name: "Fox News",         url: "https://www.foxnews.com" },
+  { name: "NBC News",         url: "https://www.nbcnews.com" },
+  { name: "NBC",              url: "https://www.nbcnews.com" },
+  { name: "CNN",              url: "https://www.cnn.com" },
+  { name: "ABC News",         url: "https://abcnews.go.com" },
+  { name: "ABC",              url: "https://abcnews.go.com" },
+  { name: "CBS News",         url: "https://www.cbsnews.com" },
+  { name: "CBS",              url: "https://www.cbsnews.com" },
+  { name: "MSNBC",            url: "https://www.msnbc.com" },
+  { name: "Reuters",          url: "https://www.reuters.com" },
+  { name: "Bloomberg",        url: "https://www.bloomberg.com" },
+  { name: "ESPN",             url: "https://www.espn.com" },
+  { name: "BBC",              url: "https://www.bbc.com" },
+  { name: "The New York Times", url: "https://www.nytimes.com" },
+  { name: "New York Times",   url: "https://www.nytimes.com" },
+  { name: "The Washington Post", url: "https://www.washingtonpost.com" },
+  { name: "Washington Post",  url: "https://www.washingtonpost.com" },
+  { name: "Wall Street Journal", url: "https://www.wsj.com" },
+  { name: "WSJ",              url: "https://www.wsj.com" },
+  { name: "Axios",            url: "https://www.axios.com" },
+  { name: "Politico",         url: "https://www.politico.com" },
+  { name: "USA Today",        url: "https://www.usatoday.com" },
+  { name: "The Guardian",     url: "https://www.theguardian.com" },
+  { name: "AP",               url: "https://apnews.com" },
+]
+
+// Scans a plain-text rule sentence and hyperlinks any known news/data source names.
+// Returns an HTML string when substitutions were made, or null if none matched.
+// Longer names are tried first so "NBC News" matches before "NBC".
+function linkKnownSources(sentence) {
+  if (!sentence || typeof sentence !== "string") return null
+  const sorted = [...KNOWN_SOURCES].sort((a, b) => b.name.length - a.name.length)
+  let result = esc(sentence)
+  let changed = false
+  for (const { name, url } of sorted) {
+    const escaped = esc(name)
+    const re = new RegExp(`(?<![\\w])${escaped.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w])`, "g")
+    const link = `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${escaped}</a>`
+    const next = result.replace(re, link)
+    if (next !== result) { changed = true; result = next }
+  }
+  return changed ? result : null
+}
+
 function tip(text, key) {
   const def = GLOSSARY[key || text]
   if (!def) return esc(text)

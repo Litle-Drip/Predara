@@ -366,7 +366,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences,
+    ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
   }
@@ -609,7 +609,7 @@ function normalizeGemini(event) {
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences,
+    ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: event.description || "",
   }
@@ -978,7 +978,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences: limitedRules,
+    ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: first.description || event.description || "",
   }
