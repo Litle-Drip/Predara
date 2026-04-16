@@ -463,7 +463,7 @@ function normalizeGemini(event) {
   // Timeline
   const timelineRows = [
     infoRow("Start date", fmtDate(startIso)),
-    infoRow("End date", fmtDate(expiryIso)),
+    infoRow("End date", fmtDateTime(expiryIso)),
     infoRow("Market details", `Event: ${event.event_ticker || event.eventTicker || event.ticker || "—"} · Contract: ${contracts[0]?.label || contracts[0]?.title || contracts[0]?.name || "—"} · Instrument: ${contracts[0]?.instrumentSymbol || contracts[0]?.instrument_symbol || contracts[0]?.ticker || "—"}`),
     event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : "",
   ].join("")
@@ -533,7 +533,7 @@ function normalizeGemini(event) {
     }
   }
   if (ruleSentences.length > 0 && expiryIso) {
-    ruleSentences.push(`Trading closes ${fmtDate(expiryIso)}`)
+    ruleSentences.push(`Trading closes ${fmtDateTime(expiryIso)}`)
   }
 
   // Resolution sources — Gemini wraps Kalshi data so check both field shapes
