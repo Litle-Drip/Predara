@@ -102,7 +102,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
 
   const status     = first.status || "active"
   const statusDot  = status === "active" ? "dot-green" : status === "closed" ? "dot-red" : "dot-muted"
-  const statusText = status.toUpperCase()
+  const statusText = status === "active" ? "LIVE" : status.toUpperCase()
   const category   = ev.product_metadata?.competition || ev.category || "Markets"
   const catColor   = categoryColor(category)
   const eventTitle = (ev.title || ev.event_ticker || "").replace(/[?!.]+$/, "").trim()
@@ -888,7 +888,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   const hasTimeline = !!event.endDate
 
   const statusDot  = event.closed ? "dot-red" : "dot-green"
-  const statusText = event.closed ? "CLOSED" : "OPEN"
+  const statusText = event.closed ? "CLOSED" : "LIVE"
 
   let resolvedInfo = null
   if (event.closed && outcomes.length > 0) {
