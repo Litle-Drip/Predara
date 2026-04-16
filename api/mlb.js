@@ -23,7 +23,7 @@ module.exports = (req, res) => {
   }
 
   const [yr, mo, dy] = date.split("-")
-  const target = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${mo}/${dy}/${yr}`
+  const target = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=team&date=${mo}/${dy}/${yr}`
 
   let responded = false
   const proxyReq = https.get(target, (apiRes) => {
@@ -38,12 +38,13 @@ module.exports = (req, res) => {
       try {
         const data = JSON.parse(body)
         const games = (data.dates || []).flatMap(d => d.games || [])
+        const toSlug = n => (n || "").toLowerCase().replace(/\s+/g, "-")
         const simplified = games.map(g => ({
           gamePk:   g.gamePk,
-          awayId:   g.teams?.away?.team?.id || null,
-          awayName: g.teams?.away?.team?.name || "",
-          homeId:   g.teams?.home?.team?.id || null,
-          homeName: g.teams?.home?.team?.name || "",
+          awayAbbr: g.teams?.away?.team?.abbreviation || "",
+          awaySlug: toSlug(g.teams?.away?.team?.teamName || g.teams?.away?.team?.name || ""),
+          homeAbbr: g.teams?.home?.team?.abbreviation || "",
+          homeSlug: toSlug(g.teams?.home?.team?.teamName || g.teams?.home?.team?.name || ""),
         }))
         res.status(200).json({ games: simplified })
       } catch {

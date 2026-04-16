@@ -293,7 +293,7 @@ const server = http.createServer((req, res) => {
       return res.end(JSON.stringify({ error: "date param required (YYYY-MM-DD)" }))
     }
     const [yr, mo, dy] = date.split("-")
-    const target = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${mo}/${dy}/${yr}`
+    const target = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=team&date=${mo}/${dy}/${yr}`
     httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
       .then(({ status, body }) => {
         if (status !== 200) {
@@ -303,12 +303,13 @@ const server = http.createServer((req, res) => {
         try {
           const data = JSON.parse(body)
           const games = (data.dates || []).flatMap(d => d.games || [])
+          const toSlug = n => (n || "").toLowerCase().replace(/\s+/g, "-")
           const simplified = games.map(g => ({
             gamePk:   g.gamePk,
-            awayId:   g.teams?.away?.team?.id || null,
-            awayName: g.teams?.away?.team?.name || "",
-            homeId:   g.teams?.home?.team?.id || null,
-            homeName: g.teams?.home?.team?.name || "",
+            awayAbbr: g.teams?.away?.team?.abbreviation || "",
+            awaySlug: toSlug(g.teams?.away?.team?.teamName || g.teams?.away?.team?.name || ""),
+            homeAbbr: g.teams?.home?.team?.abbreviation || "",
+            homeSlug: toSlug(g.teams?.home?.team?.teamName || g.teams?.home?.team?.name || ""),
           }))
           res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
           res.end(JSON.stringify({ games: simplified }))

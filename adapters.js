@@ -460,13 +460,19 @@ function normalizeGemini(event) {
   const expiryIso = event.closeDate || event.expiryDate || event.endDate || contractCloseDate || event.resolvedAt || ""
   const startIso  = event.openDate || event.startDate || event.startTime || event.effectiveDate || event.createdAt || ""
 
+  // Slot for async-injected sports game link (e.g. MLB Gameday)
+  const geminiTicker = event.ticker || event.event_ticker || event.eventTicker || ""
+  const geminiSportsSlot = /^(MLB|NBA|NFL|NHL)-/i.test(geminiTicker)
+    ? `<div id="sports-game-link-slot"></div>`
+    : ""
+
   // Timeline
   const timelineRows = [
     infoRow("Start date", fmtDate(startIso)),
     infoRow("End date", fmtDateTime(expiryIso)),
     infoRow("Market details", `Event: ${event.event_ticker || event.eventTicker || event.ticker || "—"} · Contract: ${contracts[0]?.label || contracts[0]?.title || contracts[0]?.name || "—"} · Instrument: ${contracts[0]?.instrumentSymbol || contracts[0]?.instrument_symbol || contracts[0]?.ticker || "—"}`),
     event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : "",
-  ].join("")
+  ].join("") + geminiSportsSlot
   const hasTimeline = !!(startIso || expiryIso)
 
   // Analytics
