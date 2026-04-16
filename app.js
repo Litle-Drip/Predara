@@ -199,9 +199,9 @@ function _currentPlatform() {
 // ── Data freshness indicator ───────────────────────────────────────────────────
 function _updateFreshnessDisplay() {
   const el = document.getElementById("fetchedAt")
-  if (!el || !window._lastFetchedAt) return
-  el.textContent = "Fetched " + _timeAgo(window._lastFetchedAt)
-  el.style.display = "inline"
+  if (!el) return
+  el.textContent = ""
+  el.style.display = "none"
 }
 
 // ── Feature 7: Share card image generator ────────────────────────────────────
