@@ -201,12 +201,13 @@ function fmtTimeRemaining(iso) {
   if (isNaN(d)) return null
   const ms = d - Date.now()
   if (ms <= 0) return { text: "CLOSED", urgency: "high" }
-  const hrs = Math.floor(ms / 3600000)
-  const days = Math.floor(hrs / 24)
-  const remHrs = hrs % 24
+  const halfHours = Math.max(1, Math.round(ms / 1800000) / 2)
+  const days = Math.floor(halfHours / 24)
+  const remHrs = halfHours % 24
+  const roundHours = n => Number.isInteger(n) ? `${n}` : `${Math.floor(n)}.5`
   let text
-  if (days > 0) text = `CLOSES IN ${days} DAY${days > 1 ? "S" : ""}${remHrs > 0 ? ` ${remHrs} HR${remHrs > 1 ? "S" : ""}` : ""}`
-  else if (hrs > 0) text = `CLOSES IN ${hrs} HR${hrs > 1 ? "S" : ""}`
+  if (days > 0) text = `CLOSES IN ${days} DAY${days > 1 ? "S" : ""}${remHrs > 0 ? ` ${roundHours(remHrs)} HR${remHrs === 1 ? "" : "S"}` : ""}`
+  else if (halfHours > 0) text = `CLOSES IN ${roundHours(halfHours)} HR${halfHours === 1 ? "" : "S"}`
   else text = `CLOSES IN < 1 HR`
   const urgency = days >= 7 ? "low" : days >= 1 ? "med" : "high"
   return { text, urgency }
