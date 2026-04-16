@@ -324,7 +324,10 @@ function generateShareCard() {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date())
-  const stampText = stamp
+  const zone = new Intl.DateTimeFormat(undefined, {
+    timeZoneName: "short",
+  }).formatToParts(new Date()).find(p => p.type === "timeZoneName")?.value || ""
+  const stampText = zone ? `${stamp} ${zone}` : stamp
   ctx.textAlign = "right"
   ctx.fillText(stampText, W - 56, H - 36)
   ctx.textAlign = "left"
