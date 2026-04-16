@@ -224,6 +224,8 @@ function generateShareCard() {
   const platformEl = document.querySelector(".tag-platform")
   const platformLabel = platformEl?.textContent?.trim() || "PREDARA"
   const accentStyle = platformEl ? getComputedStyle(platformEl).backgroundColor : "#d94f20"
+  const statsEl = document.querySelector(".stats-grid")
+  const volumeText = statsEl?.querySelector('.stat-card .stat-label') ? "" : ""
 
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
@@ -288,6 +290,9 @@ function generateShareCard() {
     if (logoImg.complete) drawLogo()
   }
 
+  const timelineEl = document.querySelector(".mi-card .section-label")
+  const timelineText = timelineEl ? "Timeline included" : ""
+
   // Outcomes
   const baseY = titleLines.length > 1 ? 230 : 196
   const maxOutcomes = Math.min(outcomes.length, 4)
@@ -312,6 +317,12 @@ function generateShareCard() {
     const pctStr = o.pct + "%"
     ctx.fillText(pctStr, W - 56 - ctx.measureText(pctStr).width - 24, y + rowH * 0.62)
   })
+
+  ctx.fillStyle = textMuted
+  ctx.font = "12px 'Courier New', monospace"
+  ctx.textAlign = "left"
+  ctx.fillText(timelineText || "Timeline", 56, H - 68)
+  ctx.fillText("Volume traded: see market stats", 56, H - 52)
 
   // Footer
   ctx.fillStyle = textMuted
