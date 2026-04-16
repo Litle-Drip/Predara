@@ -477,8 +477,8 @@ async function analyze() {
   // Clear input hint and share bar while loading
   const hintEl = document.getElementById("inputHint")
   if (hintEl) { hintEl.textContent = ""; hintEl.className = "input-hint" }
-  const shareBarEl = document.getElementById("shareBar")
-  if (shareBarEl) shareBarEl.style.display = "none"
+  const shareControlsEl = document.getElementById("shareControls")
+  if (shareControlsEl) shareControlsEl.style.display = "none"
 
   // Detect platform early for contextual skeleton loading state (Feature 11)
   const earlyLower = url.toLowerCase()

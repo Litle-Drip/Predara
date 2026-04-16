@@ -621,7 +621,7 @@
     .copy-link-btn:hover { border-color: var(--orange); color: var(--orange); }
 
     /* ── Compare toggle row ── */
-    .compare-toggle-row { margin-top: -12px; margin-bottom: 16px; }
+    .compare-toggle-row { margin-top: 0; margin-bottom: 16px; }
     .compare-toggle-btn {
       background: var(--orange);
       border: 1px solid var(--orange);
@@ -914,7 +914,7 @@
 
     /* ── Empty state ── */
     .empty-state {
-      padding: 48px 32px;
+      padding: 28px 32px;
       font-size: 13px;
       color: var(--muted);
       letter-spacing: 1px;
@@ -1291,6 +1291,8 @@
     .history-remove:hover { color: var(--red); }
     .history-empty { padding: 16px; font-size: 11px; color: var(--muted); text-align: center; }
     .fetched-at { font-size: 10px; color: var(--muted); letter-spacing: 0.3px; }
+    .info-row { display: flex; flex-wrap: wrap; gap: 4px 0; }
+    .info-val-wrap { flex: 1; min-width: 0; white-space: normal; word-break: break-word; }
 
     /* ── Feature 11: skeleton loading ── */
     .skeleton { animation: sk-pulse 1.5s ease-in-out infinite; }
@@ -1441,17 +1443,15 @@
     <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">COMPARE ↗</button>
   </div>
 
-  <div class="panels-bar">
-    <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recent markets">⟳ HISTORY</button>
-    <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ SAVED</button>
-    <span id="fetchedAt" class="fetched-at" style="display:none"></span>
-    <div id="historyPanel" class="history-panel"></div>
-    <div id="bookmarksPanel" class="bookmarks-panel"></div>
-  </div>
-
-  <div id="shareBar" class="share-bar" style="display:none">
-    <span id="shareBarLabel">Analysis ready</span>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
+  <div id="shareBar" class="share-bar">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;position:relative">
+      <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recent markets">⟳ HISTORY</button>
+      <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ SAVED</button>
+      <span id="fetchedAt" class="fetched-at" style="display:none"></span>
+      <div id="historyPanel" class="history-panel"></div>
+      <div id="bookmarksPanel" class="bookmarks-panel"></div>
+    </div>
+    <div id="shareControls" style="display:none;gap:6px;flex-wrap:wrap">
       <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ REFRESH</button>
       <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">COPY LINK ↗</button>
       <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">SHARE CARD ↓</button>
