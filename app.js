@@ -1,6 +1,44 @@
 // ── Entry point ───────────────────────────────────────────────────────────────
 // Depends on: utils.js, components.js, adapters.js, renderers.js, compare.js
 
+// ── MLB game-link fetcher ─────────────────────────────────────────────────────
+// After a Polymarket MLB market is rendered, this fills in the live gameday link.
+async function fetchAndInjectMlbLink(event) {
+  try {
+    if (!event || !event.slug || !/^mlb-/i.test(event.slug)) return
+    if (!Array.isArray(event.teams) || event.teams.length < 2) return
+    const dateMatch = event.slug.match(/(\d{4}-\d{2}-\d{2})$/)
+    if (!dateMatch) return
+
+    const date = dateMatch[1]
+    const res = await fetch(`/api/mlb?date=${encodeURIComponent(date)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    if (!data.games || !data.games.length) return
+
+    // Match by team alias (e.g. "Nationals", "Pirates") against full team name
+    // because MLB Stats API schedule endpoint doesn't include abbreviations.
+    const awayAlias = (event.teams[0].alias || "").toLowerCase()
+    const homeAlias = (event.teams[1].alias || "").toLowerCase()
+    const game = data.games.find(g =>
+      g.awayName.toLowerCase().includes(awayAlias) && g.homeName.toLowerCase().includes(homeAlias)
+    ) || data.games.find(g =>
+      g.homeName.toLowerCase().includes(awayAlias) && g.awayName.toLowerCase().includes(homeAlias)
+    )
+    if (!game || !game.gamePk) return
+
+    const awaySlug = (event.teams[0].alias || "").toLowerCase().replace(/\s+/g, "-")
+    const homeSlug = (event.teams[1].alias || "").toLowerCase().replace(/\s+/g, "-")
+    const [yr, mo, dy] = date.split("-")
+    const gameUrl = `https://www.mlb.com/gameday/${awaySlug}-vs-${homeSlug}/${yr}/${mo}/${dy}/${game.gamePk}/live`
+
+    const slot = document.getElementById("sports-game-link-slot")
+    if (slot) {
+      slot.outerHTML = `<div class="info-row"><span class="info-key">Watch</span><span class="info-val"><a href="${gameUrl}" target="_blank" rel="noopener" style="color:var(--orange)">MLB Gameday ↗</a></span></div>`
+    }
+  } catch {}
+}
+
 // ── Feature 1: "What changed?" diff on refresh ────────────────────────────────
 function _captureOutcomeSnapshot() {
   const url = document.getElementById("urlInput")?.value?.trim()
@@ -597,6 +635,7 @@ async function analyze() {
       if (!markets.length) throw new Error("No market data found.")
 
       result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
+      fetchAndInjectMlbLink(event)
       _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)

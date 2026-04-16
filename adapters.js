@@ -880,12 +880,18 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       }).join("")
     : ""
 
+  // For sports markets with a known league, inject a placeholder slot that
+  // app.js will fill asynchronously with the live game / stats link.
+  const sportsLinkSlot = isSportsEvent && event.slug && /^(mlb|nba|nfl|nhl)-/i.test(event.slug)
+    ? `<div id="sports-game-link-slot"></div>`
+    : ""
+
   // Timeline
   const timelineRows = [
     infoRow("Start date", fmtDate(event.startDate)),
     infoRow("End date", fmtDate(event.endDate)),
     infoRow("Expected resolution", fmtDate(event.closedTime || event.endDate)),
-  ].join("")
+  ].join("") + sportsLinkSlot
   const hasTimeline = !!event.endDate
 
   const statusDot  = event.closed ? "dot-red" : "dot-green"

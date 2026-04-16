@@ -285,6 +285,45 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── MLB schedule proxy ──
+  if (parsed.pathname === "/api/mlb") {
+    const date = parsed.query.date
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "date param required (YYYY-MM-DD)" }))
+    }
+    const [yr, mo, dy] = date.split("-")
+    const target = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${mo}/${dy}/${yr}`
+    httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
+      .then(({ status, body }) => {
+        if (status !== 200) {
+          res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: `MLB API returned ${status}` }))
+        }
+        try {
+          const data = JSON.parse(body)
+          const games = (data.dates || []).flatMap(d => d.games || [])
+          const simplified = games.map(g => ({
+            gamePk:   g.gamePk,
+            awayId:   g.teams?.away?.team?.id || null,
+            awayName: g.teams?.away?.team?.name || "",
+            homeId:   g.teams?.home?.team?.id || null,
+            homeName: g.teams?.home?.team?.name || "",
+          }))
+          res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+          res.end(JSON.stringify({ games: simplified }))
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json", ...CORS_HEADERS })
+          res.end(JSON.stringify({ error: "Failed to parse MLB response" }))
+        }
+      })
+      .catch(err => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
+    return
+  }
+
   // ── Static file server (path traversal safe) ──
   let reqPath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
   const filePath = path.resolve(STATIC_ROOT, "." + reqPath)
