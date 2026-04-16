@@ -326,6 +326,31 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     }
   }
 
+  // Duration
+  const kalshiStartMs = eventOpenTime ? new Date(eventOpenTime).getTime() : null
+  const kalshiEndMs   = first.close_time ? new Date(first.close_time).getTime() : null
+  const kalshiDurationDays = kalshiStartMs && kalshiEndMs && !isNaN(kalshiStartMs) && !isNaN(kalshiEndMs)
+    ? Math.round((kalshiEndMs - kalshiStartMs) / 86400000)
+    : null
+
+  // Runner-up for multi-outcome markets: highest-volume non-winning market
+  let kalshiRunnerUp = null
+  if (isMultiOutcome && resolvedYesMarkets.length > 0) {
+    const winnerTitles = new Set(resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean))
+    const nonWinners = sorted.filter(m => !winnerTitles.has(m.yes_sub_title))
+    if (nonWinners.length > 0) {
+      const top = nonWinners.reduce((a, b) => {
+        const va = parseFloat(a.volume_fp || 0)
+        const vb = parseFloat(b.volume_fp || 0)
+        return vb > va ? b : a
+      })
+      const topVol = parseFloat(top.volume_fp || 0) / 100
+      if (topVol > 0 && top.yes_sub_title) {
+        kalshiRunnerUp = { label: top.yes_sub_title, vol: `$${fmtNum(topVol)}` }
+      }
+    }
+  }
+
   const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
     winners: isMultiOutcome && resolvedYesMarkets.length > 1
       ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
@@ -345,6 +370,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     winnerCloseOdds,
     winnerPrevOdds,
     wasUpset: winnerCloseOdds != null && winnerCloseOdds < 50,
+    durationDays: kalshiDurationDays,
+    runnerUp: kalshiRunnerUp,
   } : null
 
   return {
@@ -497,7 +524,7 @@ function normalizeGemini(event) {
   // not just the market title echoed back.
   const descRules = desc ? plainEnglishRules(desc).slice(0, 8) : []
   const looksLikeRules = descRules.some(s =>
-    /\b(resolv|YES|NO|win|payout|\$1|contract|expir|settl)/i.test(s)
+    /\b(resolv|YES|NO|win|payout|\$1|contract|expir|settl|game|match|score|season|championship|playoff|tournament|series)/i.test(s)
   )
   const ruleSentences = looksLikeRules ? descRules : []
   const isHeadToHead = !isBinary && contracts.length === 2
@@ -580,13 +607,59 @@ function normalizeGemini(event) {
     : null
   // Clean up the internal flag so it doesn't reach the UI renderer.
   outcomes.forEach(o => { delete o._resolutionSide })
+  // Compute winner's closing odds from outcome pct (already computed above, before cleanup).
+  // For binary markets the winning outcome's pct reflects the settlement price (100 or 0),
+  // so use the stored raw price before it was overwritten to 100.
+  // For non-binary multi-outcome contracts the pct was derived from _rawPrice (0–1 range × 100).
+  // We reconstruct the pre-settlement price from the winner's pct, clamping to a useful range.
+  let geminiWinnerCloseOdds = null
+  if (!isOpen && geminiWinner) {
+    // For binary YES winner, resSide=yes means the price settled at 1.0; use the
+    // pre-settlement price stored in the contract's prices field if available.
+    const winnerContract = contracts.find(c => {
+      const name = geminiExtractName(c, "")
+      return name === geminiWinner.label || (geminiWinner.label === "YES" && contracts.indexOf(c) === 0)
+    })
+    const cp = winnerContract ? (winnerContract.prices || {}) : {}
+    const rawPrice = parseFloat(
+      cp.lastPrice || cp.last_price || cp.lastTradedPrice ||
+      winnerContract?.lastPrice || winnerContract?.lastTradedPrice || 0
+    )
+    if (rawPrice > 0.01 && rawPrice < 0.99) {
+      geminiWinnerCloseOdds = Math.round(rawPrice * 100)
+    } else {
+      // Fall back to the pct we already computed — only useful if between 1–99
+      const p = geminiWinner.pct
+      if (p > 1 && p < 99) geminiWinnerCloseOdds = p
+    }
+  }
+
+  // Duration
+  const geminiStartMs = startIso ? new Date(startIso).getTime() : null
+  const geminiEndMs   = (event.resolvedAt || expiryIso) ? new Date(event.resolvedAt || expiryIso).getTime() : null
+  const geminiDurationDays = geminiStartMs && geminiEndMs && !isNaN(geminiEndMs) && !isNaN(geminiStartMs)
+    ? Math.round((geminiEndMs - geminiStartMs) / 86400000)
+    : null
+
+  // For multi-outcome resolved markets, build a winners array
+  const geminiIsMultiOutcome = !isBinary && contracts.length > 2
+  const geminiResolvedWinners = geminiWinner
+    ? (geminiIsMultiOutcome ? [geminiWinner.label] : null)
+    : null
+
   const resolvedInfo = (!isOpen && geminiWinner) ? {
+    winners: geminiResolvedWinners,
     winner: geminiWinner.label,
     resolution: isBinary ? (geminiWinner.label === "YES" ? "yes" : "no") : "",
     resolvedAt: event.resolvedAt || expiryIso || "",
     value: null,
     totalVol: totalVol || null,
-    isMultiOutcome: !isBinary && contracts.length > 2,
+    isMultiOutcome: geminiIsMultiOutcome,
+    totalOutcomes: geminiIsMultiOutcome ? contracts.length : null,
+    winnersCount: geminiResolvedWinners ? geminiResolvedWinners.length : null,
+    winnerCloseOdds: geminiWinnerCloseOdds,
+    wasUpset: geminiWinnerCloseOdds != null && geminiWinnerCloseOdds < 50,
+    durationDays: geminiDurationDays,
   } : null
 
   return {
@@ -604,13 +677,13 @@ function normalizeGemini(event) {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : null },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : null },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : null },
-      {
+      contracts.length >= 2 ? {
         label: "RUNNERS",
-        value: contracts.length > 0 ? String(contracts.length) : null,
+        value: String(contracts.length),
         sub: contractNames.length > 0
           ? contractNames.slice(0, 5).join(" · ") + (contractNames.length > 5 ? " ···" : "")
           : "",
-      },
+      } : null,
     ],
     analyticsSource,
     leadPct,

@@ -34,7 +34,7 @@ function renderMarket(norm, accent) {
     .filter(Boolean)
   const analyticsHtml = analyticsCard(analyticsRows, timeLeft, overroundVal)
 
-  const statsHtml = norm.stats.map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
+  const statsHtml = norm.stats.filter(Boolean).map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
 
   const platformLabel = (PLATFORMS[norm.platform] || {}).label || norm.platform.toUpperCase()
   const hasRules = norm.ruleSentences.length > 0
