@@ -219,15 +219,18 @@ function fmtTimeRemaining(iso) {
 
 function plainEnglishRules(rulesText) {
   if (!rulesText || typeof rulesText !== "string") return []
-  return rulesText
-    .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim())
+  // Split on paragraph breaks first so paragraphs starting with a capital letter
+  // after "No." (e.g. resolution source paragraphs) are treated as separate
+  // sentences rather than being appended to the preceding sentence.
+  const sentences = []
+  for (const para of rulesText.split(/\n\n+/)) {
+    para.split(/(?<=[.!?])\s+/).forEach(s => sentences.push(s.trim()))
+  }
+  return sentences
     .filter(s => s.length > 15)
     .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
-    .filter(s => !s.toLowerCase().startsWith("the resolution source"))
-    .filter(s => !s.toLowerCase().startsWith("the primary resolution source"))
     .filter(s => !/https?:\/\//.test(s))
     .filter(s => /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle)\b/i.test(s))
     .map(s => applyResolveText(s)
