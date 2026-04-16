@@ -403,8 +403,8 @@ function renderComparison(results) {
         <span class="compare-outcome-pct" style="color:${o.color};${isBest ? "font-weight:900" : ""}">${o.pct}%</span>
       </div>`
     }).join("") || `<div class="compare-col-empty">No outcome data</div>`
-    const statsHtml = (meta.stats || []).length
-      ? `<div class="compare-stats">${(meta.stats).map(s =>
+    const statsHtml = (meta.stats || []).filter(Boolean).length
+      ? `<div class="compare-stats">${(meta.stats).filter(Boolean).map(s =>
           `<div class="compare-stat-row">
             <span class="compare-stat-label">${tip(s.label, s.label.toUpperCase())}</span>
             <span class="compare-stat-value">${esc(s.value)}</span>

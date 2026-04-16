@@ -1,6 +1,37 @@
 // ── Entry point ───────────────────────────────────────────────────────────────
 // Depends on: utils.js, components.js, adapters.js, renderers.js, compare.js
 
+// ── MLB game-link fetcher ─────────────────────────────────────────────────────
+// Fetches the MLB schedule for a date, matches by team abbreviation, and injects
+// a "Watch → MLB Gameday" link into the #sports-game-link-slot placeholder.
+// Works for both Polymarket sports events and Gemini MLB ticker markets.
+async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
+  try {
+    if (!date || !awayAbbr || !homeAbbr) return
+    const res = await fetch(`/api/mlb?date=${encodeURIComponent(date)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    if (!data.games || !data.games.length) return
+
+    const aw = awayAbbr.toLowerCase()
+    const hw = homeAbbr.toLowerCase()
+    const game = data.games.find(g =>
+      g.awayAbbr.toLowerCase() === aw && g.homeAbbr.toLowerCase() === hw
+    ) || data.games.find(g =>
+      g.homeAbbr.toLowerCase() === aw && g.awayAbbr.toLowerCase() === hw
+    )
+    if (!game || !game.gamePk) return
+
+    const [yr, mo, dy] = date.split("-")
+    const gameUrl = `https://www.mlb.com/gameday/${game.awaySlug}-vs-${game.homeSlug}/${yr}/${mo}/${dy}/${game.gamePk}/live`
+
+    const slot = document.getElementById("sports-game-link-slot")
+    if (slot) {
+      slot.outerHTML = `<div class="info-row"><span class="info-key">Watch</span><span class="info-val"><a href="${gameUrl}" target="_blank" rel="noopener" style="color:var(--orange)">MLB Gameday ↗</a></span></div>`
+    }
+  } catch {}
+}
+
 // ── Feature 1: "What changed?" diff on refresh ────────────────────────────────
 function _captureOutcomeSnapshot() {
   const url = document.getElementById("urlInput")?.value?.trim()
@@ -597,6 +628,13 @@ async function analyze() {
       if (!markets.length) throw new Error("No market data found.")
 
       result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
+      // For Polymarket MLB sports markets inject a live gameday link
+      if (event.slug && /^mlb-/i.test(event.slug) && Array.isArray(event.teams) && event.teams.length >= 2) {
+        const dateMatch = event.slug.match(/(\d{4}-\d{2}-\d{2})$/)
+        if (dateMatch) {
+          fetchAndInjectMlbLink(dateMatch[1], event.teams[0].abbreviation, event.teams[1].abbreviation)
+        }
+      }
       _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)
@@ -725,6 +763,14 @@ async function analyze() {
       if (!data || (!data.title && !data.contracts && !data.ticker)) throw new Error("No event data returned.")
 
       result.innerHTML = renderGeminiEvent(data, accent)
+      // For Gemini MLB markets (ticker: MLB-YYMMDDHHmm-AWAY-HOME-M) inject gameday link
+      {
+        const mlbM = ticker.match(/^MLB-(\d{2})(\d{2})(\d{2})\d{4}-([A-Z]+)-([A-Z]+)/i)
+        if (mlbM) {
+          const mlbDate = `20${mlbM[1]}-${mlbM[2]}-${mlbM[3]}`
+          fetchAndInjectMlbLink(mlbDate, mlbM[4], mlbM[5])
+        }
+      }
       _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)
