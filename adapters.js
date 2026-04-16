@@ -377,7 +377,7 @@ function normalizeGemini(event) {
   const status = (event.status || "").toLowerCase()
   const isOpen = status === "active" || status === "approved" || status === "open"
   const statusDot  = isOpen ? "dot-green" : "dot-red"
-  const statusText = isOpen ? "OPEN" : status.toUpperCase() || "CLOSED"
+  const statusText = isOpen ? "LIVE" : status.toUpperCase() || "CLOSED"
 
   const contracts = Array.isArray(event.contracts) ? event.contracts : []
   const isBinary  = event.type === "binary"
