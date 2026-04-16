@@ -460,8 +460,8 @@ async function analyzeCompare() {
   const result = document.getElementById("result")
   const btn = document.getElementById("compareSubmitBtn")
   if (btn) { btn.disabled = true; btn.textContent = "COMPARING…" }
-  const shareBarEl = document.getElementById("shareBar")
-  if (shareBarEl) shareBarEl.style.display = "none"
+  const shareControlsEl = document.getElementById("shareControls")
+  if (shareControlsEl) shareControlsEl.style.display = "none"
   result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>COMPARING ${urls.length} MARKETS</div>`
 
   const results = await Promise.all(urls.map(fetchOneMarket))
@@ -489,28 +489,10 @@ async function analyzeCompare() {
 function addShareBar(marketUrl) {
   const encoded = encodeURIComponent(marketUrl)
   history.pushState({ q: marketUrl }, "", `${location.pathname}?q=${encoded}`)
-  const shareBarEl = document.getElementById("shareBar")
-  if (shareBarEl) shareBarEl.style.display = "flex"
+  const shareControlsEl = document.getElementById("shareControls")
+  if (shareControlsEl) shareControlsEl.style.display = "flex"
   const copyBtn = document.getElementById("copyLinkBtn")
   if (copyBtn) copyBtn.textContent = "COPY LINK ↗"
-
-  // Set contextual label: "KALSHI · Market title..."
-  const labelEl = document.getElementById("shareBarLabel")
-  if (labelEl) {
-    const firstUrl = marketUrl.split("\n")[0]
-    const lower = firstUrl.toLowerCase()
-    const platform = lower.includes("kalshi") ? "KALSHI"
-      : lower.includes("polymarket") ? "POLYMARKET"
-      : lower.includes("coinbase") ? "COINBASE"
-      : lower.includes("gemini") ? "GEMINI"
-      : ""
-    const titleEl = document.querySelector("#result .event-title")
-    const title = titleEl ? titleEl.textContent.trim() : ""
-    const truncated = title.length > 45 ? title.slice(0, 44) + "…" : title
-    labelEl.textContent = platform && truncated
-      ? `${platform} · ${truncated}`
-      : platform || "Analysis ready"
-  }
 
   // Keep compare collapsed unless the user opens it explicitly.
 }
