@@ -273,15 +273,20 @@ function generateShareCard() {
   ctx.fillStyle = textBright
   titleLines.slice(0, 2).forEach((line, i) => ctx.fillText(line, 56, 124 + i * 52))
 
-  const logoImg = new Image()
-  logoImg.onload = () => {
+  const logoImg = document.querySelector('link[rel="icon"]')?.href ? new Image() : null
+  const drawLogo = () => {
+    if (!logoImg) return
     const logoW = 84
     const logoH = 84
     const logoX = W - logoW - 52
     const logoY = 48
     ctx.drawImage(logoImg, logoX, logoY, logoW, logoH)
   }
-  logoImg.src = "/og-image.png"
+  if (logoImg) {
+    logoImg.onload = drawLogo
+    logoImg.src = "/og-image.png"
+    if (logoImg.complete) drawLogo()
+  }
 
   // Outcomes
   const baseY = titleLines.length > 1 ? 230 : 196
