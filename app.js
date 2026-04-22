@@ -33,12 +33,19 @@ async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
 }
 
 // ── Feature 1: "What changed?" diff on refresh ────────────────────────────────
+// Reads the pure outcome label text, stripping momentum arrows and other
+// decorative glyphs injected inside .outcome-name.
+function _outcomeNameText(row) {
+  const labelEl = row.querySelector(".outcome-name-text") || row.querySelector(".outcome-name")
+  return (labelEl?.textContent || "").replace(/[↑↓▲▼]/g, "").trim()
+}
+
 function _captureOutcomeSnapshot() {
   const url = document.getElementById("urlInput")?.value?.trim()
   if (!url) return null
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
-    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const name = _outcomeNameText(row)
     const pctEl = row.querySelector(".outcome-pct")
     // Strip trailing "(est.)" suffix before parsing
     const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
@@ -69,7 +76,7 @@ function _showRefreshDiff(prevSnap) {
   if (!prevSnap || !prevSnap.outcomes) return
   const newOutcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
-    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const name = _outcomeNameText(row)
     const pctEl = row.querySelector(".outcome-pct")
     const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
     const pct = parseInt(pctText, 10)
@@ -260,7 +267,7 @@ function generateShareCard() {
 
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
-    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const name = _outcomeNameText(row)
     const pctEl = row.querySelector(".outcome-pct")
     const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
     const pct = parseInt(pctText, 10)
