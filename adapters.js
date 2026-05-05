@@ -536,8 +536,9 @@ function normalizeGemini(event) {
   const looksLikeRules = descRules.some(s => {
     const hasResolutionVerb = /\b(resolv|payout|\$1|contract|expir|settl|pays?\s+out|counts?\s+as|awarded|determines?)\b/i.test(s)
     const hasSportsTerm = /\b(game|match|score|season|championship|playoff|tournament|series)\b/i.test(s)
-    const hasCoreTerm = /\b(YES|NO|win)\b/i.test(s)
-    return hasResolutionVerb || (hasSportsTerm && /\b(will|resolve|win|settle|expir|pay|result|end)\b/i.test(s)) || hasCoreTerm
+    const hasYesNo = /\b(YES|NO)\b/.test(s)
+    const sportsWithResolution = hasSportsTerm && /\b(resolves?|will\s+resolve|settle[sd]?|expir(?:es?|ed)|pays?\s+out|result\s+in)\b/i.test(s)
+    return hasResolutionVerb || hasYesNo || sportsWithResolution
   })
   const ruleSentences = looksLikeRules ? descRules : []
   const isHeadToHead = !isBinary && contracts.length === 2
