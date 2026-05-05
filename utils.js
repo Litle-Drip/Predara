@@ -70,19 +70,25 @@ const KNOWN_SOURCES = [
 
 // Scans a plain-text rule sentence and hyperlinks any known news/data source names.
 // Returns an HTML string when substitutions were made, or null if none matched.
-// Longer names are tried first so "NBC News" matches before "NBC".
+// Uses a single-pass replacement with alternation ordered longest-first so
+// "NBC News" is preferred over "NBC" and we never wrap the same text twice
+// (which previously produced nested <a> tags and broken HTML).
 function linkKnownSources(sentence) {
   if (!sentence || typeof sentence !== "string") return null
   const sorted = [...KNOWN_SOURCES].sort((a, b) => b.name.length - a.name.length)
-  let result = esc(sentence)
+  const urlByName = new Map(sorted.map(s => [s.name, s.url]))
+  const escapedText = esc(sentence)
+  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const alternation = sorted.map(s => escapeRe(esc(s.name))).join("|")
+  if (!alternation) return null
+  const re = new RegExp(`(?<![\\w])(${alternation})(?![\\w])`, "g")
   let changed = false
-  for (const { name, url } of sorted) {
-    const escaped = esc(name)
-    const re = new RegExp(`(?<![\\w])${escaped.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w])`, "g")
-    const link = `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${escaped}</a>`
-    const next = result.replace(re, link)
-    if (next !== result) { changed = true; result = next }
-  }
+  const result = escapedText.replace(re, (match) => {
+    const url = urlByName.get(match)
+    if (!url) return match
+    changed = true
+    return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${match}</a>`
+  })
   return changed ? result : null
 }
 
@@ -278,7 +284,7 @@ function plainEnglishRules(rulesText) {
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
     .filter(s => !/https?:\/\//.test(s))
-    .filter(s => /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle)\b/i.test(s))
+    .filter(s => /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled)\b/i.test(s))
     .map(s => applyResolveText(s)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")

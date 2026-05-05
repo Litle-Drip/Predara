@@ -211,7 +211,11 @@ function _resolutionConfidenceScore(rawRulesText) {
   if (!rawRulesText || typeof rawRulesText !== "string" || rawRulesText.length < 30) return null
   let score = 60
   const text = rawRulesText.toLowerCase()
-  for (const w of ["may ", "might ", "could ", "discretion", "sole judgment", "sole discretion",
+  // Modal verbs must be followed by a verb-like word so we don't penalise
+  // "May 2024" or "Friday, May 3" as discretionary language.
+  const MODAL_RE = /\b(?:may|might|could)\s+(?:be|not|have|include|involve|affect|result|require|occur|apply|vary|differ|exclude|change|depend|need|cause|happen|be\w*)\b/
+  if (MODAL_RE.test(text)) score -= 7
+  for (const w of ["discretion", "sole judgment", "sole discretion",
       "approximately", "reasonable", "substantially", "at its ", "as determined", "in its opinion"]) {
     if (text.includes(w)) score -= 7
   }
@@ -699,7 +703,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
     <div class="outcome-row">
       <div class="outcome-top">
         <div class="outcome-left-col">
-          <div class="outcome-name" style="color:${color}">${esc(label)}${momentumArrow}</div>
+          <div class="outcome-name" style="color:${color}"><span class="outcome-name-text">${esc(label)}</span>${momentumArrow}</div>
           ${sub ? `<div class="outcome-sub">${esc(sub)}</div>` : ""}
           ${plainTalkHtml}
         </div>
