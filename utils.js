@@ -287,7 +287,7 @@ function plainEnglishRules(rulesText) {
     .filter(s => !s.toLowerCase().includes("for more information"))
     .filter(s => !/https?:\/\//.test(s))
     .filter(s =>
-      /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle|counts?\s+toward|based\s+on|determined|measured|reported|awarded|declared|announced|certified|confirmed|qualified|exceeded|reached|achieved)\b/i.test(s)
+      /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled|counts?\s+toward|based\s+on|determined|measured|reported|awarded|declared|announced|certified|confirmed|qualified|exceeded|reached|achieved)\b/i.test(s)
       || /\b(YES|NO)\b/i.test(s)
     )
     .map(s => applyResolveText(s)
