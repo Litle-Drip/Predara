@@ -234,6 +234,8 @@ function applyResolveText(text) {
     .replace(/this market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
     .replace(/this market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
     .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+    .replace(/\bif (?:\w+\s+){0,6}resolve[sd]?\s+"?Yes"?\.?/gi, (m) => m.replace(/resolve[sd]?\s+"?Yes"?\.?/i, "resolves YES → you win"))
+    .replace(/\bif (?:\w+\s+){0,6}resolve[sd]?\s+"?No\.?"?\.?/gi, (m) => m.replace(/resolve[sd]?\s+"?No\.?"?\.?/i, "resolves NO → you lose"))
 }
 
 function fmtNum(val) {
@@ -273,17 +275,20 @@ function plainEnglishRules(rulesText) {
     para.split(/(?<=[.!?])\s+/).forEach(s => sentences.push(s.trim()))
   }
   return sentences
-    .filter(s => s.length > 15)
+    .filter(s => s.length >= 10)
     .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
     .filter(s => !/https?:\/\//.test(s))
-    .filter(s => /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle)\b/i.test(s))
+    .filter(s =>
+      /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle|counts?\s+toward|based\s+on|determined|measured|reported|awarded|declared|announced|certified|confirmed|qualified|exceeded|reached|achieved)\b/i.test(s)
+      || /\b(YES|NO)\b/i.test(s)
+    )
     .map(s => applyResolveText(s)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")
       .replace(/,\s*then you win\.?$/i, ", you win.")
       .replace(/\.$/, "")
     )
-    .filter(s => s.length > 10)
+    .filter(s => s.length >= 10)
 }
