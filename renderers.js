@@ -79,11 +79,14 @@ function renderMarket(norm, accent) {
 
     ${whatsTheBetCard(norm.betExplainerText)}
 
-    ${hasRules ? `
+    ${hasRules || norm.rawRulesText ? `
     <div class="mi-card">
       <div class="section-label">HOW IT RESOLVES</div>
       ${resConfidenceHtml}
-      <div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>
+      ${hasRules
+        ? `<div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>`
+        : `<div class="resolution-fallback">See the market source for resolution details.</div>`
+      }
     </div>` : ""}
 
     ${ruleAlertsHtml}

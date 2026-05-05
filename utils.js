@@ -240,6 +240,8 @@ function applyResolveText(text) {
     .replace(/this market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
     .replace(/this market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
     .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+    .replace(/\bif (?:\w+\s+){0,6}resolve[sd]?\s+"?Yes"?\.?/gi, (m) => m.replace(/resolve[sd]?\s+"?Yes"?\.?/i, "resolves YES → you win"))
+    .replace(/\bif (?:\w+\s+){0,6}resolve[sd]?\s+"?No\.?"?\.?/gi, (m) => m.replace(/resolve[sd]?\s+"?No\.?"?\.?/i, "resolves NO → you lose"))
 }
 
 function fmtNum(val) {
@@ -279,7 +281,7 @@ function plainEnglishRules(rulesText) {
     para.split(/(?<=[.!?])\s+/).forEach(s => sentences.push(s.trim()))
   }
   return sentences
-    .filter(s => s.length > 15)
+    .filter(s => s.length >= 10)
     .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
@@ -291,5 +293,5 @@ function plainEnglishRules(rulesText) {
       .replace(/,\s*then you win\.?$/i, ", you win.")
       .replace(/\.$/, "")
     )
-    .filter(s => s.length > 10)
+    .filter(s => s.length >= 10)
 }

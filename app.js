@@ -8,6 +8,8 @@
 async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
   try {
     if (!date || !awayAbbr || !homeAbbr) return
+    const inputEl = document.getElementById("urlInput")
+    const urlAtStart = inputEl ? inputEl.value.trim() : null
     const res = await fetch(`/api/mlb?date=${encodeURIComponent(date)}`)
     if (!res.ok) return
     const data = await res.json()
@@ -21,6 +23,9 @@ async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
       g.homeAbbr.toLowerCase() === aw && g.awayAbbr.toLowerCase() === hw
     )
     if (!game || !game.gamePk) return
+
+    const urlNow = inputEl ? inputEl.value.trim() : null
+    if (urlAtStart !== urlNow) return
 
     const [yr, mo, dy] = date.split("-")
     const gameUrl = `https://www.mlb.com/gameday/${game.awaySlug}-vs-${game.homeSlug}/${yr}/${mo}/${dy}/${game.gamePk}/live`
@@ -620,6 +625,10 @@ async function analyze() {
         }
         if (res.status === 504) {
           showError("Polymarket API timed out", "The request took too long. Try again in a moment.")
+          return
+        }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Polymarket returned an unexpected response. The market may be unavailable — try again in a moment.")
           return
         }
         throw new Error(errData.error || `Polymarket API error ${res.status}`)

@@ -83,6 +83,14 @@ const server = http.createServer((req, res) => {
 
     httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
       .then(({ status, body }) => {
+        if (status === 200) {
+          let parsed
+          try { parsed = JSON.parse(body) } catch (_) { parsed = null }
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+          }
+        }
         res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(body)
       })
