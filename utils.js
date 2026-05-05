@@ -286,10 +286,7 @@ function plainEnglishRules(rulesText) {
     .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
     .filter(s => !s.toLowerCase().includes("for more information"))
     .filter(s => !/https?:\/\//.test(s))
-    .filter(s =>
-      /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled|counts?\s+toward|based\s+on|determined|measured|reported|awarded|declared|announced|certified|confirmed|qualified|exceeded|reached|achieved)\b/i.test(s)
-      || /\b(YES|NO)\b/i.test(s)
-    )
+    .filter(s => /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled)\b/i.test(s))
     .map(s => applyResolveText(s)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")
