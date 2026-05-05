@@ -620,6 +620,10 @@ async function analyze() {
           showError("Polymarket API timed out", "The request took too long. Try again in a moment.")
           return
         }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Polymarket returned an unexpected response. The market may be unavailable — try again in a moment.")
+          return
+        }
         throw new Error(errData.error || `Polymarket API error ${res.status}`)
       }
       const data = await res.json()
