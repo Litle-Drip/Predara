@@ -330,7 +330,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const kalshiStartMs = eventOpenTime ? new Date(eventOpenTime).getTime() : null
   const kalshiEndMs   = first.close_time ? new Date(first.close_time).getTime() : null
   const kalshiDurationDays = kalshiStartMs && kalshiEndMs && !isNaN(kalshiStartMs) && !isNaN(kalshiEndMs)
-    ? Math.round((kalshiEndMs - kalshiStartMs) / 86400000)
+    ? (Math.max(0, Math.round((kalshiEndMs - kalshiStartMs) / 86400000)) || null)
     : null
 
   // Runner-up for multi-outcome markets: highest-volume non-winning market
@@ -352,7 +352,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   }
 
   const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
-    winners: isMultiOutcome && resolvedYesMarkets.length > 1
+    winners: isMultiOutcome && resolvedYesMarkets.length >= 1
       ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
       : null,
     winner: resolvedMarket
@@ -533,9 +533,12 @@ function normalizeGemini(event) {
   // Rules — only use description if it contains actual resolution criteria,
   // not just the market title echoed back.
   const descRules = desc ? plainEnglishRules(desc).slice(0, 8) : []
-  const looksLikeRules = descRules.some(s =>
-    /\b(resolv|YES|NO|win|payout|\$1|contract|expir|settl|game|match|score|season|championship|playoff|tournament|series)/i.test(s)
-  )
+  const looksLikeRules = descRules.some(s => {
+    const hasResolutionVerb = /\b(resolv|payout|\$1|contract|expir|settl|pays?\s+out|counts?\s+as|awarded|determines?)\b/i.test(s)
+    const hasSportsTerm = /\b(game|match|score|season|championship|playoff|tournament|series)\b/i.test(s)
+    const hasCoreTerm = /\b(YES|NO|win)\b/i.test(s)
+    return hasResolutionVerb || (hasSportsTerm && /\b(will|resolve|win|settle|expir|pay|result|end)\b/i.test(s)) || hasCoreTerm
+  })
   const ruleSentences = looksLikeRules ? descRules : []
   const isHeadToHead = !isBinary && contracts.length === 2
   if (ruleSentences.length === 0) {
@@ -637,7 +640,7 @@ function normalizeGemini(event) {
   const geminiStartMs = startIso ? new Date(startIso).getTime() : null
   const geminiEndMs   = (event.resolvedAt || expiryIso) ? new Date(event.resolvedAt || expiryIso).getTime() : null
   const geminiDurationDays = geminiStartMs && geminiEndMs && !isNaN(geminiEndMs) && !isNaN(geminiStartMs)
-    ? Math.round((geminiEndMs - geminiStartMs) / 86400000)
+    ? (Math.max(0, Math.round((geminiEndMs - geminiStartMs) / 86400000)) || null)
     : null
 
   // For multi-outcome resolved markets, build a winners array

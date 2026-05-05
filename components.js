@@ -157,19 +157,19 @@ function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
       </div>`
   }
 
-  // Money won/lost estimate (when we have close odds + total vol)
+  // Money transferred estimate (when we have close odds + total vol)
   let moneyHtml = ""
   if (totalVol > 0 && closeOdds != null && closeOdds > 0 && closeOdds < 100) {
     const transfer = Math.round(totalVol * (100 - closeOdds) / 100)
     const fmt = n => "$" + n.toLocaleString()
     moneyHtml = `
       <div class="ri-row">
-        <span class="ri-label">WINNERS GAINED (EST.)</span>
+        <span class="ri-label">MONEY TRANSFERRED (EST.)</span>
         <span class="ri-val val-green">~${fmt(transfer)}</span>
       </div>
-      <div class="ri-row">
-        <span class="ri-label">LOSERS PAID (EST.)</span>
-        <span class="ri-val val-red">~${fmt(transfer)}</span>
+      <div class="ri-row" style="margin-top:-2px">
+        <span class="ri-label" style="font-size:10px;opacity:.6">zero-sum: winners gain what losers paid</span>
+        <span class="ri-val"></span>
       </div>`
   } else if (totalVol > 0) {
     const fmt = n => "$" + n.toLocaleString()
@@ -611,7 +611,7 @@ function skeletonHtml(platformLabel) {
 
 function statCard(label, value, sub = "") {
   const inner = value
-    ? `<div class="stat-value">${value}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
+    ? `<div class="stat-value">${esc(String(value))}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
     : `<div class="stat-dash"></div>`
   return `<div class="stat-card"><div class="stat-label">${tip(label)}</div>${inner}</div>`
 }
