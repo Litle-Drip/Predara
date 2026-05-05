@@ -166,18 +166,22 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const m0 = sorted[0]
     const yesAsk = parseFloat(m0.yes_ask_dollars || 0)
     const yesBid = parseFloat(m0.yes_bid_dollars || 0)
-    const noBid  = yesAsk > 0 ? Math.max(0, 1 - yesAsk) : 0
-    const noAsk  = yesBid > 0 ? Math.min(1, 1 - yesBid) : 0
-    outcomes.push({
+    // NO_bid = 1 - YES_ask ; NO_ask = 1 - YES_bid
+    // Only derive when the corresponding YES quote is a real price (0 < p < 1).
+    // Previously these were forced to 0 on missing YES quotes, which rendered
+    // "Bid 0¢ · Ask 0¢" for NO on untraded markets — visually implying a
+    // free sale that does not exist.
+    const noOut = {
       label: "NO",
       sub: "",
       pct: 100 - yesOut.pct,
       color: OUTCOME_COLORS[1],
       delta: yesOut.delta !== null ? -yesOut.delta : null,
-      bid: noBid,
-      ask: noAsk,
       isEstimate: yesOut.isEstimate,
-    })
+    }
+    if (yesAsk > 0 && yesAsk < 1) noOut.bid = Math.max(0, 1 - yesAsk)
+    if (yesBid > 0 && yesBid < 1) noOut.ask = Math.min(1, 1 - yesBid)
+    outcomes.push(noOut)
   }
 
   // Stats — always use allMarkets (full event) for accurate totals

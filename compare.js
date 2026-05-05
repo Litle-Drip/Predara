@@ -30,8 +30,22 @@ function extractTopOutcomes(platform, data) {
       const oi    = markets.reduce((s, m) => s + parseFloat(m.open_interest_fp || 0), 0) / 100
       const spreads = markets.map(m => parseFloat(m.yes_ask_dollars || 0) - parseFloat(m.yes_bid_dollars || 0)).filter(s => s > 0)
       const minSpread = spreads.length ? Math.min(...spreads) : null
-      const overround = markets.reduce((s, m) => s + mktPrice(m), 0)
-      const isBinary = sorted.length === 2
+      // Overround = sum of ask-side probabilities across all outcomes. For a
+      // multi-outcome event each yes_sub_title market is one outcome, so the
+      // sum of YES prices is correct. For a single-market true-binary event
+      // we must also add the implicit NO side (≈ 1 - YES_bid), otherwise
+      // overround would show ~50% on every binary market.
+      let overround = markets.reduce((s, m) => {
+        const ask = parseFloat(m.yes_ask_dollars || 0)
+        return s + (ask > 0 ? ask : mktPrice(m))
+      }, 0)
+      if (markets.length === 1) {
+        const m = markets[0]
+        const yesBid = parseFloat(m.yes_bid_dollars || 0)
+        const noAsk = yesBid > 0 && yesBid < 1 ? 1 - yesBid : 1 - mktPrice(m)
+        overround += Math.max(0, noAsk)
+      }
+      const isBinary = sorted.length === 2 || markets.length === 1
       return {
         title: ev.title || "",
         isBinary,
