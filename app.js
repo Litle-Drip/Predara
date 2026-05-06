@@ -497,13 +497,20 @@ function onInputChange() {
   input.classList.remove("input-invalid", "input-valid")
 }
 
+function _isRecognizedMarketUrl(raw) {
+  if (!raw) return false
+  const lower = raw.toLowerCase()
+  if (lower.includes("kalshi.com"))     return lower.includes("/markets/") || lower.includes("/events/")
+  if (lower.includes("polymarket.com")) return lower.includes("/event/") || lower.includes("/sports/") || lower.includes("/esports/")
+  if (lower.includes("gemini.com"))     return lower.includes("/predictions/") || lower.includes("/prediction-markets/")
+  if (lower.includes("coinbase.com"))   return lower.includes("/markets/") || lower.includes("/predictions/") || lower.includes("/event/")
+  return false
+}
+
 function onUrlPaste(event) {
   setTimeout(() => {
-    onInputChange()
-    const input = document.getElementById("urlInput")
-    if (input && input.classList.contains("input-valid")) {
-      analyze()
-    }
+    const raw = (document.getElementById("urlInput")?.value || "").trim()
+    if (_isRecognizedMarketUrl(raw)) analyze()
   }, 0)
 }
 
