@@ -499,16 +499,23 @@ function onInputChange() {
 
 function _isRecognizedMarketUrl(raw) {
   if (!raw) return false
-  const lower = raw.toLowerCase()
-  if (lower.includes("kalshi.com"))     return lower.includes("/markets/") || lower.includes("/events/")
-  if (lower.includes("polymarket.com")) return lower.includes("/event/") || lower.includes("/sports/") || lower.includes("/esports/")
-  if (lower.includes("gemini.com"))     return lower.includes("/predictions/") || lower.includes("/prediction-markets/")
-  if (lower.includes("coinbase.com"))   return lower.includes("/markets/") || lower.includes("/predictions/") || lower.includes("/event/")
+  let hostname, pathname
+  try { const u = new URL(raw); hostname = u.hostname.toLowerCase(); pathname = u.pathname.toLowerCase() }
+  catch { return false }
+  if (hostname === "kalshi.com" || hostname === "www.kalshi.com")
+    return pathname.startsWith("/markets/") || pathname.startsWith("/events/")
+  if (hostname === "polymarket.com" || hostname === "www.polymarket.com")
+    return pathname.startsWith("/event/") || pathname.startsWith("/sports/") || pathname.startsWith("/esports/")
+  if (hostname === "gemini.com" || hostname === "www.gemini.com")
+    return pathname.startsWith("/predictions/") || pathname.startsWith("/prediction-markets/")
+  if (hostname === "coinbase.com" || hostname === "www.coinbase.com" || hostname === "predict.coinbase.com")
+    return pathname.startsWith("/markets/") || pathname.startsWith("/predictions/") || pathname.startsWith("/event/")
   return false
 }
 
 function onUrlPaste(event) {
   setTimeout(() => {
+    onInputChange()
     const raw = (document.getElementById("urlInput")?.value || "").trim()
     if (_isRecognizedMarketUrl(raw)) analyze()
   }, 0)
