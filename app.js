@@ -1,13 +1,56 @@
 // ── Entry point ───────────────────────────────────────────────────────────────
 // Depends on: utils.js, components.js, adapters.js, renderers.js, compare.js
 
+// ── MLB game-link fetcher ─────────────────────────────────────────────────────
+// Fetches the MLB schedule for a date, matches by team abbreviation, and injects
+// a "Watch → MLB Gameday" link into the #sports-game-link-slot placeholder.
+// Works for both Polymarket sports events and Gemini MLB ticker markets.
+async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
+  try {
+    if (!date || !awayAbbr || !homeAbbr) return
+    const inputEl = document.getElementById("urlInput")
+    const urlAtStart = inputEl ? inputEl.value.trim() : null
+    const res = await fetch(`/api/mlb?date=${encodeURIComponent(date)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    if (!data.games || !data.games.length) return
+
+    const aw = awayAbbr.toLowerCase()
+    const hw = homeAbbr.toLowerCase()
+    const game = data.games.find(g =>
+      g.awayAbbr.toLowerCase() === aw && g.homeAbbr.toLowerCase() === hw
+    ) || data.games.find(g =>
+      g.homeAbbr.toLowerCase() === aw && g.awayAbbr.toLowerCase() === hw
+    )
+    if (!game || !game.gamePk) return
+
+    const urlNow = inputEl ? inputEl.value.trim() : null
+    if (urlAtStart !== urlNow) return
+
+    const [yr, mo, dy] = date.split("-")
+    const gameUrl = `https://www.mlb.com/gameday/${game.awaySlug}-vs-${game.homeSlug}/${yr}/${mo}/${dy}/${game.gamePk}/live`
+
+    const slot = document.getElementById("sports-game-link-slot")
+    if (slot) {
+      slot.outerHTML = `<div class="info-row"><span class="info-key">Watch</span><span class="info-val"><a href="${gameUrl}" target="_blank" rel="noopener" style="color:var(--orange)">MLB Gameday ↗</a></span></div>`
+    }
+  } catch {}
+}
+
 // ── Feature 1: "What changed?" diff on refresh ────────────────────────────────
+// Reads the pure outcome label text, stripping momentum arrows and other
+// decorative glyphs injected inside .outcome-name.
+function _outcomeNameText(row) {
+  const labelEl = row.querySelector(".outcome-name-text") || row.querySelector(".outcome-name")
+  return (labelEl?.textContent || "").replace(/[↑↓▲▼]/g, "").trim()
+}
+
 function _captureOutcomeSnapshot() {
   const url = document.getElementById("urlInput")?.value?.trim()
   if (!url) return null
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
-    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const name = _outcomeNameText(row)
     const pctEl = row.querySelector(".outcome-pct")
     // Strip trailing "(est.)" suffix before parsing
     const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
@@ -38,7 +81,7 @@ function _showRefreshDiff(prevSnap) {
   if (!prevSnap || !prevSnap.outcomes) return
   const newOutcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
-    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const name = _outcomeNameText(row)
     const pctEl = row.querySelector(".outcome-pct")
     const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
     const pct = parseInt(pctText, 10)
@@ -70,6 +113,140 @@ function _showRefreshDiff(prevSnap) {
   if (result?.firstChild) result.insertBefore(banner, result.firstChild)
 }
 
+// ── Analysis history ──────────────────────────────────────────────────────────
+function _getHistory() {
+  try { return JSON.parse(localStorage.getItem("predara-history") || "[]") } catch { return [] }
+}
+function _logHistory(url, title, platform) {
+  if (!url) return
+  const hist = _getHistory().filter(h => h.url !== url)
+  hist.unshift({ url, title: title || "", platform: platform || "", ts: Date.now() })
+  try { localStorage.setItem("predara-history", JSON.stringify(hist.slice(0, 50))) } catch {}
+  _renderHistoryPanel()
+}
+function _renderHistoryPanel() {
+  const panel = document.getElementById("historyPanel")
+  if (!panel) return
+  const hist = _getHistory()
+  if (!hist.length) { panel.innerHTML = `<div class="history-empty">No recent markets yet</div>`; return }
+  panel.innerHTML = hist.slice(0, 12).map(h => `
+    <div class="history-item" data-url="${esc(h.url)}" onclick="_loadAndAnalyze(this.dataset.url)">
+      ${h.platform ? `<span class="history-platform">${esc(h.platform.toUpperCase())}</span>` : ""}
+      <span class="history-title">${esc(h.title || h.url.slice(-40))}</span>
+      <span class="history-time">${_timeAgo(h.ts)}</span>
+    </div>`).join("")
+}
+let _historyOpen = false
+function toggleHistory() {
+  // Close bookmarks panel if open
+  if (_bookmarksOpen) {
+    _bookmarksOpen = false
+    const bp = document.getElementById("bookmarksPanel")
+    const bb = document.getElementById("bookmarksToggleBtn")
+    if (bp) bp.style.display = "none"
+    if (bb) bb.classList.remove("active")
+  }
+  _historyOpen = !_historyOpen
+  const panel = document.getElementById("historyPanel")
+  const btn   = document.getElementById("historyBtn")
+  if (!panel) return
+  if (_historyOpen) { _renderHistoryPanel(); panel.style.display = "block"; if (btn) btn.classList.add("active") }
+  else              { panel.style.display = "none"; if (btn) btn.classList.remove("active") }
+}
+
+// ── Bookmarks ─────────────────────────────────────────────────────────────────
+function _getBookmarks() {
+  try { return JSON.parse(localStorage.getItem("predara-bookmarks") || "[]") } catch { return [] }
+}
+function _saveBookmark(url, title, platform) {
+  if (!url) return
+  const bms = _getBookmarks().filter(b => b.url !== url)
+  bms.unshift({ url, title: title || "", platform: platform || "", ts: Date.now() })
+  try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms.slice(0, 100))) } catch {}
+  _renderBookmarksPanel(); _refreshBookmarkBtn(url)
+}
+function _removeBookmark(url) {
+  const bms = _getBookmarks().filter(b => b.url !== url)
+  try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms)) } catch {}
+  _renderBookmarksPanel(); _refreshBookmarkBtn(url)
+}
+function _isBookmarked(url) { return _getBookmarks().some(b => b.url === url) }
+function _refreshBookmarkBtn(url) {
+  const btn = document.getElementById("bookmarkBtn")
+  if (!btn) return
+  const saved = url ? _isBookmarked(url) : false
+  btn.textContent = saved ? "★ SAVED" : "☆ SAVE"
+  btn.classList.toggle("bookmarked", saved)
+  btn.onclick = () => saved ? _removeBookmark(url) : _saveBookmark(url, _currentTitle(), _currentPlatform())
+}
+function _renderBookmarksPanel() {
+  const panel = document.getElementById("bookmarksPanel")
+  if (!panel) return
+  const bms = _getBookmarks()
+  if (!bms.length) { panel.innerHTML = `<div class="history-empty">No saved markets yet</div>`; return }
+  panel.innerHTML = bms.slice(0, 20).map(b => `
+    <div class="history-item">
+      ${b.platform ? `<span class="history-platform">${esc(b.platform.toUpperCase())}</span>` : ""}
+      <span class="history-title" style="cursor:pointer" data-url="${esc(b.url)}" onclick="_loadAndAnalyze(this.dataset.url)">${esc(b.title || b.url.slice(-40))}</span>
+      <button class="history-remove" data-url="${esc(b.url)}" onclick="_removeBookmark(this.dataset.url)" title="Remove">✕</button>
+    </div>`).join("")
+}
+let _bookmarksOpen = false
+function toggleBookmarks() {
+  // Close history panel if open
+  if (_historyOpen) {
+    _historyOpen = false
+    const hp = document.getElementById("historyPanel")
+    const hb = document.getElementById("historyBtn")
+    if (hp) hp.style.display = "none"
+    if (hb) hb.classList.remove("active")
+  }
+  _bookmarksOpen = !_bookmarksOpen
+  const panel = document.getElementById("bookmarksPanel")
+  const btn   = document.getElementById("bookmarksToggleBtn")
+  if (!panel) return
+  if (_bookmarksOpen) { _renderBookmarksPanel(); panel.style.display = "block"; if (btn) btn.classList.add("active") }
+  else                { panel.style.display = "none"; if (btn) btn.classList.remove("active") }
+}
+// Safe URL loader — used by history/bookmark onclick handlers via data-url attribute
+// Avoids JSON.stringify double-quote injection in HTML attribute strings
+function _loadAndAnalyze(url) {
+  if (!url) return
+  const inp = document.getElementById("urlInput")
+  if (inp) inp.value = url
+  _closeAllPanels()
+  analyze()
+}
+
+function _closeAllPanels() {
+  _historyOpen = false; _bookmarksOpen = false
+  const hp = document.getElementById("historyPanel")
+  const bp = document.getElementById("bookmarksPanel")
+  const hb = document.getElementById("historyBtn")
+  const bb = document.getElementById("bookmarksToggleBtn")
+  if (hp) hp.style.display = "none"
+  if (bp) bp.style.display = "none"
+  if (hb) hb.classList.remove("active")
+  if (bb) bb.classList.remove("active")
+}
+
+function _currentTitle() {
+  return document.querySelector("#result .event-title")?.textContent?.trim() || ""
+}
+function _currentPlatform() {
+  const lower = (document.getElementById("urlInput")?.value || "").toLowerCase()
+  return lower.includes("kalshi") ? "kalshi" : lower.includes("polymarket") ? "polymarket"
+    : lower.includes("coinbase") ? "coinbase" : lower.includes("gemini") ? "gemini" : ""
+}
+
+// ── Data freshness indicator ───────────────────────────────────────────────────
+function _updateFreshnessDisplay() {
+  const el = document.getElementById("fetchedAt")
+  if (!el || !window._lastFetchedAt) return
+  el.textContent = "Fetched " + _timeAgo(window._lastFetchedAt)
+  el.style.display = "inline"
+}
+
 // ── Feature 7: Share card image generator ────────────────────────────────────
 function _wrapText(ctx, text, maxWidth) {
   const words = text.split(" ")
@@ -90,10 +267,12 @@ function generateShareCard() {
   const platformEl = document.querySelector(".tag-platform")
   const platformLabel = platformEl?.textContent?.trim() || "PREDARA"
   const accentStyle = platformEl ? getComputedStyle(platformEl).backgroundColor : "#d94f20"
+  const statsEl = document.querySelector(".stats-grid")
+  const volumeText = statsEl?.querySelector('.stat-card .stat-label') ? "" : ""
 
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach(row => {
-    const name = row.querySelector(".outcome-name")?.textContent?.trim()
+    const name = _outcomeNameText(row)
     const pctEl = row.querySelector(".outcome-pct")
     const pctText = (pctEl?.textContent || "").replace(/\(est\.\)/g, "").trim()
     const pct = parseInt(pctText, 10)
@@ -139,6 +318,24 @@ function generateShareCard() {
   ctx.fillStyle = textBright
   titleLines.slice(0, 2).forEach((line, i) => ctx.fillText(line, 56, 124 + i * 52))
 
+  const logoImg = document.querySelector('link[rel="icon"]')?.href ? new Image() : null
+  const drawLogo = () => {
+    if (!logoImg) return
+    const logoW = 84
+    const logoH = 84
+    const logoX = W - logoW - 52
+    const logoY = 48
+    ctx.drawImage(logoImg, logoX, logoY, logoW, logoH)
+  }
+  if (logoImg) {
+    logoImg.onload = drawLogo
+    logoImg.src = "/og-image.png"
+    if (logoImg.complete) drawLogo()
+  }
+
+  const timelineEl = document.querySelector(".mi-card .section-label")
+  const timelineText = timelineEl ? "Timeline included" : ""
+
   // Outcomes
   const baseY = titleLines.length > 1 ? 230 : 196
   const maxOutcomes = Math.min(outcomes.length, 4)
@@ -164,10 +361,30 @@ function generateShareCard() {
     ctx.fillText(pctStr, W - 56 - ctx.measureText(pctStr).width - 24, y + rowH * 0.62)
   })
 
+  ctx.fillStyle = textMuted
+  ctx.font = "12px 'Courier New', monospace"
+  ctx.textAlign = "left"
+  ctx.fillText(timelineText || "Timeline", 56, H - 68)
+  ctx.fillText("Volume traded: see market stats", 56, H - 52)
+
   // Footer
   ctx.fillStyle = textMuted
   ctx.font = "11px 'Courier New', monospace"
   ctx.fillText("✦ PREDARA · PREDICTION MARKET ANALYZER · predara.org", 56, H - 36)
+  const stamp = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date())
+  const zone = new Intl.DateTimeFormat(undefined, {
+    timeZoneName: "short",
+  }).formatToParts(new Date()).find(p => p.type === "timeZoneName")?.value || ""
+  const stampText = zone ? `${stamp} ${zone}` : stamp
+  ctx.textAlign = "right"
+  ctx.fillText(stampText, W - 56, H - 36)
+  ctx.textAlign = "left"
 
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob)
@@ -175,6 +392,16 @@ function generateShareCard() {
     a.href = url; a.download = "predara-market.png"; a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1500)
   })
+}
+
+// ── Post-fetch success handler — call once after each successful render ───────
+function _afterSuccessfulFetch(url) {
+  _saveSnapshot(_captureOutcomeSnapshot())
+  window._lastFetchedAt = Date.now()
+  _logHistory(url, _currentTitle(), _currentPlatform())
+  _refreshBookmarkBtn(url)
+  _updateFreshnessDisplay()
+  addShareBar(url)
 }
 
 function showError(msg, hint = "") {
@@ -270,6 +497,30 @@ function onInputChange() {
   input.classList.remove("input-invalid", "input-valid")
 }
 
+function _isRecognizedMarketUrl(raw) {
+  if (!raw) return false
+  let hostname, pathname
+  try { const u = new URL(raw); hostname = u.hostname.toLowerCase(); pathname = u.pathname.toLowerCase() }
+  catch { return false }
+  if (hostname === "kalshi.com" || hostname === "www.kalshi.com")
+    return pathname.startsWith("/markets/") || pathname.startsWith("/events/")
+  if (hostname === "polymarket.com" || hostname === "www.polymarket.com")
+    return pathname.startsWith("/event/") || pathname.startsWith("/sports/") || pathname.startsWith("/esports/")
+  if (hostname === "gemini.com" || hostname === "www.gemini.com")
+    return pathname.startsWith("/predictions/") || pathname.startsWith("/prediction-markets/")
+  if (hostname === "coinbase.com" || hostname === "www.coinbase.com" || hostname === "predict.coinbase.com")
+    return pathname.startsWith("/markets/") || pathname.startsWith("/predictions/") || pathname.startsWith("/event/")
+  return false
+}
+
+function onUrlPaste(event) {
+  setTimeout(() => {
+    onInputChange()
+    const raw = (document.getElementById("urlInput")?.value || "").trim()
+    if (_isRecognizedMarketUrl(raw)) analyze()
+  }, 0)
+}
+
 let _analyzing = false
 
 async function analyze() {
@@ -293,8 +544,8 @@ async function analyze() {
   // Clear input hint and share bar while loading
   const hintEl = document.getElementById("inputHint")
   if (hintEl) { hintEl.textContent = ""; hintEl.className = "input-hint" }
-  const shareBarEl = document.getElementById("shareBar")
-  if (shareBarEl) shareBarEl.style.display = "none"
+  const shareControlsEl = document.getElementById("shareControls")
+  if (shareControlsEl) shareControlsEl.style.display = "none"
 
   // Detect platform early for contextual skeleton loading state (Feature 11)
   const earlyLower = url.toLowerCase()
@@ -371,8 +622,7 @@ async function analyze() {
               const fakeEvent = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {} }
               result.innerHTML = renderKalshiEvent(fakeEvent, accent, "coinbase")
             }
-            _saveSnapshot(_captureOutcomeSnapshot())
-            addShareBar(url)
+            _afterSuccessfulFetch(url)
             return
           }
           if (kr.status === 503) {
@@ -401,6 +651,10 @@ async function analyze() {
           showError("Polymarket API timed out", "The request took too long. Try again in a moment.")
           return
         }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Polymarket returned an unexpected response. The market may be unavailable — try again in a moment.")
+          return
+        }
         throw new Error(errData.error || `Polymarket API error ${res.status}`)
       }
       const data = await res.json()
@@ -414,8 +668,14 @@ async function analyze() {
       if (!markets.length) throw new Error("No market data found.")
 
       result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
-      _saveSnapshot(_captureOutcomeSnapshot())
-      addShareBar(url)
+      // For Polymarket MLB sports markets inject a live gameday link
+      if (event.slug && /^mlb-/i.test(event.slug) && Array.isArray(event.teams) && event.teams.length >= 2) {
+        const dateMatch = event.slug.match(/(\d{4}-\d{2}-\d{2})$/)
+        if (dateMatch) {
+          fetchAndInjectMlbLink(dateMatch[1], event.teams[0].abbreviation, event.teams[1].abbreviation)
+        }
+      }
+      _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)
@@ -469,6 +729,10 @@ async function analyze() {
             showError("Kalshi API timed out", "The request took too long. Try again in a moment.")
             return
           }
+          if (res.status === 502) {
+            showError("Couldn't load market data", "Kalshi returned an unexpected response. The market may be unavailable — try again in a moment.")
+            return
+          }
           throw new Error(errData.error || `Kalshi API error ${res.status}`)
         }
         data = await res.json()
@@ -482,8 +746,7 @@ async function analyze() {
           if (specific.length > 0) data.event.markets = specific
         }
         result.innerHTML = renderKalshiEvent(data.event, accent)
-        _saveSnapshot(_captureOutcomeSnapshot())
-        addShareBar(url)
+        _afterSuccessfulFetch(url)
       } else if (data.market) {
         const m = data.market
         const fakeEvent = {
@@ -496,8 +759,7 @@ async function analyze() {
           _contract_url: m._contract_url,
         }
         result.innerHTML = renderKalshiEvent(fakeEvent, accent)
-        _saveSnapshot(_captureOutcomeSnapshot())
-        addShareBar(url)
+        _afterSuccessfulFetch(url)
       } else {
         throw new Error("Unexpected API response.")
       }
@@ -539,14 +801,25 @@ async function analyze() {
           showError("Gemini API timed out", "The request took too long. Try again in a moment.")
           return
         }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Gemini returned an unexpected response. The market may be unavailable — try again in a moment.")
+          return
+        }
         throw new Error(errData.error || `Gemini API error ${res.status}`)
       }
       const data = await res.json()
       if (!data || (!data.title && !data.contracts && !data.ticker)) throw new Error("No event data returned.")
 
       result.innerHTML = renderGeminiEvent(data, accent)
-      _saveSnapshot(_captureOutcomeSnapshot())
-      addShareBar(url)
+      // For Gemini MLB markets (ticker: MLB-YYMMDDHHmm-AWAY-HOME-M) inject gameday link
+      {
+        const mlbM = ticker.match(/^MLB-(\d{2})(\d{2})(\d{2})\d{4}-([A-Z]+)-([A-Z]+)/i)
+        if (mlbM) {
+          const mlbDate = `20${mlbM[1]}-${mlbM[2]}-${mlbM[3]}`
+          fetchAndInjectMlbLink(mlbDate, mlbM[4], mlbM[5])
+        }
+      }
+      _afterSuccessfulFetch(url)
     } catch (err) {
       console.error(err)
       showError(`ERROR: ${err.message}`)

@@ -83,6 +83,14 @@ const server = http.createServer((req, res) => {
 
     httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
       .then(({ status, body }) => {
+        if (status === 200) {
+          let parsed
+          try { parsed = JSON.parse(body) } catch (_) { parsed = null }
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+          }
+        }
         res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(body)
       })
@@ -175,6 +183,11 @@ const server = http.createServer((req, res) => {
         try { data = JSON.parse(body) } catch {
           res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
           return res.end(JSON.stringify({ error: "Invalid response from Gemini API" }))
+        }
+        if (!data || typeof data !== "object" ||
+            (!(Array.isArray(data.contracts) && data.contracts.length > 0) && !data.ticker && !data.title)) {
+          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
         }
         // Enrich with contract terms URL (same logic as api/gemini.js)
         function richTextToPlain(node) {
@@ -270,6 +283,13 @@ const server = http.createServer((req, res) => {
       })
       .then((r) => {
         if (r.status === 200) {
+          let parsed
+          try { parsed = JSON.parse(r.body) } catch (_) { parsed = null }
+          if (!parsed || typeof parsed !== "object" ||
+              (!(parsed.market && parsed.market.ticker) && !(parsed.event && parsed.event.event_ticker))) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+          }
           res.writeHead(200, headers)
           res.end(r.body)
         } else {
@@ -282,6 +302,46 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: err.message }))
       })
 
+    return
+  }
+
+  // ── MLB schedule proxy ──
+  if (parsed.pathname === "/api/mlb") {
+    const date = parsed.query.date
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "date param required (YYYY-MM-DD)" }))
+    }
+    const [yr, mo, dy] = date.split("-")
+    const target = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=team&date=${mo}/${dy}/${yr}`
+    httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
+      .then(({ status, body }) => {
+        if (status !== 200) {
+          res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: `MLB API returned ${status}` }))
+        }
+        try {
+          const data = JSON.parse(body)
+          const games = (data.dates || []).flatMap(d => d.games || [])
+          const toSlug = n => (n || "").toLowerCase().replace(/\s+/g, "-")
+          const simplified = games.map(g => ({
+            gamePk:   g.gamePk,
+            awayAbbr: g.teams?.away?.team?.abbreviation || "",
+            awaySlug: toSlug(g.teams?.away?.team?.teamName || g.teams?.away?.team?.name || ""),
+            homeAbbr: g.teams?.home?.team?.abbreviation || "",
+            homeSlug: toSlug(g.teams?.home?.team?.teamName || g.teams?.home?.team?.name || ""),
+          }))
+          res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+          res.end(JSON.stringify({ games: simplified }))
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json", ...CORS_HEADERS })
+          res.end(JSON.stringify({ error: "Failed to parse MLB response" }))
+        }
+      })
+      .catch(err => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
     return
   }
 

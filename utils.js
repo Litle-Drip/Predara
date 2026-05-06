@@ -29,6 +29,24 @@ const GLOSSARY = {
   "VOLUME":           "Total dollars that have changed hands since this market opened.",
   "BEST SPREAD":      "The tightest bid-ask gap across all outcomes. Lower means cheaper to enter and exit positions.",
   "OVERROUND":        "Sum of all outcome probabilities. 100% is fair; 103% means the exchange takes 3% — lower is better for traders.",
+  "MARKET AGE":       "How long this market has been accepting trades. Older markets have more established price consensus; newer ones tend to be noisier.",
+}
+
+function fmtMarketAge(isoOrDate) {
+  if (!isoOrDate) return null
+  const ms = new Date(isoOrDate).getTime()
+  if (!ms || isNaN(ms)) return null
+  const days = Math.floor((Date.now() - ms) / 86400000)
+  if (days < 0) return null
+  if (days === 0) return "Today"
+  if (days === 1) return "1 day"
+  if (days < 14) return `${days} days`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 8) return `${weeks} week${weeks !== 1 ? "s" : ""}`
+  const months = Math.floor(days / 30)
+  if (months < 24) return `${months} month${months !== 1 ? "s" : ""}`
+  const years = Math.floor(days / 365)
+  return `${years} year${years !== 1 ? "s" : ""}`
 }
 
 function esc(str) {
@@ -38,6 +56,58 @@ function esc(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;")
+}
+
+const KNOWN_SOURCES = [
+  { name: "Associated Press", url: "https://apnews.com" },
+  { name: "Fox News",         url: "https://www.foxnews.com" },
+  { name: "NBC News",         url: "https://www.nbcnews.com" },
+  { name: "NBC",              url: "https://www.nbcnews.com" },
+  { name: "CNN",              url: "https://www.cnn.com" },
+  { name: "ABC News",         url: "https://abcnews.go.com" },
+  { name: "ABC",              url: "https://abcnews.go.com" },
+  { name: "CBS News",         url: "https://www.cbsnews.com" },
+  { name: "CBS",              url: "https://www.cbsnews.com" },
+  { name: "MSNBC",            url: "https://www.msnbc.com" },
+  { name: "Reuters",          url: "https://www.reuters.com" },
+  { name: "Bloomberg",        url: "https://www.bloomberg.com" },
+  { name: "ESPN",             url: "https://www.espn.com" },
+  { name: "BBC",              url: "https://www.bbc.com" },
+  { name: "The New York Times", url: "https://www.nytimes.com" },
+  { name: "New York Times",   url: "https://www.nytimes.com" },
+  { name: "The Washington Post", url: "https://www.washingtonpost.com" },
+  { name: "Washington Post",  url: "https://www.washingtonpost.com" },
+  { name: "Wall Street Journal", url: "https://www.wsj.com" },
+  { name: "WSJ",              url: "https://www.wsj.com" },
+  { name: "Axios",            url: "https://www.axios.com" },
+  { name: "Politico",         url: "https://www.politico.com" },
+  { name: "USA Today",        url: "https://www.usatoday.com" },
+  { name: "The Guardian",     url: "https://www.theguardian.com" },
+  { name: "AP",               url: "https://apnews.com" },
+]
+
+// Scans a plain-text rule sentence and hyperlinks any known news/data source names.
+// Returns an HTML string when substitutions were made, or null if none matched.
+// Uses a single-pass replacement with alternation ordered longest-first so
+// "NBC News" is preferred over "NBC" and we never wrap the same text twice
+// (which previously produced nested <a> tags and broken HTML).
+function linkKnownSources(sentence) {
+  if (!sentence || typeof sentence !== "string") return null
+  const sorted = [...KNOWN_SOURCES].sort((a, b) => b.name.length - a.name.length)
+  const urlByName = new Map(sorted.map(s => [s.name, s.url]))
+  const escapedText = esc(sentence)
+  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const alternation = sorted.map(s => escapeRe(esc(s.name))).join("|")
+  if (!alternation) return null
+  const re = new RegExp(`(?<![\\w])(${alternation})(?![\\w])`, "g")
+  let changed = false
+  const result = escapedText.replace(re, (match) => {
+    const url = urlByName.get(match)
+    if (!url) return match
+    changed = true
+    return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${match}</a>`
+  })
+  return changed ? result : null
 }
 
 function tip(text, key) {
@@ -53,17 +123,22 @@ function toMoneyline(pct) {
     : `+${Math.round((100 - pct) / pct * 100)}`
 }
 
-// Returns amber banner if last trade was > 1 hour ago, else empty string
+// Always shows "Last updated X ago" when a timestamp is present.
+// If data is older than STALE_THRESHOLD_MINS, shows an amber "may be stale" warning instead.
+const STALE_THRESHOLD_MINS = 30
 function staleWarningHtml(lastTradeIso) {
   if (!lastTradeIso || typeof lastTradeIso !== "string") return ""
   const d = new Date(lastTradeIso)
   if (isNaN(d)) return ""
   const ageMins = Math.floor((Date.now() - d.getTime()) / 60000)
-  if (ageMins < 60) return ""
-  const ageText = ageMins < 120 ? "1 hour"
-    : ageMins < 1440 ? `${Math.floor(ageMins / 60)} hours`
-    : `${Math.floor(ageMins / 1440)} days`
-  return `<div class="stale-warning">⚠ PRICES MAY BE STALE · Last trade ${ageText} ago</div>`
+  const ageText = ageMins < 1 ? "just now"
+    : ageMins < 60 ? `${ageMins}m ago`
+    : ageMins < 1440 ? `${Math.floor(ageMins / 60)}h ago`
+    : `${Math.floor(ageMins / 1440)}d ago`
+  if (ageMins < STALE_THRESHOLD_MINS) {
+    return `<div class="last-updated">Last updated ${ageText}</div>`
+  }
+  return `<div class="stale-warning">⚠ MAY BE STALE · Last updated ${ageText}</div>`
 }
 
 function fmtDate(iso) {
@@ -188,6 +263,8 @@ function applyResolveText(text) {
     .replace(/this market (?:will )?resolve[sd]? (?:to )?"?Yes"?\.?/gi, "you win")
     .replace(/this market (?:will )?resolve[sd]? (?:to )?"?No\.?"?\.?/gi, "you lose")
     .replace(/the market (?:will )?resolve[sd]? 50-50/gi, "your bet is returned (50-50 split)")
+    .replace(/\bif (?:\w+\s+){0,6}resolve[sd]?\s+"?Yes"?\.?/gi, (m) => m.replace(/resolve[sd]?\s+"?Yes"?\.?/i, "resolves YES → you win"))
+    .replace(/\bif (?:\w+\s+){0,6}resolve[sd]?\s+"?No\.?"?\.?/gi, (m) => m.replace(/resolve[sd]?\s+"?No\.?"?\.?/i, "resolves NO → you lose"))
 }
 
 function fmtNum(val) {
@@ -201,35 +278,90 @@ function fmtTimeRemaining(iso) {
   if (isNaN(d)) return null
   const ms = d - Date.now()
   if (ms <= 0) return { text: "CLOSED", urgency: "high" }
-  const hrs = Math.floor(ms / 3600000)
-  const days = Math.floor(hrs / 24)
-  const remHrs = hrs % 24
+  const totalMins = Math.max(1, Math.ceil(ms / 60000))
+  const days = Math.floor(totalMins / 1440)
+  const remMins = totalMins % 1440
+  const hrs = Math.floor(remMins / 60)
+  const mins = remMins % 60
+  const parts = []
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`)
+  if (hrs > 0) parts.push(`${hrs} hr${hrs === 1 ? "" : "s"}`)
+  if (mins > 0) parts.push(`${mins} min${mins === 1 ? "" : "s"}`)
   let text
-  if (days > 0) text = `CLOSES IN ${days} DAY${days > 1 ? "S" : ""}${remHrs > 0 ? ` ${remHrs} HR${remHrs > 1 ? "S" : ""}` : ""}`
-  else if (hrs > 0) text = `CLOSES IN ${hrs} HR${hrs > 1 ? "S" : ""}`
-  else text = `CLOSES IN < 1 HR`
+  if (parts.length) text = `CLOSES IN ${parts.join(" ")}`
+  else text = `CLOSES IN < 1 MIN`
   const urgency = days >= 7 ? "low" : days >= 1 ? "med" : "high"
   return { text, urgency }
 }
 
 function plainEnglishRules(rulesText) {
   if (!rulesText || typeof rulesText !== "string") return []
-  return rulesText
-    .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 15)
-    .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
-    .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
-    .filter(s => !s.toLowerCase().includes("for more information"))
-    .filter(s => !s.toLowerCase().startsWith("the resolution source"))
-    .filter(s => !s.toLowerCase().startsWith("the primary resolution source"))
-    .filter(s => !/https?:\/\//.test(s))
-    .filter(s => /\b(will|is|are|was|were|resolve|win|lose|happen|occur|end|result|score|cover|pay|expire|remain|cancel|postpone|settle)\b/i.test(s))
-    .map(s => applyResolveText(s)
+  // Split on paragraph breaks first so paragraphs starting with a capital letter
+  // after "No." (e.g. resolution source paragraphs) are treated as separate
+  // sentences rather than being appended to the preceding sentence.
+  // Each entry: { text, fromList } — fromList=true means the chunk originated
+  // from a numbered/bulleted list item, so the keyword filter is relaxed for it.
+  const sentenceItems = []
+  const LIST_MARKER_RE = /^\s*(?:\d+[.)]\s|[-•*]\s)/
+  for (const para of rulesText.split(/\n\n+/)) {
+    // Split the paragraph into individual lines, then group them into chunks:
+    // a new chunk starts when a line begins a list marker (optionally preceded by
+    // whitespace). Continuation lines — those that start with whitespace but do NOT
+    // carry a new list marker — are folded back into the previous chunk so that
+    // multi-line list items are never split mid-sentence.
+    const lines = para.split(/\n/)
+    const rawChunks = []
+    for (const line of lines) {
+      const isListMarker = LIST_MARKER_RE.test(line)
+      const isContinuation = /^\s/.test(line) && !isListMarker
+      if (isContinuation && rawChunks.length > 0) {
+        rawChunks[rawChunks.length - 1] += " " + line.trim()
+      } else {
+        rawChunks.push(line)
+      }
+    }
+    // Join any adjacent non-list, non-indented lines that belong to the same chunk
+    const chunks = []
+    for (const raw of rawChunks) {
+      if (!LIST_MARKER_RE.test(raw) && chunks.length > 0 && !LIST_MARKER_RE.test(chunks[chunks.length - 1])) {
+        chunks[chunks.length - 1] += " " + raw.trim()
+      } else {
+        chunks.push(raw)
+      }
+    }
+    for (const chunk of chunks) {
+      // Collapse any residual internal whitespace to a single space
+      const normalized = chunk.replace(/\s+/g, " ").trim()
+      // Detect whether this chunk started with a list marker before stripping it.
+      const fromList = /^\s*(?:\d+[.)]\s+|[-•*]\s+)/.test(normalized)
+      // Strip any leading list marker (e.g. "1. ", "2) ", "- ", "• ") so the
+      // checklist renderer doesn't double-up with its own bullet icon.
+      const stripped = normalized.replace(/^\s*(?:\d+[.)]\s+|[-•*]\s+)/, "")
+      // Also handle inline numbered lists on a single line: "1. X 2. Y 3. Z"
+      // Split on patterns like " 2. " " 3. " when they look like list separators
+      // (a digit+period preceded by a non-space and followed by a word character).
+      const inlineChunks = stripped.split(/(?<=\S)\s+\d+[.)]\s+(?=\w)/)
+      for (const ic of inlineChunks) {
+        // Split on sentence-ending punctuation followed by whitespace and a capital letter
+        ic.split(/(?<=[.!?])\s+(?=[A-Z"(])/).forEach(s => sentenceItems.push({ text: s.trim(), fromList }))
+      }
+    }
+  }
+  return sentenceItems
+    .filter(({ text }) => text.length >= 10)
+    .filter(({ text }) => !text.toLowerCase().startsWith("kalshi is not affiliated"))
+    .filter(({ text }) => !text.toLowerCase().startsWith("kalshi reserves"))
+    .filter(({ text }) => !text.toLowerCase().includes("for more information"))
+    .filter(({ text }) => !/https?:\/\//.test(text))
+    // List items that are part of a structured resolution block are shown even
+    // when they lack the keyword verbs. The keyword filter still applies to
+    // freeform prose paragraphs to suppress noise.
+    .filter(({ text, fromList }) => fromList || /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled)\b/i.test(text))
+    .map(({ text }) => applyResolveText(text)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")
       .replace(/,\s*then you win\.?$/i, ", you win.")
       .replace(/\.$/, "")
     )
-    .filter(s => s.length > 10)
+    .filter(s => s.length >= 10)
 }

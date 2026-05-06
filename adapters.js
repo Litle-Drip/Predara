@@ -23,6 +23,7 @@
 //   betExplainerText: string,
 //   ruleSentences: string[],
 //   resSourceHtml: string,   // pre-rendered HTML or ""
+//   sourceUrl:     string,   // canonical URL to the original market page
 // }
 //
 // NormalizedOutcome shape:
@@ -102,7 +103,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
 
   const status     = first.status || "active"
   const statusDot  = status === "active" ? "dot-green" : status === "closed" ? "dot-red" : "dot-muted"
-  const statusText = status.toUpperCase()
+  const statusText = status === "active" ? "LIVE" : status.toUpperCase()
   const category   = ev.product_metadata?.competition || ev.category || "Markets"
   const catColor   = categoryColor(category)
   const eventTitle = (ev.title || ev.event_ticker || "").replace(/[?!.]+$/, "").trim()
@@ -166,18 +167,22 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     const m0 = sorted[0]
     const yesAsk = parseFloat(m0.yes_ask_dollars || 0)
     const yesBid = parseFloat(m0.yes_bid_dollars || 0)
-    const noBid  = yesAsk > 0 ? Math.max(0, 1 - yesAsk) : 0
-    const noAsk  = yesBid > 0 ? Math.min(1, 1 - yesBid) : 0
-    outcomes.push({
+    // NO_bid = 1 - YES_ask ; NO_ask = 1 - YES_bid
+    // Only derive when the corresponding YES quote is a real price (0 < p < 1).
+    // Previously these were forced to 0 on missing YES quotes, which rendered
+    // "Bid 0¢ · Ask 0¢" for NO on untraded markets — visually implying a
+    // free sale that does not exist.
+    const noOut = {
       label: "NO",
       sub: "",
       pct: 100 - yesOut.pct,
       color: OUTCOME_COLORS[1],
       delta: yesOut.delta !== null ? -yesOut.delta : null,
-      bid: noBid,
-      ask: noAsk,
       isEstimate: yesOut.isEstimate,
-    })
+    }
+    if (yesAsk > 0 && yesAsk < 1) noOut.bid = Math.max(0, 1 - yesAsk)
+    if (yesBid > 0 && yesBid < 1) noOut.ask = Math.min(1, 1 - yesBid)
+    outcomes.push(noOut)
   }
 
   // Stats — always use allMarkets (full event) for accurate totals
@@ -326,8 +331,33 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     }
   }
 
+  // Duration
+  const kalshiStartMs = eventOpenTime ? new Date(eventOpenTime).getTime() : null
+  const kalshiEndMs   = first.close_time ? new Date(first.close_time).getTime() : null
+  const kalshiDurationDays = kalshiStartMs && kalshiEndMs && !isNaN(kalshiStartMs) && !isNaN(kalshiEndMs)
+    ? (Math.max(0, Math.round((kalshiEndMs - kalshiStartMs) / 86400000)) || null)
+    : null
+
+  // Runner-up for multi-outcome markets: highest-volume non-winning market
+  let kalshiRunnerUp = null
+  if (isMultiOutcome && resolvedYesMarkets.length > 0) {
+    const winnerTitles = new Set(resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean))
+    const nonWinners = sorted.filter(m => !winnerTitles.has(m.yes_sub_title))
+    if (nonWinners.length > 0) {
+      const top = nonWinners.reduce((a, b) => {
+        const va = parseFloat(a.volume_fp || 0)
+        const vb = parseFloat(b.volume_fp || 0)
+        return vb > va ? b : a
+      })
+      const topVol = parseFloat(top.volume_fp || 0) / 100
+      if (topVol > 0 && top.yes_sub_title) {
+        kalshiRunnerUp = { label: top.yes_sub_title, vol: `$${fmtNum(topVol)}` }
+      }
+    }
+  }
+
   const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
-    winners: isMultiOutcome && resolvedYesMarkets.length > 1
+    winners: isMultiOutcome && resolvedYesMarkets.length >= 1
       ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
       : null,
     winner: resolvedMarket
@@ -345,6 +375,8 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     winnerCloseOdds,
     winnerPrevOdds,
     wasUpset: winnerCloseOdds != null && winnerCloseOdds < 50,
+    durationDays: kalshiDurationDays,
+    runnerUp: kalshiRunnerUp,
   } : null
 
   return {
@@ -362,13 +394,17 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : "—" },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : "—" },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : "—" },
+      fmtMarketAge(eventOpenTime) ? { label: "MARKET AGE", value: fmtMarketAge(eventOpenTime) } : null,
     ],
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences,
+    ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
+    sourceUrl: platformKey === "coinbase"
+      ? (ev.event_ticker ? `https://coinbase.com/predictions/event/${ev.event_ticker}` : "")
+      : (ev.event_ticker ? `https://kalshi.com/events/${ev.event_ticker}` : ""),
   }
 }
 
@@ -377,7 +413,7 @@ function normalizeGemini(event) {
   const status = (event.status || "").toLowerCase()
   const isOpen = status === "active" || status === "approved" || status === "open"
   const statusDot  = isOpen ? "dot-green" : "dot-red"
-  const statusText = isOpen ? "OPEN" : status.toUpperCase() || "CLOSED"
+  const statusText = isOpen ? "LIVE" : status.toUpperCase() || "CLOSED"
 
   const contracts = Array.isArray(event.contracts) ? event.contracts : []
   const isBinary  = event.type === "binary"
@@ -397,9 +433,15 @@ function normalizeGemini(event) {
     const pctYes = resSide === "yes" ? 100 : resSide === "no" ? 0 : Math.round(price * 100)
     const pctNo  = 100 - pctYes
     const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
+    // Pre-settlement closing price: lastTradePrice holds the last traded value before
+    // the settlement push (which sets ASK to 1.0 or 0.0). "price" (from geminiExtractPrice)
+    // prefers bestAsk, which may already be 1.0 at settlement, so we read lastTradePrice first.
+    const lastTradeBin = parseFloat(cp.lastTradePrice || cp.last || cp.close || c.lastPrice || c.lastSalePrice || 0) || 0
+    const preSettBin = (lastTradeBin > 0.01 && lastTradeBin < 0.99) ? lastTradeBin
+      : (price > 0.01 && price < 0.99) ? price : null
     // Carry _resolutionSide so geminiWinner can use the explicit field (cleaned up below).
-    outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), color: OUTCOME_COLORS[0], delta: null, ...extras })
-    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), color: OUTCOME_COLORS[1], delta: null })
+    outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), _closingPrice: preSettBin, color: OUTCOME_COLORS[0], delta: null, ...extras })
+    outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), _closingPrice: preSettBin != null ? (1 - preSettBin) : null, color: OUTCOME_COLORS[1], delta: null })
     if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
   } else {
     const sortedContracts = [...contracts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
@@ -409,7 +451,11 @@ function normalizeGemini(event) {
       const cp    = c.prices || {}
       const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
-      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
+      const yp    = cp.yes || cp.YES || {}
+      const lastTradeMulti = parseFloat(cp.lastTradePrice || cp.last || cp.close || yp.lastTradePrice || yp.last || c.lastPrice || c.lastSalePrice || 0) || 0
+      const preSettMulti = (lastTradeMulti > 0.01 && lastTradeMulti < 0.99) ? lastTradeMulti
+        : (price > 0.01 && price < 0.99) ? price : null
+      const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _closingPrice: preSettMulti, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
       if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
@@ -460,12 +506,19 @@ function normalizeGemini(event) {
   const expiryIso = event.closeDate || event.expiryDate || event.endDate || contractCloseDate || event.resolvedAt || ""
   const startIso  = event.openDate || event.startDate || event.startTime || event.effectiveDate || event.createdAt || ""
 
+  // Slot for async-injected sports game link (e.g. MLB Gameday)
+  const geminiTicker = event.ticker || event.event_ticker || event.eventTicker || ""
+  const geminiSportsSlot = /^(MLB|NBA|NFL|NHL)-/i.test(geminiTicker)
+    ? `<div id="sports-game-link-slot"></div>`
+    : ""
+
   // Timeline
   const timelineRows = [
     infoRow("Start date", fmtDate(startIso)),
-    infoRow("End date", fmtDate(expiryIso)),
+    infoRow("End date", fmtDateTime(expiryIso)),
+    infoRow("Market details", `Event: ${event.event_ticker || event.eventTicker || event.ticker || "—"} · Contract: ${contracts[0]?.label || contracts[0]?.title || contracts[0]?.name || "—"} · Instrument: ${contracts[0]?.instrumentSymbol || contracts[0]?.instrument_symbol || contracts[0]?.ticker || "—"}`),
     event.resolvedAt ? infoRow("Resolved", fmtDateTime(event.resolvedAt)) : "",
-  ].join("")
+  ].join("") + geminiSportsSlot
   const hasTimeline = !!(startIso || expiryIso)
 
   // Analytics
@@ -489,9 +542,13 @@ function normalizeGemini(event) {
   // Rules — only use description if it contains actual resolution criteria,
   // not just the market title echoed back.
   const descRules = desc ? plainEnglishRules(desc).slice(0, 8) : []
-  const looksLikeRules = descRules.some(s =>
-    /\b(resolv|YES|NO|win|payout|\$1|contract|expir|settl)/i.test(s)
-  )
+  const looksLikeRules = descRules.some(s => {
+    const hasResolutionVerb = /\b(resolv|payout|\$1|contract|expir|settl|pays?\s+out|counts?\s+as|awarded|determines?)\b/i.test(s)
+    const hasSportsTerm = /\b(game|match|score|season|championship|playoff|tournament|series)\b/i.test(s)
+    const hasYesNo = /\b(YES|NO)\b/.test(s)
+    const sportsWithResolution = hasSportsTerm && /\b(resolves?|will\s+resolve|settle[sd]?|expir(?:es?|ed)|pays?\s+out|result\s+in)\b/i.test(s)
+    return hasResolutionVerb || hasYesNo || sportsWithResolution
+  })
   const ruleSentences = looksLikeRules ? descRules : []
   const isHeadToHead = !isBinary && contracts.length === 2
   if (ruleSentences.length === 0) {
@@ -532,7 +589,7 @@ function normalizeGemini(event) {
     }
   }
   if (ruleSentences.length > 0 && expiryIso) {
-    ruleSentences.push(`Trading closes ${fmtDate(expiryIso)}`)
+    ruleSentences.push(`Trading closes ${fmtDateTime(expiryIso)}`)
   }
 
   // Resolution sources — Gemini wraps Kalshi data so check both field shapes
@@ -571,15 +628,50 @@ function normalizeGemini(event) {
        outcomes.find(o => o.pct === 100) ||
        outcomes.reduce((a, b) => a.pct > b.pct ? a : b))
     : null
-  // Clean up the internal flag so it doesn't reach the UI renderer.
+  // Clean up internal flags before returning.
+  // _closingPrice is read for winnerCloseOdds immediately below, then deleted.
   outcomes.forEach(o => { delete o._resolutionSide })
+
+  // winnerCloseOdds: read the pre-settlement price stored on the winner outcome.
+  // Binary YES winner: _closingPrice = lastTradePrice of YES contract (before settlement push to 1.0).
+  // Binary NO winner:  _closingPrice = 1 - lastTradePrice of YES contract (inverted).
+  // Multi-outcome:     _closingPrice = lastTradePrice of the winning contract.
+  let geminiWinnerCloseOdds = null
+  if (!isOpen && geminiWinner) {
+    const cp = geminiWinner._closingPrice
+    if (cp != null && cp > 0.01 && cp < 0.99) {
+      geminiWinnerCloseOdds = Math.round(cp * 100)
+    }
+  }
+  // Clean up _closingPrice before returning to avoid leaking internal fields.
+  outcomes.forEach(o => { delete o._closingPrice })
+
+  // Duration
+  const geminiStartMs = startIso ? new Date(startIso).getTime() : null
+  const geminiEndMs   = (event.resolvedAt || expiryIso) ? new Date(event.resolvedAt || expiryIso).getTime() : null
+  const geminiDurationDays = geminiStartMs && geminiEndMs && !isNaN(geminiEndMs) && !isNaN(geminiStartMs)
+    ? (Math.max(0, Math.round((geminiEndMs - geminiStartMs) / 86400000)) || null)
+    : null
+
+  // For multi-outcome resolved markets, build a winners array
+  const geminiIsMultiOutcome = !isBinary && contracts.length > 2
+  const geminiResolvedWinners = geminiWinner
+    ? (geminiIsMultiOutcome ? [geminiWinner.label] : null)
+    : null
+
   const resolvedInfo = (!isOpen && geminiWinner) ? {
+    winners: geminiResolvedWinners,
     winner: geminiWinner.label,
     resolution: isBinary ? (geminiWinner.label === "YES" ? "yes" : "no") : "",
     resolvedAt: event.resolvedAt || expiryIso || "",
     value: null,
     totalVol: totalVol || null,
-    isMultiOutcome: !isBinary && contracts.length > 2,
+    isMultiOutcome: geminiIsMultiOutcome,
+    totalOutcomes: geminiIsMultiOutcome ? contracts.length : null,
+    winnersCount: geminiResolvedWinners ? geminiResolvedWinners.length : null,
+    winnerCloseOdds: geminiWinnerCloseOdds,
+    wasUpset: geminiWinnerCloseOdds != null && geminiWinnerCloseOdds < 50,
+    durationDays: geminiDurationDays,
   } : null
 
   return {
@@ -597,20 +689,22 @@ function normalizeGemini(event) {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : null },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : null },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : null },
-      {
+      fmtMarketAge(startIso) ? { label: "MARKET AGE", value: fmtMarketAge(startIso) } : null,
+      contracts.length >= 2 ? {
         label: "RUNNERS",
-        value: contracts.length > 0 ? String(contracts.length) : null,
+        value: String(contracts.length),
         sub: contractNames.length > 0
           ? contractNames.slice(0, 5).join(" · ") + (contractNames.length > 5 ? " ···" : "")
           : "",
-      },
+      } : null,
     ],
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences,
+    ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: event.description || "",
+    sourceUrl: geminiTicker ? `https://www.gemini.com/predictions/${geminiTicker}` : "",
   }
 }
 
@@ -872,11 +966,18 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   urlsInDesc.forEach(u => { if (!resUrls.includes(u)) resUrls.push(u) })
 
   const resSourceHtml = resUrls.length
-    ? resUrls.map(url => {
-        let label = url
-        try { label = new URL(url).hostname.replace(/^www\./, "") } catch(e) {}
-        return `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(label)}</a></span></div>`
-      }).join("")
+    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source${resUrls.length > 1 ? "s" : ""}</span><span class="info-val">${
+        resUrls.map(url => {
+          const name = sourceLabel(url)
+          return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(name)}</a>`
+        }).join(" · ")
+      }</span></div>`
+    : ""
+
+  // For sports markets with a known league, inject a placeholder slot that
+  // app.js will fill asynchronously with the live game / stats link.
+  const sportsLinkSlot = isSportsEvent && event.slug && /^(mlb|nba|nfl|nhl)-/i.test(event.slug)
+    ? `<div id="sports-game-link-slot"></div>`
     : ""
 
   // Timeline
@@ -884,11 +985,11 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     infoRow("Start date", fmtDate(event.startDate)),
     infoRow("End date", fmtDate(event.endDate)),
     infoRow("Expected resolution", fmtDate(event.closedTime || event.endDate)),
-  ].join("")
+  ].join("") + sportsLinkSlot
   const hasTimeline = !!event.endDate
 
   const statusDot  = event.closed ? "dot-red" : "dot-green"
-  const statusText = event.closed ? "CLOSED" : "OPEN"
+  const statusText = event.closed ? "CLOSED" : "LIVE"
 
   let resolvedInfo = null
   if (event.closed && outcomes.length > 0) {
@@ -973,12 +1074,18 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : "—" },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : "—" },
       { label: "COMMENTS",      value: commentCount > 0 ? commentCount.toLocaleString() : "—" },
+      fmtMarketAge(event.startDate) ? { label: "MARKET AGE", value: fmtMarketAge(event.startDate) } : null,
     ],
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences: limitedRules,
+    ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: first.description || event.description || "",
+    sourceUrl: event.slug
+      ? (platformKey === "coinbase"
+          ? `https://predict.coinbase.com/markets/${event.slug}`
+          : `https://polymarket.com/event/${event.slug}`)
+      : "",
   }
 }

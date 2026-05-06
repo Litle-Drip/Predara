@@ -18,7 +18,7 @@ function renderMarket(norm, accent) {
   )
   const outcomesHtml = buildOutcomesHtml(allRows)
 
-  window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform }
+  window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform, side: "yes" }
   const betSimHtml = betSimulatorHtml(norm.outcomes)
 
   // Feature 2: volume distribution bar
@@ -34,7 +34,7 @@ function renderMarket(norm, accent) {
     .filter(Boolean)
   const analyticsHtml = analyticsCard(analyticsRows, timeLeft, overroundVal)
 
-  const statsHtml = norm.stats.map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
+  const statsHtml = norm.stats.filter(Boolean).map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
 
   const platformLabel = (PLATFORMS[norm.platform] || {}).label || norm.platform.toUpperCase()
   const hasRules = norm.ruleSentences.length > 0
@@ -45,6 +45,12 @@ function renderMarket(norm, accent) {
   const volSpikeHtml     = volumeSpikeHtml(norm.stats, norm.outcomes)
   const newsMoveHtml     = norm.resolvedInfo ? "" : newsMoveHint(norm.outcomes, norm.title)
   const resolvedInsights = resolvedInsightsCard(norm.resolvedInfo, norm.stats, norm.outcomes)
+
+  // Round 3 features
+  const volConsensusHtml  = volumeWeightedConsensusCard(norm.outcomes)
+  const edgeCalcHtml      = edgeCalculatorHtml(norm.outcomes)
+  const findSimilarHtml   = norm.resolvedInfo ? findSimilarMarketsCard(norm.platform, norm.title) : ""
+  const resConfidenceHtml = resolutionConfidenceHtml(norm.rawRulesText || "")
 
   return `
     <div class="mi-card">
@@ -73,10 +79,14 @@ function renderMarket(norm, accent) {
 
     ${whatsTheBetCard(norm.betExplainerText)}
 
-    ${hasRules ? `
+    ${hasRules || norm.rawRulesText ? `
     <div class="mi-card">
       <div class="section-label">HOW IT RESOLVES</div>
-      <div class="num-list">${numList(norm.ruleSentences)}</div>
+      ${resConfidenceHtml}
+      ${hasRules
+        ? `<div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>`
+        : `<div class="resolution-fallback">See the market source for resolution details.${norm.sourceUrl ? ` <a href="${esc(norm.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--orange)">View original market ↗</a>` : ""}</div>`
+      }
     </div>` : ""}
 
     ${ruleAlertsHtml}
@@ -100,6 +110,8 @@ function renderMarket(norm, accent) {
 
     ${volDistHtml}
 
+    ${volConsensusHtml}
+
     ${volSpikeHtml}
 
     ${newsMoveHtml}
@@ -110,7 +122,11 @@ function renderMarket(norm, accent) {
 
     ${betSimHtml}
 
+    ${edgeCalcHtml}
+
     ${analyticsHtml}
+
+    ${findSimilarHtml}
   `
 }
 

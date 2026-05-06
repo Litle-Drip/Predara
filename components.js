@@ -157,19 +157,19 @@ function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
       </div>`
   }
 
-  // Money won/lost estimate (when we have close odds + total vol)
+  // Money transferred estimate (when we have close odds + total vol)
   let moneyHtml = ""
   if (totalVol > 0 && closeOdds != null && closeOdds > 0 && closeOdds < 100) {
     const transfer = Math.round(totalVol * (100 - closeOdds) / 100)
     const fmt = n => "$" + n.toLocaleString()
     moneyHtml = `
       <div class="ri-row">
-        <span class="ri-label">WINNERS GAINED (EST.)</span>
+        <span class="ri-label">MONEY TRANSFERRED (EST.)</span>
         <span class="ri-val val-green">~${fmt(transfer)}</span>
       </div>
-      <div class="ri-row">
-        <span class="ri-label">LOSERS PAID (EST.)</span>
-        <span class="ri-val val-red">~${fmt(transfer)}</span>
+      <div class="ri-row" style="margin-top:-2px">
+        <span class="ri-label" style="font-size:10px;opacity:.6">zero-sum: winners gain what losers paid</span>
+        <span class="ri-val"></span>
       </div>`
   } else if (totalVol > 0) {
     const fmt = n => "$" + n.toLocaleString()
@@ -203,6 +203,94 @@ function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
       ${sharpnessHtml}
       ${oddsJourneyHtml}
       ${moneyHtml}
+    </div>`
+}
+
+// ── Resolution confidence score ────────────────────────────────────────────────
+function _resolutionConfidenceScore(rawRulesText) {
+  if (!rawRulesText || typeof rawRulesText !== "string" || rawRulesText.length < 30) return null
+  let score = 60
+  const text = rawRulesText.toLowerCase()
+  // Modal verbs must be followed by a verb-like word so we don't penalise
+  // "May 2024" or "Friday, May 3" as discretionary language.
+  const MODAL_RE = /\b(?:may|might|could)\s+(?:be|not|have|include|involve|affect|result|require|occur|apply|vary|differ|exclude|change|depend|need|cause|happen|be\w*)\b/
+  if (MODAL_RE.test(text)) score -= 7
+  for (const w of ["discretion", "sole judgment", "sole discretion",
+      "approximately", "reasonable", "substantially", "at its ", "as determined", "in its opinion"]) {
+    if (text.includes(w)) score -= 7
+  }
+  if (/https?:\/\//.test(rawRulesText)) score += 12
+  if (/\b(official|federal|government|national)\s+(data|source|report|website|statistic)/i.test(rawRulesText)) score += 8
+  if (/\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s+\d{4}/i.test(rawRulesText)) score += 8
+  if (/resolves?\s+(?:yes|no|to\s+(?:yes|no))\b/i.test(rawRulesText)) score += 10
+  if (/\bif\s+and\s+only\s+if\b/i.test(rawRulesText)) score += 6
+  score = Math.max(5, Math.min(100, score))
+  const label = score >= 70 ? "HIGH" : score >= 45 ? "MEDIUM" : "LOW"
+  const cls   = score >= 70 ? "val-green" : score >= 45 ? "val-amber" : "val-red"
+  const hint  = score >= 70
+    ? "Clear, objective criteria with verifiable triggers."
+    : score >= 45
+    ? "Some ambiguity — platform judgment may be involved."
+    : "Vague or discretionary criteria — resolution could surprise you."
+  return { score, label, cls, hint }
+}
+
+function resolutionConfidenceHtml(rawRulesText) {
+  const r = _resolutionConfidenceScore(rawRulesText)
+  if (!r) return ""
+  return `<div class="resolution-confidence"><span class="rc-label">CLARITY</span><span class="rc-val ${r.cls}">${r.label}</span><span class="rc-hint">${esc(r.hint)}</span></div>`
+}
+
+// ── Resolution checklist ───────────────────────────────────────────────────────
+function resolutionChecklist(sentences) {
+  if (!sentences || !sentences.length) return ""
+  return sentences.map(s => {
+    const inner = (typeof s === "string" && s.startsWith("<")) ? s : esc(s)
+    return `
+    <div class="rule-check-item">
+      <span class="rule-check-icon">○</span>
+      <span class="rule-check-text">${inner}</span>
+    </div>`
+  }).join("")
+}
+
+// ── Volume-weighted consensus ─────────────────────────────────────────────────
+function volumeWeightedConsensusCard(outcomes) {
+  if (!outcomes || outcomes.length < 3) return ""
+  const withVol = outcomes.filter(o => o.vol && o.vol !== "—")
+  if (withVol.length < 3) return ""
+  const vols = withVol.map(o => parseInt(String(o.vol).replace(/,/g, ""), 10))
+  const totalVol = vols.reduce((s, v) => s + v, 0)
+  if (totalVol <= 0) return ""
+  const ranked = withVol.map((o, i) => ({ ...o, volPct: Math.round(vols[i] / totalVol * 100) }))
+    .sort((a, b) => b.volPct - a.volPct)
+  const top = ranked[0]
+  const consensus = top.volPct >= 50
+    ? `<strong style="color:${top.color}">${esc(top.label)}</strong> has ${top.volPct}% of all volume`
+    : `No clear money consensus — <strong style="color:${top.color}">${esc(top.label)}</strong> leads with ${top.volPct}%`
+  return `
+    <div class="mi-card">
+      <div class="section-label">VOLUME-WEIGHTED CONSENSUS</div>
+      <div class="consensus-body">${consensus}<span class="consensus-sep"> · </span>price: ${top.pct}%</div>
+    </div>`
+}
+
+// ── "Find similar open markets" card (resolved pages only) ────────────────────
+function findSimilarMarketsCard(platform, title) {
+  if (!title) return ""
+  const keywords = title.split(/\s+/).filter(w => w.length > 4).slice(0, 4).join(" ")
+  const kq = encodeURIComponent(keywords)
+  const links = []
+  if (platform !== "kalshi")    links.push(`<a href="https://kalshi.com/markets?search=${kq}" target="_blank" rel="noopener" class="similar-link">Search Kalshi ↗</a>`)
+  if (platform !== "polymarket") links.push(`<a href="https://polymarket.com/?q=${kq}" target="_blank" rel="noopener" class="similar-link">Search Polymarket ↗</a>`)
+  if (platform !== "gemini")     links.push(`<a href="https://www.gemini.com/prediction-markets" target="_blank" rel="noopener" class="similar-link">Browse Gemini ↗</a>`)
+  if (!links.length) return ""
+  const shortTitle = title.length > 65 ? title.slice(0, 64) + "…" : title
+  return `
+    <div class="mi-card similar-markets-card">
+      <div class="section-label">FIND SIMILAR OPEN MARKETS</div>
+      <div class="similar-markets-body">Looking for active markets about <em>${esc(shortTitle)}</em>?</div>
+      <div class="similar-links">${links.join("")}</div>
     </div>`
 }
 
@@ -257,6 +345,97 @@ function whatsTheBetCard(text) {
     </div>`
 }
 
+function formatCount(n) {
+  if (n >= 100) return n.toFixed(0)
+  if (n >= 10) return n.toFixed(1)
+  return n.toFixed(2)
+}
+
+function computeBetResult(bet, prob, platform, side) {
+  const isNo = side === "no"
+  const effectiveProb = isNo ? (1 - prob) : prob
+  if (effectiveProb <= 0 || effectiveProb >= 1) {
+    return { winPayout: 0, profit: 0, lossBet: bet, note: "Invalid probability.", count: null }
+  }
+  if (platform === "kalshi") {
+    const pricePerContract = effectiveProb
+    const numContracts = bet / pricePerContract
+    const winPayout = numContracts * 1.00
+    const profit = winPayout - bet
+    const fee = profit * 0.02
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `Kalshi $1-contract model: betting ${sideLabel} — ~${numContracts.toFixed(1)} contracts at ${Math.round(effectiveProb * 100)}¢ each → $1 payout per contract if correct.`
+    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(effectiveProb * 100) + "¢", fee }
+  }
+  if (platform === "polymarket" || platform === "coinbase") {
+    const shares = bet / effectiveProb
+    const winPayout = shares * 1.00
+    const profit = winPayout - bet
+    const fee = bet * 0.005
+    const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `${platformName} USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee }
+  }
+  if (platform === "gemini") {
+    const shares = bet / effectiveProb
+    const winPayout = shares * 1.00
+    const profit = winPayout - bet
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `Gemini USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee: null }
+  }
+  const winPayout = bet / effectiveProb
+  const profit = winPayout - bet
+  const note = `Estimate only — excludes platform fees and bid/ask spread.`
+  return { winPayout, profit, lossBet: bet, note, count: null, fee: null }
+}
+
+function betSimResultHtml(bet, prob, platform, side) {
+  const { winPayout, profit, lossBet, note, count, countUnit, priceEach, fee } = computeBetResult(bet, prob, platform, side)
+  const sign = profit >= 0 ? "+" : ""
+  const effectiveProb = (side === "no") ? (1 - prob) : prob
+  const countLine = count != null
+    ? `<div class="bet-sim-count">You buy <strong>~${formatCount(count)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
+    : ""
+  let sensitivityLine = ""
+  if (count != null && bet > 0 && effectiveProb > 0 && effectiveProb < 1) {
+    const shift = 0.10
+    const probHi = effectiveProb + shift
+    const probLo = effectiveProb - shift
+    const parts = []
+    if (probHi < 1) {
+      const cHi = bet / probHi
+      const diff = Math.round(count - cHi)
+      if (diff > 0) parts.push(`+10 pp → ~${formatCount(cHi)} ${countUnit} (−${diff})`)
+    }
+    if (probLo > 0) {
+      const cLo = bet / probLo
+      const diff = Math.round(cLo - count)
+      if (diff > 0) parts.push(`−10 pp → ~${formatCount(cLo)} ${countUnit} (+${diff})`)
+    }
+    if (parts.length) {
+      sensitivityLine = `<div class="bet-sim-sensitivity">If odds shift: ${parts.join(" · ")}</div>`
+    }
+  }
+  const sideLabel = side === "no" ? "NO" : "YES"
+  let feeLine = ""
+  if (fee != null && fee > 0 && profit > 0) {
+    const netProfit = profit - fee
+    const feeDesc = platform === "kalshi"
+      ? "After Kalshi fee (2% of profit)"
+      : `After taker fee (~0.5%)`
+    feeLine = `<div class="bet-sim-fee">${feeDesc}: net <strong class="val-green">+$${Math.max(0, netProfit).toFixed(2)}</strong> <span class="bet-sim-fee-detail">−$${fee.toFixed(2)} fee</span></div>`
+  }
+  return `
+    ${countLine}
+    ${sensitivityLine}
+    <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
+    ${feeLine}
+    <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
+    <div class="bet-sim-note">${note}</div>`
+}
+
 function betSimulatorHtml(outcomes) {
   if (!Array.isArray(outcomes)) {
     const n = outcomes
@@ -267,10 +446,10 @@ function betSimulatorHtml(outcomes) {
   const capped = valid.slice(0, 4)
   const first = capped[0]
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
+  const platform = window._simMarket ? window._simMarket.platform : ""
   const prob = first.pct / 100
-  const winPayout = (defaultBet / prob).toFixed(2)
-  const profit = (winPayout - defaultBet).toFixed(2)
-  const tabsHtml = capped.length > 1
+  const isBinary = capped.length <= 2
+  const tabsHtml = !isBinary && capped.length > 1
     ? `<div class="bet-sim-tabs">${capped.map((o, i) => {
         const active = i === 0
         const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
@@ -279,11 +458,19 @@ function betSimulatorHtml(outcomes) {
           onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
       }).join("")}</div>`
     : ""
+  const sideToggleHtml = isBinary
+    ? `<div class="bet-sim-side-toggle" id="betSimSideToggle">
+        <span class="bet-sim-side-label">Betting side:</span>
+        <button class="bet-sim-side-btn active" id="betSimSideYes" onclick="selectBetSimSide('yes')">YES</button>
+        <button class="bet-sim-side-btn" id="betSimSideNo" onclick="selectBetSimSide('no')">NO</button>
+      </div>`
+    : ""
   return `
     <div class="mi-card bet-sim-card">
       <div class="section-label">BET CALCULATOR</div>
       ${tabsHtml}
       <div class="bet-sim-body">
+        ${sideToggleHtml}
         <div class="bet-sim-input-row">
           <span class="bet-sim-label">If you bet</span>
           <span class="bet-sim-dollar">$</span>
@@ -291,14 +478,13 @@ function betSimulatorHtml(outcomes) {
             oninput="updateBetSim()" />
         </div>
         <div class="bet-sim-results" id="betSimResults">
-          <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
-          <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${defaultBet.toFixed(2)}</strong></div>
+          ${betSimResultHtml(defaultBet, prob, platform, window._simMarket ? window._simMarket.side : "yes")}
         </div>
       </div>
     </div>`
 }
 
-window._simMarket = { amount: 10, pct: 0, platform: "" }
+window._simMarket = { amount: 10, pct: 0, platform: "", side: "yes" }
 window.selectBetSimOutcome = function(btn) {
   const pct = parseFloat(btn.dataset.pct)
   const color = btn.dataset.color
@@ -315,6 +501,16 @@ window.selectBetSimOutcome = function(btn) {
   btn.style.background = color + "22"
   updateBetSim()
 }
+window.selectBetSimSide = function(side) {
+  window._simMarket.side = side
+  const yesBtn = document.getElementById("betSimSideYes")
+  const noBtn = document.getElementById("betSimSideNo")
+  if (yesBtn && noBtn) {
+    yesBtn.classList.toggle("active", side === "yes")
+    noBtn.classList.toggle("active", side === "no")
+  }
+  updateBetSim()
+}
 function updateBetSim() {
   const input = document.getElementById("betSimInput")
   const results = document.getElementById("betSimResults")
@@ -322,16 +518,77 @@ function updateBetSim() {
   const bet = Math.max(0, parseFloat(input.value) || 0)
   window._simMarket.amount = bet
   const prob = window._simMarket.pct / 100
+  const side = window._simMarket.side || "yes"
   if (prob <= 0 || prob >= 1 || bet <= 0) {
     results.innerHTML = `<div class="bet-sim-win" style="color:var(--muted)">Enter a bet amount above</div>`
     return
   }
-  const winPayout = (bet / prob).toFixed(2)
-  const profit = (winPayout - bet).toFixed(2)
-  results.innerHTML = `
-    <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
-    <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${bet.toFixed(2)}</strong></div>
-  `
+  results.innerHTML = betSimResultHtml(bet, prob, window._simMarket.platform || "", side)
+}
+
+// ── "What's your edge?" personal Kelly calculator ─────────────────────────────
+function edgeCalculatorHtml(outcomes) {
+  const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100)
+  if (!valid.length) return ""
+  const first = valid[0]
+  const askFrac = Number.isFinite(first.ask) && first.ask > 0 ? first.ask : first.pct / 100
+  // Store for callback
+  window._edgeCalcAsk = askFrac
+  window._edgeCalcLabel = first.label
+  return `
+    <div class="mi-card edge-calc-card">
+      <div class="section-label">WHAT'S YOUR EDGE?</div>
+      <div class="edge-calc-body">
+        <div class="edge-input-row">
+          <label class="edge-input-label">My probability for <strong>${esc(first.label)}</strong>:</label>
+          <div class="edge-input-wrap">
+            <input type="number" id="edgeProbInput" class="edge-prob-input"
+              value="${first.pct}" min="1" max="99" step="1" oninput="updateEdgeCalc()" />
+            <span class="edge-pct-sign">%</span>
+          </div>
+        </div>
+        <div id="edgeCalcResult" class="edge-calc-result"></div>
+      </div>
+    </div>`
+}
+
+window.updateEdgeCalc = function() {
+  const input = document.getElementById("edgeProbInput")
+  const resultEl = document.getElementById("edgeCalcResult")
+  if (!input || !resultEl) return
+  const myProb = Math.max(1, Math.min(99, parseFloat(input.value) || 50)) / 100
+  const ask = window._edgeCalcAsk || myProb
+  const b = (1 - ask) / ask
+  if (b <= 0) { resultEl.innerHTML = ""; return }
+  const kelly = (myProb * b - (1 - myProb)) / b
+  const kellyPct = Math.round(kelly * 100 * 10) / 10
+  const marketPct = Math.round(ask * 100)
+  const myPct = Math.round(myProb * 100)
+  if (kelly <= 0) {
+    const msg = myPct < marketPct
+      ? `Market is more bullish (${marketPct}%) than you (${myPct}%) — no edge betting YES.`
+      : `Edge too thin at these odds to justify a bet.`
+    resultEl.innerHTML = `<div class="edge-result-row val-red"><strong>No edge</strong> — ${esc(msg)}</div>`
+    return
+  }
+  const half = Math.round(kellyPct / 2 * 10) / 10
+  const quarter = Math.round(kellyPct / 4 * 10) / 10
+  const platform = window._simMarket ? window._simMarket.platform : ""
+  let edgeNote = "Kelly sizing assumes a binary $1-payout contract model. Excludes fees and spread."
+  if (platform === "kalshi") edgeNote = "Kelly sizing assumes Kalshi $1-contract payouts. Excludes fees."
+  else if (platform === "polymarket") edgeNote = "Kelly sizing assumes Polymarket USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  else if (platform === "coinbase") edgeNote = "Kelly sizing assumes Coinbase USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  else if (platform === "gemini") edgeNote = "Kelly sizing assumes Gemini USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  resultEl.innerHTML = `
+    <div class="edge-result-row val-green">
+      You have a <strong>+${myPct - marketPct}pt edge</strong> (you: ${myPct}% vs market: ${marketPct}%)
+    </div>
+    <div class="edge-kelly-rows">
+      <div class="edge-kelly-row"><span class="edge-kelly-label">Full Kelly:</span> <span class="val-amber">${kellyPct}% of bankroll</span> <span class="edge-kelly-hint">(aggressive)</span></div>
+      <div class="edge-kelly-row"><span class="edge-kelly-label">Half Kelly:</span> <span class="val-green">${half}%</span> <span class="edge-kelly-hint">(recommended)</span></div>
+      <div class="edge-kelly-row"><span class="edge-kelly-label">Quarter Kelly:</span> <span class="val-green">${quarter}%</span> <span class="edge-kelly-hint">(conservative)</span></div>
+    </div>
+    <div class="bet-sim-note">${edgeNote}</div>`
 }
 
 function calcAnalyticsRow(label, prob, ask, bid, color) {
@@ -469,7 +726,7 @@ function skeletonHtml(platformLabel) {
 
 function statCard(label, value, sub = "") {
   const inner = value
-    ? `<div class="stat-value">${value}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
+    ? `<div class="stat-value">${esc(String(value))}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
     : `<div class="stat-dash"></div>`
   return `<div class="stat-card"><div class="stat-label">${tip(label)}</div>${inner}</div>`
 }
@@ -477,7 +734,7 @@ function statCard(label, value, sub = "") {
 function infoRow(key, val) {
   if (!val || val === "—") return ""
   const keyHtml = GLOSSARY[key.toUpperCase()] ? tip(key, key.toUpperCase()) : esc(key)
-  return `<div class="info-row"><span class="info-key">${keyHtml}</span><span class="info-val">${esc(val)}</span></div>`
+  return `<div class="info-row"><span class="info-key">${keyHtml}</span><span class="info-val info-val-wrap">${esc(val)}</span></div>`
 }
 
 function numList(sentences) {
@@ -488,32 +745,88 @@ function numList(sentences) {
     </div>`).join("")
 }
 
+// ── Plain talk probability label ───────────────────────────────────────────────
+function pctToPlainTalk(pct) {
+  if (pct >= 95) return "Near certain"
+  if (pct >= 85) return "Very likely"
+  if (pct >= 70) return "Likely"
+  if (pct >= 55) return "More likely than not"
+  if (pct >= 45) return "Coin flip"
+  if (pct >= 30) return "Unlikely"
+  if (pct >= 15) return "Long shot"
+  return "Very unlikely"
+}
+
 function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const ml = toMoneyline(pct)
-  // Feature 10: label delta as "pts" with a tooltip so users know it's a price change
+
+  // Momentum arrow next to outcome name (↑/↓ based on delta direction)
+  const momentumArrow = delta !== null && delta !== 0
+    ? `<span class="momentum-arrow ${delta > 0 ? "momentum-up" : "momentum-dn"}" title="${delta > 0 ? "Rising" : "Falling"} (${delta > 0 ? "+" : ""}${delta} pts)">${delta > 0 ? "↑" : "↓"}</span>`
+    : ""
+
+  // Feature 10: label delta as "pts" with a tooltip
   const deltaHtml = delta !== null && delta !== 0
     ? `<span class="outcome-delta ${delta > 0 ? 'delta-up' : 'delta-dn'}" title="Price change vs. last trade: ${delta > 0 ? "+" : ""}${delta} percentage points">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}<span class="delta-label">pts</span></span>`
     : ""
+
+  // Plain talk label below outcome name
+  const plainTalkHtml = `<div class="outcome-plain-talk">${pctToPlainTalk(pct)}</div>`
+
   const estTag = extras.isEstimate ? `<span class="est-tag">(est.)</span>` : ""
   const metaParts = []
+
+  // Dead money indicator: spread > 15% of mid = illiquid; LIQUID badge: spread ≤ 2% of mid AND vol ≥ $50k
+  let deadMoneyHtml = ""
+  let liquidBadgeHtml = ""
+  if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask) && extras.ask > extras.bid && extras.ask > 0) {
+    const spread = extras.ask - extras.bid
+    const mid = (extras.bid + extras.ask) / 2
+    if (mid > 0) {
+      const spreadPct = spread / mid
+      if (spreadPct > 0.15) {
+        deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+      } else {
+        const vol = parseInt(String(extras.vol || "0").replace(/,/g, ""), 10)
+        if (spreadPct <= 0.02 && vol >= 50000) {
+          liquidBadgeHtml = `<span class="liquid-badge" title="Tight spread (${Math.round(spread * 100)}¢) + high volume — good market to trade">✓ LIQUID</span>`
+        }
+      }
+    }
+  }
+
   if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask)) {
     metaParts.push(`${tip("Bid", "BID / ASK")} ${Math.round(extras.bid * 100)}¢ · ${tip("Ask", "BID / ASK")} ${Math.round(extras.ask * 100)}¢`)
   }
+
+  // Spread cost visualization: ~$X spread per $100 bet
+  if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask) && extras.ask > extras.bid) {
+    const spreadCost = Math.round((extras.ask - extras.bid) * 100)
+    if (spreadCost > 0) {
+      metaParts.push(`<span class="spread-cost-note" title="Estimated round-trip spread cost per $100 payout">~$${spreadCost} spread per $100</span>`)
+    }
+  }
+
   if (extras.vol) metaParts.push(`Vol $${extras.vol}`)
   if (extras.oi) metaParts.push(`OI $${extras.oi}`)
-  const metaHtml = metaParts.length
-    ? `<div class="outcome-meta">${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
+
+  const badgeHtml = deadMoneyHtml || liquidBadgeHtml
+  const metaHtml = (metaParts.length || badgeHtml)
+    ? `<div class="outcome-meta">${badgeHtml ? `<span>${badgeHtml}</span>` : ""}${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
     : ""
-  // Feature 10: show "ML" micro-label above moneyline number so users know what it is
+
+  // Feature 10: "ML" micro-label above moneyline
   const mlBlock = ml !== "—"
     ? `<div class="outcome-ml-wrap"><div class="ml-label">ML</div><span class="outcome-ml">${tip(ml, "MONEYLINE")}</span></div>`
     : `<span class="outcome-ml">${tip(ml, "MONEYLINE")}</span>`
+
   return `
     <div class="outcome-row">
       <div class="outcome-top">
-        <div>
-          <div class="outcome-name" style="color:${color}">${esc(label)}</div>
+        <div class="outcome-left-col">
+          <div class="outcome-name" style="color:${color}"><span class="outcome-name-text">${esc(label)}</span>${momentumArrow}</div>
           ${sub ? `<div class="outcome-sub">${esc(sub)}</div>` : ""}
+          ${plainTalkHtml}
         </div>
         <div class="outcome-right">
           <div class="odds-display" style="color:${color}">
