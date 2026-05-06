@@ -302,13 +302,36 @@ function plainEnglishRules(rulesText) {
   // Each entry: { text, fromList } — fromList=true means the chunk originated
   // from a numbered/bulleted list item, so the keyword filter is relaxed for it.
   const sentenceItems = []
+  const LIST_MARKER_RE = /^\s*(?:\d+[.)]\s|[-•*]\s)/
   for (const para of rulesText.split(/\n\n+/)) {
-    // Within each paragraph, split further on newlines that precede list markers
-    // so that "1. item\n2. item" or "- item\n- item" each become separate candidates.
-    const chunks = para.split(/\n(?=\s*(?:\d+[.)]\s|[-•*]\s))/)
+    // Split the paragraph into individual lines, then group them into chunks:
+    // a new chunk starts when a line begins a list marker (optionally preceded by
+    // whitespace). Continuation lines — those that start with whitespace but do NOT
+    // carry a new list marker — are folded back into the previous chunk so that
+    // multi-line list items are never split mid-sentence.
+    const lines = para.split(/\n/)
+    const rawChunks = []
+    for (const line of lines) {
+      const isListMarker = LIST_MARKER_RE.test(line)
+      const isContinuation = /^\s/.test(line) && !isListMarker
+      if (isContinuation && rawChunks.length > 0) {
+        rawChunks[rawChunks.length - 1] += " " + line.trim()
+      } else {
+        rawChunks.push(line)
+      }
+    }
+    // Join any adjacent non-list, non-indented lines that belong to the same chunk
+    const chunks = []
+    for (const raw of rawChunks) {
+      if (!LIST_MARKER_RE.test(raw) && chunks.length > 0 && !LIST_MARKER_RE.test(chunks[chunks.length - 1])) {
+        chunks[chunks.length - 1] += " " + raw.trim()
+      } else {
+        chunks.push(raw)
+      }
+    }
     for (const chunk of chunks) {
-      // Collapse remaining internal newlines to spaces
-      const normalized = chunk.replace(/\n/g, " ").trim()
+      // Collapse any residual internal whitespace to a single space
+      const normalized = chunk.replace(/\s+/g, " ").trim()
       // Detect whether this chunk started with a list marker before stripping it.
       const fromList = /^\s*(?:\d+[.)]\s+|[-•*]\s+)/.test(normalized)
       // Strip any leading list marker (e.g. "1. ", "2) ", "- ", "• ") so the
