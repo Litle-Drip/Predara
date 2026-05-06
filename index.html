@@ -494,6 +494,25 @@
     }
     .bet-sim-tab:hover { border-color: var(--orange); color: var(--orange); }
     .bet-sim-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.55; font-style: italic; }
+    .bet-sim-side-toggle {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .bet-sim-side-label { font-size: 13px; color: var(--muted); }
+    .bet-sim-side-btn {
+      font-size: 12px; font-weight: 600;
+      padding: 4px 14px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+      font-family: inherit; letter-spacing: 0.04em;
+    }
+    .bet-sim-side-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .bet-sim-side-btn.active {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: rgba(251,146,60,0.10);
+    }
 
     /* ── Tooltips ── */
     .tip {

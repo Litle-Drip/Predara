@@ -345,46 +345,55 @@ function whatsTheBetCard(text) {
     </div>`
 }
 
-function computeBetResult(bet, prob, platform) {
+function computeBetResult(bet, prob, platform, side) {
+  const isNo = side === "no"
+  const effectiveProb = isNo ? (1 - prob) : prob
+  if (effectiveProb <= 0 || effectiveProb >= 1) {
+    return { winPayout: 0, profit: 0, lossBet: bet, note: "Invalid probability.", count: null }
+  }
   if (platform === "kalshi") {
-    const pricePerContract = prob
+    const pricePerContract = effectiveProb
     const numContracts = bet / pricePerContract
     const winPayout = numContracts * 1.00
     const profit = winPayout - bet
-    const note = `Kalshi $1-contract model: ~${numContracts.toFixed(1)} contracts at ${Math.round(prob * 100)}¢ each → $1 payout per contract if correct. Excludes fees.`
-    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(prob * 100) + "¢" }
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `Kalshi $1-contract model: betting ${sideLabel} — ~${numContracts.toFixed(1)} contracts at ${Math.round(effectiveProb * 100)}¢ each → $1 payout per contract if correct. Excludes fees.`
+    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(effectiveProb * 100) + "¢" }
   }
   if (platform === "polymarket" || platform === "coinbase") {
-    const shares = bet / prob
+    const shares = bet / effectiveProb
     const winPayout = shares * 1.00
     const profit = winPayout - bet
     const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
-    const note = `${platformName} USDC/share model: ~${shares.toFixed(2)} shares at ${prob.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: prob.toFixed(2) + " USDC" }
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `${platformName} USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC" }
   }
   if (platform === "gemini") {
-    const shares = bet / prob
+    const shares = bet / effectiveProb
     const winPayout = shares * 1.00
     const profit = winPayout - bet
-    const note = `Gemini USDC/share model: ~${shares.toFixed(2)} shares at ${prob.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: prob.toFixed(2) + " USDC" }
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `Gemini USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC" }
   }
-  const winPayout = bet / prob
+  const winPayout = bet / effectiveProb
   const profit = winPayout - bet
   const note = `Estimate only — excludes platform fees and bid/ask spread.`
   return { winPayout, profit, lossBet: bet, note, count: null }
 }
 
-function betSimResultHtml(bet, prob, platform) {
-  const { winPayout, profit, lossBet, note, count, countUnit, priceEach } = computeBetResult(bet, prob, platform)
+function betSimResultHtml(bet, prob, platform, side) {
+  const { winPayout, profit, lossBet, note, count, countUnit, priceEach } = computeBetResult(bet, prob, platform, side)
   const sign = profit >= 0 ? "+" : ""
   const countLine = count != null
     ? `<div class="bet-sim-count">You buy <strong>~${count % 1 === 0 ? count.toFixed(0) : count < 10 ? count.toFixed(2) : count.toFixed(1)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
     : ""
+  const sideLabel = side === "no" ? "NO" : "YES"
   return `
     ${countLine}
-    <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
-    <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
+    <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
+    <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
     <div class="bet-sim-note">${note}</div>`
 }
 
@@ -400,7 +409,8 @@ function betSimulatorHtml(outcomes) {
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
   const platform = window._simMarket ? window._simMarket.platform : ""
   const prob = first.pct / 100
-  const tabsHtml = capped.length > 1
+  const isBinary = capped.length <= 2
+  const tabsHtml = !isBinary && capped.length > 1
     ? `<div class="bet-sim-tabs">${capped.map((o, i) => {
         const active = i === 0
         const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
@@ -409,11 +419,19 @@ function betSimulatorHtml(outcomes) {
           onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
       }).join("")}</div>`
     : ""
+  const sideToggleHtml = isBinary
+    ? `<div class="bet-sim-side-toggle" id="betSimSideToggle">
+        <span class="bet-sim-side-label">Betting side:</span>
+        <button class="bet-sim-side-btn active" id="betSimSideYes" onclick="selectBetSimSide('yes')">YES</button>
+        <button class="bet-sim-side-btn" id="betSimSideNo" onclick="selectBetSimSide('no')">NO</button>
+      </div>`
+    : ""
   return `
     <div class="mi-card bet-sim-card">
       <div class="section-label">BET CALCULATOR</div>
       ${tabsHtml}
       <div class="bet-sim-body">
+        ${sideToggleHtml}
         <div class="bet-sim-input-row">
           <span class="bet-sim-label">If you bet</span>
           <span class="bet-sim-dollar">$</span>
@@ -421,13 +439,13 @@ function betSimulatorHtml(outcomes) {
             oninput="updateBetSim()" />
         </div>
         <div class="bet-sim-results" id="betSimResults">
-          ${betSimResultHtml(defaultBet, prob, platform)}
+          ${betSimResultHtml(defaultBet, prob, platform, window._simMarket ? window._simMarket.side : "yes")}
         </div>
       </div>
     </div>`
 }
 
-window._simMarket = { amount: 10, pct: 0, platform: "" }
+window._simMarket = { amount: 10, pct: 0, platform: "", side: "yes" }
 window.selectBetSimOutcome = function(btn) {
   const pct = parseFloat(btn.dataset.pct)
   const color = btn.dataset.color
@@ -444,6 +462,16 @@ window.selectBetSimOutcome = function(btn) {
   btn.style.background = color + "22"
   updateBetSim()
 }
+window.selectBetSimSide = function(side) {
+  window._simMarket.side = side
+  const yesBtn = document.getElementById("betSimSideYes")
+  const noBtn = document.getElementById("betSimSideNo")
+  if (yesBtn && noBtn) {
+    yesBtn.classList.toggle("active", side === "yes")
+    noBtn.classList.toggle("active", side === "no")
+  }
+  updateBetSim()
+}
 function updateBetSim() {
   const input = document.getElementById("betSimInput")
   const results = document.getElementById("betSimResults")
@@ -451,11 +479,12 @@ function updateBetSim() {
   const bet = Math.max(0, parseFloat(input.value) || 0)
   window._simMarket.amount = bet
   const prob = window._simMarket.pct / 100
+  const side = window._simMarket.side || "yes"
   if (prob <= 0 || prob >= 1 || bet <= 0) {
     results.innerHTML = `<div class="bet-sim-win" style="color:var(--muted)">Enter a bet amount above</div>`
     return
   }
-  results.innerHTML = betSimResultHtml(bet, prob, window._simMarket.platform || "")
+  results.innerHTML = betSimResultHtml(bet, prob, window._simMarket.platform || "", side)
 }
 
 // ── "What's your edge?" personal Kelly calculator ─────────────────────────────
