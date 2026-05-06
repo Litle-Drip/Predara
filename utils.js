@@ -29,6 +29,24 @@ const GLOSSARY = {
   "VOLUME":           "Total dollars that have changed hands since this market opened.",
   "BEST SPREAD":      "The tightest bid-ask gap across all outcomes. Lower means cheaper to enter and exit positions.",
   "OVERROUND":        "Sum of all outcome probabilities. 100% is fair; 103% means the exchange takes 3% — lower is better for traders.",
+  "MARKET AGE":       "How long this market has been accepting trades. Older markets have more established price consensus; newer ones tend to be noisier.",
+}
+
+function fmtMarketAge(isoOrDate) {
+  if (!isoOrDate) return null
+  const ms = new Date(isoOrDate).getTime()
+  if (!ms || isNaN(ms)) return null
+  const days = Math.floor((Date.now() - ms) / 86400000)
+  if (days < 0) return null
+  if (days === 0) return "Today"
+  if (days === 1) return "1 day"
+  if (days < 14) return `${days} days`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 8) return `${weeks} week${weeks !== 1 ? "s" : ""}`
+  const months = Math.floor(days / 30)
+  if (months < 24) return `${months} month${months !== 1 ? "s" : ""}`
+  const years = Math.floor(days / 365)
+  return `${years} year${years !== 1 ? "s" : ""}`
 }
 
 function esc(str) {
@@ -105,17 +123,22 @@ function toMoneyline(pct) {
     : `+${Math.round((100 - pct) / pct * 100)}`
 }
 
-// Returns amber banner if last trade was > 1 hour ago, else empty string
+// Always shows "Last updated X ago" when a timestamp is present.
+// If data is older than STALE_THRESHOLD_MINS, shows an amber "may be stale" warning instead.
+const STALE_THRESHOLD_MINS = 30
 function staleWarningHtml(lastTradeIso) {
   if (!lastTradeIso || typeof lastTradeIso !== "string") return ""
   const d = new Date(lastTradeIso)
   if (isNaN(d)) return ""
   const ageMins = Math.floor((Date.now() - d.getTime()) / 60000)
-  if (ageMins < 60) return ""
-  const ageText = ageMins < 120 ? "1 hour"
-    : ageMins < 1440 ? `${Math.floor(ageMins / 60)} hours`
-    : `${Math.floor(ageMins / 1440)} days`
-  return `<div class="stale-warning">⚠ PRICES MAY BE STALE · Last trade ${ageText} ago</div>`
+  const ageText = ageMins < 1 ? "just now"
+    : ageMins < 60 ? `${ageMins}m ago`
+    : ageMins < 1440 ? `${Math.floor(ageMins / 60)}h ago`
+    : `${Math.floor(ageMins / 1440)}d ago`
+  if (ageMins < STALE_THRESHOLD_MINS) {
+    return `<div class="last-updated">Last updated ${ageText}</div>`
+  }
+  return `<div class="stale-warning">⚠ MAY BE STALE · Last updated ${ageText}</div>`
 }
 
 function fmtDate(iso) {

@@ -113,6 +113,10 @@ module.exports = async (req, res) => {
     try { data = JSON.parse(found.body) } catch {
       return res.status(502).json({ error: "Invalid response from Kalshi API" })
     }
+    if (!data || typeof data !== "object" ||
+        (!(data.market && data.market.ticker) && !(data.event && data.event.event_ticker))) {
+      return res.status(502).json({ error: "Upstream returned an empty or invalid payload" })
+    }
 
     // For event responses, supplement nested markets with a direct /markets?event_ticker
     // query so we capture all markets — including longer-duration ones added later —

@@ -356,18 +356,20 @@ function computeBetResult(bet, prob, platform, side) {
     const numContracts = bet / pricePerContract
     const winPayout = numContracts * 1.00
     const profit = winPayout - bet
+    const fee = profit * 0.02
     const sideLabel = isNo ? "NO" : "YES"
-    const note = `Kalshi $1-contract model: betting ${sideLabel} — ~${numContracts.toFixed(1)} contracts at ${Math.round(effectiveProb * 100)}¢ each → $1 payout per contract if correct. Excludes fees.`
-    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(effectiveProb * 100) + "¢" }
+    const note = `Kalshi $1-contract model: betting ${sideLabel} — ~${numContracts.toFixed(1)} contracts at ${Math.round(effectiveProb * 100)}¢ each → $1 payout per contract if correct.`
+    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(effectiveProb * 100) + "¢", fee }
   }
   if (platform === "polymarket" || platform === "coinbase") {
     const shares = bet / effectiveProb
     const winPayout = shares * 1.00
     const profit = winPayout - bet
+    const fee = bet * 0.005
     const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
     const sideLabel = isNo ? "NO" : "YES"
-    const note = `${platformName} USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC" }
+    const note = `${platformName} USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee }
   }
   if (platform === "gemini") {
     const shares = bet / effectiveProb
@@ -375,24 +377,33 @@ function computeBetResult(bet, prob, platform, side) {
     const profit = winPayout - bet
     const sideLabel = isNo ? "NO" : "YES"
     const note = `Gemini USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC" }
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee: null }
   }
   const winPayout = bet / effectiveProb
   const profit = winPayout - bet
   const note = `Estimate only — excludes platform fees and bid/ask spread.`
-  return { winPayout, profit, lossBet: bet, note, count: null }
+  return { winPayout, profit, lossBet: bet, note, count: null, fee: null }
 }
 
 function betSimResultHtml(bet, prob, platform, side) {
-  const { winPayout, profit, lossBet, note, count, countUnit, priceEach } = computeBetResult(bet, prob, platform, side)
+  const { winPayout, profit, lossBet, note, count, countUnit, priceEach, fee } = computeBetResult(bet, prob, platform, side)
   const sign = profit >= 0 ? "+" : ""
   const countLine = count != null
     ? `<div class="bet-sim-count">You buy <strong>~${count % 1 === 0 ? count.toFixed(0) : count < 10 ? count.toFixed(2) : count.toFixed(1)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
     : ""
   const sideLabel = side === "no" ? "NO" : "YES"
+  let feeLine = ""
+  if (fee != null && fee > 0 && profit > 0) {
+    const netProfit = profit - fee
+    const feeDesc = platform === "kalshi"
+      ? "After Kalshi fee (2% of profit)"
+      : `After taker fee (~0.5%)`
+    feeLine = `<div class="bet-sim-fee">${feeDesc}: net <strong class="val-green">+$${Math.max(0, netProfit).toFixed(2)}</strong> <span class="bet-sim-fee-detail">−$${fee.toFixed(2)} fee</span></div>`
+  }
   return `
     ${countLine}
     <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
+    ${feeLine}
     <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
     <div class="bet-sim-note">${note}</div>`
 }
@@ -737,13 +748,22 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const estTag = extras.isEstimate ? `<span class="est-tag">(est.)</span>` : ""
   const metaParts = []
 
-  // Dead money indicator: spread > 15% of mid = illiquid
+  // Dead money indicator: spread > 15% of mid = illiquid; LIQUID badge: spread ≤ 2% of mid AND vol ≥ $50k
   let deadMoneyHtml = ""
+  let liquidBadgeHtml = ""
   if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask) && extras.ask > extras.bid && extras.ask > 0) {
     const spread = extras.ask - extras.bid
     const mid = (extras.bid + extras.ask) / 2
-    if (mid > 0 && spread / mid > 0.15) {
-      deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+    if (mid > 0) {
+      const spreadPct = spread / mid
+      if (spreadPct > 0.15) {
+        deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+      } else {
+        const vol = parseInt(String(extras.vol || "0").replace(/,/g, ""), 10)
+        if (spreadPct <= 0.02 && vol >= 50000) {
+          liquidBadgeHtml = `<span class="liquid-badge" title="Tight spread (${Math.round(spread * 100)}¢) + high volume — good market to trade">✓ LIQUID</span>`
+        }
+      }
     }
   }
 
@@ -762,8 +782,9 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   if (extras.vol) metaParts.push(`Vol $${extras.vol}`)
   if (extras.oi) metaParts.push(`OI $${extras.oi}`)
 
-  const metaHtml = (metaParts.length || deadMoneyHtml)
-    ? `<div class="outcome-meta">${deadMoneyHtml ? `<span>${deadMoneyHtml}</span>` : ""}${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
+  const badgeHtml = deadMoneyHtml || liquidBadgeHtml
+  const metaHtml = (metaParts.length || badgeHtml)
+    ? `<div class="outcome-meta">${badgeHtml ? `<span>${badgeHtml}</span>` : ""}${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
     : ""
 
   // Feature 10: "ML" micro-label above moneyline

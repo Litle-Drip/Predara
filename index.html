@@ -494,6 +494,9 @@
     }
     .bet-sim-tab:hover { border-color: var(--orange); color: var(--orange); }
     .bet-sim-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.55; font-style: italic; }
+    .bet-sim-fee { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.6; }
+    .bet-sim-fee strong { color: var(--text-bright); font-weight: 600; }
+    .bet-sim-fee-detail { opacity: 0.65; margin-left: 4px; }
     .bet-sim-side-toggle {
       display: flex; align-items: center; gap: 8px;
       margin-bottom: 14px;
@@ -625,6 +628,15 @@
     }
 
     /* ── Stale data warning ── */
+    .last-updated {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-bottom: 10px;
+      opacity: 0.75;
+    }
     .stale-warning {
       display: inline-flex;
       align-items: center;
@@ -1268,9 +1280,14 @@
 
     /* ── Round 3: Dead money indicator ── */
     .dead-money-tag { font-size: 10px; font-weight: 600; color: var(--red); border: 1px solid rgba(232,64,64,0.4); border-radius: 4px; padding: 1px 6px; opacity: 0.85; }
+    .liquid-badge { font-size: 10px; font-weight: 600; color: var(--green); border: 1px solid rgba(29,185,84,0.4); border-radius: 4px; padding: 1px 6px; opacity: 0.85; }
 
     /* ── Round 3: Spread cost note ── */
     .spread-cost-note { font-size: 11px; color: var(--muted); }
+
+    /* ── Keyboard shortcut hint ── */
+    .shortcut-hint { font-size: 11px; color: var(--muted); margin: 4px 0 0; letter-spacing: 0.03em; opacity: 0.7; }
+    @media (max-width: 600px) { .shortcut-hint { display: none; } }
 
     /* ── Round 3: Volume-weighted consensus ── */
     .consensus-body { padding: 12px 30px 20px; font-size: 13px; color: var(--text); line-height: 1.5; }
@@ -1465,11 +1482,12 @@
   </div>
 
   <div class="search-row">
-    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" />
+    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
     <button onclick="analyze()">Analyze ↗</button>
   </div>
 
   <div id="inputHint" class="input-hint"></div>
+  <div class="shortcut-hint">/ new market &nbsp;·&nbsp; R refresh &nbsp;·&nbsp; S save</div>
 
   <div class="compare-toggle-row">
     <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()">+ Compare markets</button>
@@ -1509,12 +1527,12 @@
 
 </div>
 
-<script src="utils.js?v=13"></script>
-<script src="components.js?v=13"></script>
-<script src="adapters.js?v=13"></script>
-<script src="renderers.js?v=13"></script>
-<script src="compare.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="utils.js?v=15"></script>
+<script src="components.js?v=15"></script>
+<script src="adapters.js?v=15"></script>
+<script src="renderers.js?v=15"></script>
+<script src="compare.js?v=15"></script>
+<script src="app.js?v=15"></script>
 <script>
   (function () {
     // Theme
@@ -1560,7 +1578,7 @@
     })
   }
 
-  // Feature 8: keyboard shortcut — Ctrl/Cmd+K focuses search, Escape blurs
+  // Feature 8: keyboard shortcuts
   document.addEventListener('keydown', function(e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
@@ -1568,6 +1586,23 @@
       if (inp) { inp.focus(); inp.select() }
     }
     if (e.key === 'Escape' && document.activeElement) document.activeElement.blur()
+    // Guard: don't fire / R S when typing in any input/textarea/contenteditable
+    const tag = document.activeElement ? document.activeElement.tagName : ''
+    const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable
+    if (isEditing) return
+    if (e.key === '/') {
+      e.preventDefault()
+      const inp = document.getElementById('urlInput')
+      if (inp) { inp.focus(); inp.select() }
+    }
+    const marketLoaded = document.getElementById('shareControls')?.style?.display !== 'none'
+    if (e.key === 'r' || e.key === 'R') {
+      if (marketLoaded) refreshMarket()
+    }
+    if (e.key === 's' || e.key === 'S') {
+      const btn = document.getElementById('bookmarkBtn')
+      if (marketLoaded && btn) btn.click()
+    }
   })
 
   function copyShareLink() {

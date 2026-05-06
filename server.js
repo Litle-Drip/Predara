@@ -184,6 +184,11 @@ const server = http.createServer((req, res) => {
           res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
           return res.end(JSON.stringify({ error: "Invalid response from Gemini API" }))
         }
+        if (!data || typeof data !== "object" ||
+            (!(Array.isArray(data.contracts) && data.contracts.length > 0) && !data.ticker && !data.title)) {
+          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+        }
         // Enrich with contract terms URL (same logic as api/gemini.js)
         function richTextToPlain(node) {
           if (!node) return ""
@@ -278,6 +283,13 @@ const server = http.createServer((req, res) => {
       })
       .then((r) => {
         if (r.status === 200) {
+          let parsed
+          try { parsed = JSON.parse(r.body) } catch (_) { parsed = null }
+          if (!parsed || typeof parsed !== "object" ||
+              (!(parsed.market && parsed.market.ticker) && !(parsed.event && parsed.event.event_ticker))) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+          }
           res.writeHead(200, headers)
           res.end(r.body)
         } else {
