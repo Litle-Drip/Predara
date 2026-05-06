@@ -1,7 +1,7 @@
 # Predara — Prediction Market Analyzer
 
 ## Overview
-Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase prediction markets. Users paste a market URL and get a full breakdown of what they're betting on, resolution rules in plain English, a bet calculator, odds, volume, liquidity, and trader analytics. Gemini URLs route through the Kalshi API (Gemini uses Kalshi's infrastructure). Coinbase URLs route through the Polymarket API (Coinbase uses Polymarket's infrastructure).
+Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase prediction markets. Users paste a market URL and get a full breakdown of what they're betting on, resolution rules in plain English, a bet calculator, odds, volume, liquidity, and trader analytics. Gemini URLs route through the Kalshi API (Gemini uses Kalshi's infrastructure). Coinbase has two product surfaces: `predict.coinbase.com/markets/<slug>` (lowercase slugs) routes through the Polymarket gamma API, while `www.coinbase.com/predictions/event/<TICKER>` (uppercase tickers) routes through the Kalshi API.
 
 ## Architecture
 - **server.js** — HTTP server on port 5000 / 0.0.0.0. Proxies API calls to Kalshi (authenticated via RSA-signed JWT) and Polymarket (public gamma API). Serves static files.
