@@ -345,6 +345,12 @@ function whatsTheBetCard(text) {
     </div>`
 }
 
+function formatCount(n) {
+  if (n >= 100) return n.toFixed(0)
+  if (n >= 10) return n.toFixed(1)
+  return n.toFixed(2)
+}
+
 function computeBetResult(bet, prob, platform, side) {
   const isNo = side === "no"
   const effectiveProb = isNo ? (1 - prob) : prob
@@ -390,7 +396,7 @@ function betSimResultHtml(bet, prob, platform, side) {
   const sign = profit >= 0 ? "+" : ""
   const effectiveProb = (side === "no") ? (1 - prob) : prob
   const countLine = count != null
-    ? `<div class="bet-sim-count">You buy <strong>~${count % 1 === 0 ? count.toFixed(0) : count < 10 ? count.toFixed(2) : count.toFixed(1)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
+    ? `<div class="bet-sim-count">You buy <strong>~${formatCount(count)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
     : ""
   let sensitivityLine = ""
   if (count != null && bet > 0 && effectiveProb > 0 && effectiveProb < 1) {
@@ -401,12 +407,12 @@ function betSimResultHtml(bet, prob, platform, side) {
     if (probHi < 1) {
       const cHi = bet / probHi
       const diff = Math.round(count - cHi)
-      if (diff > 0) parts.push(`+10 pp → ~${cHi < 10 ? cHi.toFixed(1) : Math.round(cHi)} ${countUnit} (−${diff})`)
+      if (diff > 0) parts.push(`+10 pp → ~${formatCount(cHi)} ${countUnit} (−${diff})`)
     }
     if (probLo > 0) {
       const cLo = bet / probLo
       const diff = Math.round(cLo - count)
-      if (diff > 0) parts.push(`−10 pp → ~${cLo < 10 ? cLo.toFixed(1) : Math.round(cLo)} ${countUnit} (+${diff})`)
+      if (diff > 0) parts.push(`−10 pp → ~${formatCount(cLo)} ${countUnit} (+${diff})`)
     }
     if (parts.length) {
       sensitivityLine = `<div class="bet-sim-sensitivity">If odds shift: ${parts.join(" · ")}</div>`
