@@ -354,11 +354,12 @@ function computeBetResult(bet, prob, platform) {
     const note = `Kalshi $1-contract model: ~${numContracts.toFixed(1)} contracts at ${Math.round(prob * 100)}¢ each → $1 payout per contract if correct. Excludes fees.`
     return { winPayout, profit, lossBet: bet, note }
   }
-  if (platform === "polymarket") {
+  if (platform === "polymarket" || platform === "coinbase") {
     const shares = bet / prob
     const winPayout = shares * 1.00
     const profit = winPayout - bet
-    const note = `Polymarket USDC/share model: ~${shares.toFixed(2)} shares at ${prob.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
+    const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
+    const note = `${platformName} USDC/share model: ~${shares.toFixed(2)} shares at ${prob.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
     return { winPayout, profit, lossBet: bet, note }
   }
   if (platform === "gemini") {
@@ -504,6 +505,7 @@ window.updateEdgeCalc = function() {
   let edgeNote = "Kelly sizing assumes a binary $1-payout contract model. Excludes fees and spread."
   if (platform === "kalshi") edgeNote = "Kelly sizing assumes Kalshi $1-contract payouts. Excludes fees."
   else if (platform === "polymarket") edgeNote = "Kelly sizing assumes Polymarket USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  else if (platform === "coinbase") edgeNote = "Kelly sizing assumes Coinbase USDC/share payouts ($1 per share). Excludes fees &amp; spread."
   else if (platform === "gemini") edgeNote = "Kelly sizing assumes Gemini USDC/share payouts ($1 per share). Excludes fees &amp; spread."
   resultEl.innerHTML = `
     <div class="edge-result-row val-green">

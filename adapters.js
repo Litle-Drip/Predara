@@ -959,11 +959,12 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   urlsInDesc.forEach(u => { if (!resUrls.includes(u)) resUrls.push(u) })
 
   const resSourceHtml = resUrls.length
-    ? resUrls.map(url => {
-        let label = url
-        try { label = new URL(url).hostname.replace(/^www\./, "") } catch(e) {}
-        return `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(label)}</a></span></div>`
-      }).join("")
+    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source${resUrls.length > 1 ? "s" : ""}</span><span class="info-val">${
+        resUrls.map(url => {
+          const name = sourceLabel(url)
+          return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(name)}</a>`
+        }).join(" · ")
+      }</span></div>`
     : ""
 
   // For sports markets with a known league, inject a placeholder slot that
