@@ -299,14 +299,41 @@ function plainEnglishRules(rulesText) {
   // Split on paragraph breaks first so paragraphs starting with a capital letter
   // after "No." (e.g. resolution source paragraphs) are treated as separate
   // sentences rather than being appended to the preceding sentence.
-  const sentences = []
+  // Each entry: { text, fromList } — fromList=true means the chunk originated
+  // from a numbered/bulleted list item, so the keyword filter is relaxed for it.
+  const sentenceItems = []
+  const LIST_MARKER_RE = /^\s*(?:\d+[.)]\s|[-•*]\s)/
   for (const para of rulesText.split(/\n\n+/)) {
-    // Within each paragraph, split further on newlines that precede list markers
-    // so that "1. item\n2. item" or "- item\n- item" each become separate candidates.
-    const chunks = para.split(/\n(?=\s*(?:\d+[.)]\s|[-•*]\s))/)
+    // Split the paragraph into individual lines, then group them into chunks:
+    // a new chunk starts when a line begins a list marker (optionally preceded by
+    // whitespace). Continuation lines — those that start with whitespace but do NOT
+    // carry a new list marker — are folded back into the previous chunk so that
+    // multi-line list items are never split mid-sentence.
+    const lines = para.split(/\n/)
+    const rawChunks = []
+    for (const line of lines) {
+      const isListMarker = LIST_MARKER_RE.test(line)
+      const isContinuation = /^\s/.test(line) && !isListMarker
+      if (isContinuation && rawChunks.length > 0) {
+        rawChunks[rawChunks.length - 1] += " " + line.trim()
+      } else {
+        rawChunks.push(line)
+      }
+    }
+    // Join any adjacent non-list, non-indented lines that belong to the same chunk
+    const chunks = []
+    for (const raw of rawChunks) {
+      if (!LIST_MARKER_RE.test(raw) && chunks.length > 0 && !LIST_MARKER_RE.test(chunks[chunks.length - 1])) {
+        chunks[chunks.length - 1] += " " + raw.trim()
+      } else {
+        chunks.push(raw)
+      }
+    }
     for (const chunk of chunks) {
-      // Collapse remaining internal newlines to spaces
-      const normalized = chunk.replace(/\n/g, " ").trim()
+      // Collapse any residual internal whitespace to a single space
+      const normalized = chunk.replace(/\s+/g, " ").trim()
+      // Detect whether this chunk started with a list marker before stripping it.
+      const fromList = /^\s*(?:\d+[.)]\s+|[-•*]\s+)/.test(normalized)
       // Strip any leading list marker (e.g. "1. ", "2) ", "- ", "• ") so the
       // checklist renderer doesn't double-up with its own bullet icon.
       const stripped = normalized.replace(/^\s*(?:\d+[.)]\s+|[-•*]\s+)/, "")
@@ -316,18 +343,21 @@ function plainEnglishRules(rulesText) {
       const inlineChunks = stripped.split(/(?<=\S)\s+\d+[.)]\s+(?=\w)/)
       for (const ic of inlineChunks) {
         // Split on sentence-ending punctuation followed by whitespace and a capital letter
-        ic.split(/(?<=[.!?])\s+(?=[A-Z"(])/).forEach(s => sentences.push(s.trim()))
+        ic.split(/(?<=[.!?])\s+(?=[A-Z"(])/).forEach(s => sentenceItems.push({ text: s.trim(), fromList }))
       }
     }
   }
-  return sentences
-    .filter(s => s.length >= 10)
-    .filter(s => !s.toLowerCase().startsWith("kalshi is not affiliated"))
-    .filter(s => !s.toLowerCase().startsWith("kalshi reserves"))
-    .filter(s => !s.toLowerCase().includes("for more information"))
-    .filter(s => !/https?:\/\//.test(s))
-    .filter(s => /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled)\b/i.test(s))
-    .map(s => applyResolveText(s)
+  return sentenceItems
+    .filter(({ text }) => text.length >= 10)
+    .filter(({ text }) => !text.toLowerCase().startsWith("kalshi is not affiliated"))
+    .filter(({ text }) => !text.toLowerCase().startsWith("kalshi reserves"))
+    .filter(({ text }) => !text.toLowerCase().includes("for more information"))
+    .filter(({ text }) => !/https?:\/\//.test(text))
+    // List items that are part of a structured resolution block are shown even
+    // when they lack the keyword verbs. The keyword filter still applies to
+    // freeform prose paragraphs to suppress noise.
+    .filter(({ text, fromList }) => fromList || /\b(will|shall|must|is|are|was|were|be|been|resolves?|resolved|wins?|won|loses?|lost|happens?|happened|occurs?|occurred|ends?|ended|results?|resulted|scores?|scored|covers?|covered|pays?|paid|expires?|expired|remains?|remained|cancels?|cancell?ed|postpones?|postponed|settles?|settled)\b/i.test(text))
+    .map(({ text }) => applyResolveText(text)
       .replace(/^If /i, "If ")
       .replace(/^The following market refers to /i, "This bet is about ")
       .replace(/,\s*then you win\.?$/i, ", you win.")

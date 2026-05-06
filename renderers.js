@@ -85,7 +85,7 @@ function renderMarket(norm, accent) {
       ${resConfidenceHtml}
       ${hasRules
         ? `<div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>`
-        : `<div class="resolution-fallback">See the market source for resolution details.</div>`
+        : `<div class="resolution-fallback">See the market source for resolution details.${norm.sourceUrl ? ` <a href="${esc(norm.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--orange)">View original market ↗</a>` : ""}</div>`
       }
     </div>` : ""}
 

@@ -23,6 +23,7 @@
 //   betExplainerText: string,
 //   ruleSentences: string[],
 //   resSourceHtml: string,   // pre-rendered HTML or ""
+//   sourceUrl:     string,   // canonical URL to the original market page
 // }
 //
 // NormalizedOutcome shape:
@@ -401,6 +402,9 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
+    sourceUrl: platformKey === "coinbase"
+      ? (ev.event_ticker ? `https://coinbase.com/predictions/event/${ev.event_ticker}` : "")
+      : (ev.event_ticker ? `https://kalshi.com/events/${ev.event_ticker}` : ""),
   }
 }
 
@@ -700,6 +704,7 @@ function normalizeGemini(event) {
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: event.description || "",
+    sourceUrl: geminiTicker ? `https://www.gemini.com/predictions/${geminiTicker}` : "",
   }
 }
 
@@ -1077,5 +1082,10 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: first.description || event.description || "",
+    sourceUrl: event.slug
+      ? (platformKey === "coinbase"
+          ? `https://predict.coinbase.com/markets/${event.slug}`
+          : `https://polymarket.com/event/${event.slug}`)
+      : "",
   }
 }
