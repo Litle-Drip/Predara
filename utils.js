@@ -29,6 +29,24 @@ const GLOSSARY = {
   "VOLUME":           "Total dollars that have changed hands since this market opened.",
   "BEST SPREAD":      "The tightest bid-ask gap across all outcomes. Lower means cheaper to enter and exit positions.",
   "OVERROUND":        "Sum of all outcome probabilities. 100% is fair; 103% means the exchange takes 3% — lower is better for traders.",
+  "MARKET AGE":       "How long this market has been accepting trades. Older markets have more established price consensus; newer ones tend to be noisier.",
+}
+
+function fmtMarketAge(isoOrDate) {
+  if (!isoOrDate) return null
+  const ms = new Date(isoOrDate).getTime()
+  if (!ms || isNaN(ms)) return null
+  const days = Math.floor((Date.now() - ms) / 86400000)
+  if (days < 0) return null
+  if (days === 0) return "Today"
+  if (days === 1) return "1 day"
+  if (days < 14) return `${days} days`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 8) return `${weeks} week${weeks !== 1 ? "s" : ""}`
+  const months = Math.floor(days / 30)
+  if (months < 24) return `${months} month${months !== 1 ? "s" : ""}`
+  const years = Math.floor(days / 365)
+  return `${years} year${years !== 1 ? "s" : ""}`
 }
 
 function esc(str) {

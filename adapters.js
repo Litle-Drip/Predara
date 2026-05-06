@@ -393,6 +393,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : "—" },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : "—" },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : "—" },
+      fmtMarketAge(eventOpenTime) ? { label: "MARKET AGE", value: fmtMarketAge(eventOpenTime) } : null,
     ],
     analyticsSource,
     leadPct,
@@ -684,6 +685,7 @@ function normalizeGemini(event) {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : null },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : null },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : null },
+      fmtMarketAge(startIso) ? { label: "MARKET AGE", value: fmtMarketAge(startIso) } : null,
       contracts.length >= 2 ? {
         label: "RUNNERS",
         value: String(contracts.length),
@@ -1067,6 +1069,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : "—" },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : "—" },
       { label: "COMMENTS",      value: commentCount > 0 ? commentCount.toLocaleString() : "—" },
+      fmtMarketAge(event.startDate) ? { label: "MARKET AGE", value: fmtMarketAge(event.startDate) } : null,
     ],
     analyticsSource,
     leadPct,
