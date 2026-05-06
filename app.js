@@ -705,6 +705,10 @@ async function analyze() {
             showError("Kalshi API timed out", "The request took too long. Try again in a moment.")
             return
           }
+          if (res.status === 502) {
+            showError("Couldn't load market data", "Kalshi returned an unexpected response. The market may be unavailable — try again in a moment.")
+            return
+          }
           throw new Error(errData.error || `Kalshi API error ${res.status}`)
         }
         data = await res.json()
@@ -771,6 +775,10 @@ async function analyze() {
         }
         if (res.status === 504) {
           showError("Gemini API timed out", "The request took too long. Try again in a moment.")
+          return
+        }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Gemini returned an unexpected response. The market may be unavailable — try again in a moment.")
           return
         }
         throw new Error(errData.error || `Gemini API error ${res.status}`)
