@@ -278,7 +278,24 @@ function plainEnglishRules(rulesText) {
   // sentences rather than being appended to the preceding sentence.
   const sentences = []
   for (const para of rulesText.split(/\n\n+/)) {
-    para.split(/(?<=[.!?])\s+/).forEach(s => sentences.push(s.trim()))
+    // Within each paragraph, split further on newlines that precede list markers
+    // so that "1. item\n2. item" or "- item\n- item" each become separate candidates.
+    const chunks = para.split(/\n(?=\s*(?:\d+[.)]\s|[-•*]\s))/)
+    for (const chunk of chunks) {
+      // Collapse remaining internal newlines to spaces
+      const normalized = chunk.replace(/\n/g, " ").trim()
+      // Strip any leading list marker (e.g. "1. ", "2) ", "- ", "• ") so the
+      // checklist renderer doesn't double-up with its own bullet icon.
+      const stripped = normalized.replace(/^\s*(?:\d+[.)]\s+|[-•*]\s+)/, "")
+      // Also handle inline numbered lists on a single line: "1. X 2. Y 3. Z"
+      // Split on patterns like " 2. " " 3. " when they look like list separators
+      // (a digit+period preceded by a non-space and followed by a word character).
+      const inlineChunks = stripped.split(/(?<=\S)\s+\d+[.)]\s+(?=\w)/)
+      for (const ic of inlineChunks) {
+        // Split on sentence-ending punctuation followed by whitespace and a capital letter
+        ic.split(/(?<=[.!?])\s+(?=[A-Z"(])/).forEach(s => sentences.push(s.trim()))
+      }
+    }
   }
   return sentences
     .filter(s => s.length >= 10)
