@@ -123,17 +123,22 @@ function toMoneyline(pct) {
     : `+${Math.round((100 - pct) / pct * 100)}`
 }
 
-// Returns amber banner if last trade was > 1 hour ago, else empty string
+// Always shows "Last updated X ago" when a timestamp is present.
+// If data is older than STALE_THRESHOLD_MINS, shows an amber "may be stale" warning instead.
+const STALE_THRESHOLD_MINS = 30
 function staleWarningHtml(lastTradeIso) {
   if (!lastTradeIso || typeof lastTradeIso !== "string") return ""
   const d = new Date(lastTradeIso)
   if (isNaN(d)) return ""
   const ageMins = Math.floor((Date.now() - d.getTime()) / 60000)
-  if (ageMins < 60) return ""
-  const ageText = ageMins < 120 ? "1 hour"
-    : ageMins < 1440 ? `${Math.floor(ageMins / 60)} hours`
-    : `${Math.floor(ageMins / 1440)} days`
-  return `<div class="stale-warning">⚠ PRICES MAY BE STALE · Last trade ${ageText} ago</div>`
+  const ageText = ageMins < 1 ? "just now"
+    : ageMins < 60 ? `${ageMins}m ago`
+    : ageMins < 1440 ? `${Math.floor(ageMins / 60)}h ago`
+    : `${Math.floor(ageMins / 1440)}d ago`
+  if (ageMins < STALE_THRESHOLD_MINS) {
+    return `<div class="last-updated">Last updated ${ageText}</div>`
+  }
+  return `<div class="stale-warning">⚠ MAY BE STALE · Last updated ${ageText}</div>`
 }
 
 function fmtDate(iso) {
