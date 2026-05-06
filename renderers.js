@@ -18,7 +18,7 @@ function renderMarket(norm, accent) {
   )
   const outcomesHtml = buildOutcomesHtml(allRows)
 
-  window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform }
+  window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform, side: "yes" }
   const betSimHtml = betSimulatorHtml(norm.outcomes)
 
   // Feature 2: volume distribution bar
