@@ -352,7 +352,7 @@ function computeBetResult(bet, prob, platform) {
     const winPayout = numContracts * 1.00
     const profit = winPayout - bet
     const note = `Kalshi $1-contract model: ~${numContracts.toFixed(1)} contracts at ${Math.round(prob * 100)}¢ each → $1 payout per contract if correct. Excludes fees.`
-    return { winPayout, profit, lossBet: bet, note }
+    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(prob * 100) + "¢" }
   }
   if (platform === "polymarket" || platform === "coinbase") {
     const shares = bet / prob
@@ -360,25 +360,29 @@ function computeBetResult(bet, prob, platform) {
     const profit = winPayout - bet
     const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
     const note = `${platformName} USDC/share model: ~${shares.toFixed(2)} shares at ${prob.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note }
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: prob.toFixed(2) + " USDC" }
   }
   if (platform === "gemini") {
     const shares = bet / prob
     const winPayout = shares * 1.00
     const profit = winPayout - bet
     const note = `Gemini USDC/share model: ~${shares.toFixed(2)} shares at ${prob.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note }
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: prob.toFixed(2) + " USDC" }
   }
   const winPayout = bet / prob
   const profit = winPayout - bet
   const note = `Estimate only — excludes platform fees and bid/ask spread.`
-  return { winPayout, profit, lossBet: bet, note }
+  return { winPayout, profit, lossBet: bet, note, count: null }
 }
 
 function betSimResultHtml(bet, prob, platform) {
-  const { winPayout, profit, lossBet, note } = computeBetResult(bet, prob, platform)
+  const { winPayout, profit, lossBet, note, count, countUnit, priceEach } = computeBetResult(bet, prob, platform)
   const sign = profit >= 0 ? "+" : ""
+  const countLine = count != null
+    ? `<div class="bet-sim-count">You buy <strong>~${count % 1 === 0 ? count.toFixed(0) : count < 10 ? count.toFixed(2) : count.toFixed(1)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
+    : ""
   return `
+    ${countLine}
     <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
     <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
     <div class="bet-sim-note">${note}</div>`
