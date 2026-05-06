@@ -1465,7 +1465,7 @@
   </div>
 
   <div class="search-row">
-    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" />
+    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
     <button onclick="analyze()">Analyze ↗</button>
   </div>
 
@@ -1509,12 +1509,12 @@
 
 </div>
 
-<script src="utils.js?v=13"></script>
-<script src="components.js?v=13"></script>
-<script src="adapters.js?v=13"></script>
-<script src="renderers.js?v=13"></script>
-<script src="compare.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="utils.js?v=14"></script>
+<script src="components.js?v=14"></script>
+<script src="adapters.js?v=14"></script>
+<script src="renderers.js?v=14"></script>
+<script src="compare.js?v=14"></script>
+<script src="app.js?v=14"></script>
 <script>
   (function () {
     // Theme

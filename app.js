@@ -497,6 +497,16 @@ function onInputChange() {
   input.classList.remove("input-invalid", "input-valid")
 }
 
+function onUrlPaste(event) {
+  setTimeout(() => {
+    onInputChange()
+    const input = document.getElementById("urlInput")
+    if (input && input.classList.contains("input-valid")) {
+      analyze()
+    }
+  }, 0)
+}
+
 let _analyzing = false
 
 async function analyze() {
