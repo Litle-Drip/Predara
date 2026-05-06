@@ -18,7 +18,7 @@ function renderMarket(norm, accent) {
   )
   const outcomesHtml = buildOutcomesHtml(allRows)
 
-  window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform }
+  window._simMarket = { amount: window._simMarket?.amount || 10, pct: norm.leadPct, platform: norm.platform, side: "yes" }
   const betSimHtml = betSimulatorHtml(norm.outcomes)
 
   // Feature 2: volume distribution bar
@@ -79,11 +79,14 @@ function renderMarket(norm, accent) {
 
     ${whatsTheBetCard(norm.betExplainerText)}
 
-    ${hasRules ? `
+    ${hasRules || norm.rawRulesText ? `
     <div class="mi-card">
       <div class="section-label">HOW IT RESOLVES</div>
       ${resConfidenceHtml}
-      <div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>
+      ${hasRules
+        ? `<div class="num-list">${resolutionChecklist(norm.ruleSentences)}</div>`
+        : `<div class="resolution-fallback">See the market source for resolution details.${norm.sourceUrl ? ` <a href="${esc(norm.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--orange)">View original market ↗</a>` : ""}</div>`
+      }
     </div>` : ""}
 
     ${ruleAlertsHtml}

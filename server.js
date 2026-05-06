@@ -83,6 +83,14 @@ const server = http.createServer((req, res) => {
 
     httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
       .then(({ status, body }) => {
+        if (status === 200) {
+          let parsed
+          try { parsed = JSON.parse(body) } catch (_) { parsed = null }
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+          }
+        }
         res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(body)
       })
@@ -175,6 +183,11 @@ const server = http.createServer((req, res) => {
         try { data = JSON.parse(body) } catch {
           res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
           return res.end(JSON.stringify({ error: "Invalid response from Gemini API" }))
+        }
+        if (!data || typeof data !== "object" ||
+            (!(Array.isArray(data.contracts) && data.contracts.length > 0) && !data.ticker && !data.title)) {
+          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
         }
         // Enrich with contract terms URL (same logic as api/gemini.js)
         function richTextToPlain(node) {
@@ -270,6 +283,13 @@ const server = http.createServer((req, res) => {
       })
       .then((r) => {
         if (r.status === 200) {
+          let parsed
+          try { parsed = JSON.parse(r.body) } catch (_) { parsed = null }
+          if (!parsed || typeof parsed !== "object" ||
+              (!(parsed.market && parsed.market.ticker) && !(parsed.event && parsed.event.event_ticker))) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+          }
           res.writeHead(200, headers)
           res.end(r.body)
         } else {

@@ -23,6 +23,7 @@
 //   betExplainerText: string,
 //   ruleSentences: string[],
 //   resSourceHtml: string,   // pre-rendered HTML or ""
+//   sourceUrl:     string,   // canonical URL to the original market page
 // }
 //
 // NormalizedOutcome shape:
@@ -334,7 +335,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   const kalshiStartMs = eventOpenTime ? new Date(eventOpenTime).getTime() : null
   const kalshiEndMs   = first.close_time ? new Date(first.close_time).getTime() : null
   const kalshiDurationDays = kalshiStartMs && kalshiEndMs && !isNaN(kalshiStartMs) && !isNaN(kalshiEndMs)
-    ? Math.round((kalshiEndMs - kalshiStartMs) / 86400000)
+    ? (Math.max(0, Math.round((kalshiEndMs - kalshiStartMs) / 86400000)) || null)
     : null
 
   // Runner-up for multi-outcome markets: highest-volume non-winning market
@@ -356,7 +357,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
   }
 
   const resolvedInfo = ((isFinished && resolution) || hasPartialResolution) ? {
-    winners: isMultiOutcome && resolvedYesMarkets.length > 1
+    winners: isMultiOutcome && resolvedYesMarkets.length >= 1
       ? resolvedYesMarkets.map(m => m.yes_sub_title).filter(Boolean)
       : null,
     winner: resolvedMarket
@@ -393,6 +394,7 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : "—" },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : "—" },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : "—" },
+      fmtMarketAge(eventOpenTime) ? { label: "MARKET AGE", value: fmtMarketAge(eventOpenTime) } : null,
     ],
     analyticsSource,
     leadPct,
@@ -400,6 +402,9 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
+    sourceUrl: platformKey === "coinbase"
+      ? (ev.event_ticker ? `https://coinbase.com/predictions/event/${ev.event_ticker}` : "")
+      : (ev.event_ticker ? `https://kalshi.com/events/${ev.event_ticker}` : ""),
   }
 }
 
@@ -537,9 +542,13 @@ function normalizeGemini(event) {
   // Rules — only use description if it contains actual resolution criteria,
   // not just the market title echoed back.
   const descRules = desc ? plainEnglishRules(desc).slice(0, 8) : []
-  const looksLikeRules = descRules.some(s =>
-    /\b(resolv|YES|NO|win|payout|\$1|contract|expir|settl|game|match|score|season|championship|playoff|tournament|series)/i.test(s)
-  )
+  const looksLikeRules = descRules.some(s => {
+    const hasResolutionVerb = /\b(resolv|payout|\$1|contract|expir|settl|pays?\s+out|counts?\s+as|awarded|determines?)\b/i.test(s)
+    const hasSportsTerm = /\b(game|match|score|season|championship|playoff|tournament|series)\b/i.test(s)
+    const hasYesNo = /\b(YES|NO)\b/.test(s)
+    const sportsWithResolution = hasSportsTerm && /\b(resolves?|will\s+resolve|settle[sd]?|expir(?:es?|ed)|pays?\s+out|result\s+in)\b/i.test(s)
+    return hasResolutionVerb || hasYesNo || sportsWithResolution
+  })
   const ruleSentences = looksLikeRules ? descRules : []
   const isHeadToHead = !isBinary && contracts.length === 2
   if (ruleSentences.length === 0) {
@@ -641,7 +650,7 @@ function normalizeGemini(event) {
   const geminiStartMs = startIso ? new Date(startIso).getTime() : null
   const geminiEndMs   = (event.resolvedAt || expiryIso) ? new Date(event.resolvedAt || expiryIso).getTime() : null
   const geminiDurationDays = geminiStartMs && geminiEndMs && !isNaN(geminiEndMs) && !isNaN(geminiStartMs)
-    ? Math.round((geminiEndMs - geminiStartMs) / 86400000)
+    ? (Math.max(0, Math.round((geminiEndMs - geminiStartMs) / 86400000)) || null)
     : null
 
   // For multi-outcome resolved markets, build a winners array
@@ -680,6 +689,7 @@ function normalizeGemini(event) {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : null },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : null },
       { label: "OPEN INTEREST", value: totalOI ? `$${totalOI}` : null },
+      fmtMarketAge(startIso) ? { label: "MARKET AGE", value: fmtMarketAge(startIso) } : null,
       contracts.length >= 2 ? {
         label: "RUNNERS",
         value: String(contracts.length),
@@ -694,6 +704,7 @@ function normalizeGemini(event) {
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: event.description || "",
+    sourceUrl: geminiTicker ? `https://www.gemini.com/predictions/${geminiTicker}` : "",
   }
 }
 
@@ -955,11 +966,12 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
   urlsInDesc.forEach(u => { if (!resUrls.includes(u)) resUrls.push(u) })
 
   const resSourceHtml = resUrls.length
-    ? resUrls.map(url => {
-        let label = url
-        try { label = new URL(url).hostname.replace(/^www\./, "") } catch(e) {}
-        return `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source</span><span class="info-val"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(label)}</a></span></div>`
-      }).join("")
+    ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source${resUrls.length > 1 ? "s" : ""}</span><span class="info-val">${
+        resUrls.map(url => {
+          const name = sourceLabel(url)
+          return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(name)}</a>`
+        }).join(" · ")
+      }</span></div>`
     : ""
 
   // For sports markets with a known league, inject a placeholder slot that
@@ -1062,6 +1074,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
       { label: "24H VOLUME",    value: totalVol24 ? `$${totalVol24}` : "—" },
       { label: "LIQUIDITY",     value: totalLiq ? `$${totalLiq}` : "—" },
       { label: "COMMENTS",      value: commentCount > 0 ? commentCount.toLocaleString() : "—" },
+      fmtMarketAge(event.startDate) ? { label: "MARKET AGE", value: fmtMarketAge(event.startDate) } : null,
     ],
     analyticsSource,
     leadPct,
@@ -1069,5 +1082,10 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: first.description || event.description || "",
+    sourceUrl: event.slug
+      ? (platformKey === "coinbase"
+          ? `https://predict.coinbase.com/markets/${event.slug}`
+          : `https://polymarket.com/event/${event.slug}`)
+      : "",
   }
 }

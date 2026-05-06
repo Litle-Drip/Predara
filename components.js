@@ -157,19 +157,19 @@ function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
       </div>`
   }
 
-  // Money won/lost estimate (when we have close odds + total vol)
+  // Money transferred estimate (when we have close odds + total vol)
   let moneyHtml = ""
   if (totalVol > 0 && closeOdds != null && closeOdds > 0 && closeOdds < 100) {
     const transfer = Math.round(totalVol * (100 - closeOdds) / 100)
     const fmt = n => "$" + n.toLocaleString()
     moneyHtml = `
       <div class="ri-row">
-        <span class="ri-label">WINNERS GAINED (EST.)</span>
+        <span class="ri-label">MONEY TRANSFERRED (EST.)</span>
         <span class="ri-val val-green">~${fmt(transfer)}</span>
       </div>
-      <div class="ri-row">
-        <span class="ri-label">LOSERS PAID (EST.)</span>
-        <span class="ri-val val-red">~${fmt(transfer)}</span>
+      <div class="ri-row" style="margin-top:-2px">
+        <span class="ri-label" style="font-size:10px;opacity:.6">zero-sum: winners gain what losers paid</span>
+        <span class="ri-val"></span>
       </div>`
   } else if (totalVol > 0) {
     const fmt = n => "$" + n.toLocaleString()
@@ -345,6 +345,97 @@ function whatsTheBetCard(text) {
     </div>`
 }
 
+function formatCount(n) {
+  if (n >= 100) return n.toFixed(0)
+  if (n >= 10) return n.toFixed(1)
+  return n.toFixed(2)
+}
+
+function computeBetResult(bet, prob, platform, side) {
+  const isNo = side === "no"
+  const effectiveProb = isNo ? (1 - prob) : prob
+  if (effectiveProb <= 0 || effectiveProb >= 1) {
+    return { winPayout: 0, profit: 0, lossBet: bet, note: "Invalid probability.", count: null }
+  }
+  if (platform === "kalshi") {
+    const pricePerContract = effectiveProb
+    const numContracts = bet / pricePerContract
+    const winPayout = numContracts * 1.00
+    const profit = winPayout - bet
+    const fee = profit * 0.02
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `Kalshi $1-contract model: betting ${sideLabel} — ~${numContracts.toFixed(1)} contracts at ${Math.round(effectiveProb * 100)}¢ each → $1 payout per contract if correct.`
+    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(effectiveProb * 100) + "¢", fee }
+  }
+  if (platform === "polymarket" || platform === "coinbase") {
+    const shares = bet / effectiveProb
+    const winPayout = shares * 1.00
+    const profit = winPayout - bet
+    const fee = bet * 0.005
+    const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `${platformName} USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee }
+  }
+  if (platform === "gemini") {
+    const shares = bet / effectiveProb
+    const winPayout = shares * 1.00
+    const profit = winPayout - bet
+    const sideLabel = isNo ? "NO" : "YES"
+    const note = `Gemini USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
+    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee: null }
+  }
+  const winPayout = bet / effectiveProb
+  const profit = winPayout - bet
+  const note = `Estimate only — excludes platform fees and bid/ask spread.`
+  return { winPayout, profit, lossBet: bet, note, count: null, fee: null }
+}
+
+function betSimResultHtml(bet, prob, platform, side) {
+  const { winPayout, profit, lossBet, note, count, countUnit, priceEach, fee } = computeBetResult(bet, prob, platform, side)
+  const sign = profit >= 0 ? "+" : ""
+  const effectiveProb = (side === "no") ? (1 - prob) : prob
+  const countLine = count != null
+    ? `<div class="bet-sim-count">You buy <strong>~${formatCount(count)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
+    : ""
+  let sensitivityLine = ""
+  if (count != null && bet > 0 && effectiveProb > 0 && effectiveProb < 1) {
+    const shift = 0.10
+    const probHi = effectiveProb + shift
+    const probLo = effectiveProb - shift
+    const parts = []
+    if (probHi < 1) {
+      const cHi = bet / probHi
+      const diff = Math.round(count - cHi)
+      if (diff > 0) parts.push(`+10 pp → ~${formatCount(cHi)} ${countUnit} (−${diff})`)
+    }
+    if (probLo > 0) {
+      const cLo = bet / probLo
+      const diff = Math.round(cLo - count)
+      if (diff > 0) parts.push(`−10 pp → ~${formatCount(cLo)} ${countUnit} (+${diff})`)
+    }
+    if (parts.length) {
+      sensitivityLine = `<div class="bet-sim-sensitivity">If odds shift: ${parts.join(" · ")}</div>`
+    }
+  }
+  const sideLabel = side === "no" ? "NO" : "YES"
+  let feeLine = ""
+  if (fee != null && fee > 0 && profit > 0) {
+    const netProfit = profit - fee
+    const feeDesc = platform === "kalshi"
+      ? "After Kalshi fee (2% of profit)"
+      : `After taker fee (~0.5%)`
+    feeLine = `<div class="bet-sim-fee">${feeDesc}: net <strong class="val-green">+$${Math.max(0, netProfit).toFixed(2)}</strong> <span class="bet-sim-fee-detail">−$${fee.toFixed(2)} fee</span></div>`
+  }
+  return `
+    ${countLine}
+    ${sensitivityLine}
+    <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
+    ${feeLine}
+    <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
+    <div class="bet-sim-note">${note}</div>`
+}
+
 function betSimulatorHtml(outcomes) {
   if (!Array.isArray(outcomes)) {
     const n = outcomes
@@ -355,10 +446,10 @@ function betSimulatorHtml(outcomes) {
   const capped = valid.slice(0, 4)
   const first = capped[0]
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
+  const platform = window._simMarket ? window._simMarket.platform : ""
   const prob = first.pct / 100
-  const winPayout = (defaultBet / prob).toFixed(2)
-  const profit = (winPayout - defaultBet).toFixed(2)
-  const tabsHtml = capped.length > 1
+  const isBinary = capped.length <= 2
+  const tabsHtml = !isBinary && capped.length > 1
     ? `<div class="bet-sim-tabs">${capped.map((o, i) => {
         const active = i === 0
         const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
@@ -367,11 +458,19 @@ function betSimulatorHtml(outcomes) {
           onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
       }).join("")}</div>`
     : ""
+  const sideToggleHtml = isBinary
+    ? `<div class="bet-sim-side-toggle" id="betSimSideToggle">
+        <span class="bet-sim-side-label">Betting side:</span>
+        <button class="bet-sim-side-btn active" id="betSimSideYes" onclick="selectBetSimSide('yes')">YES</button>
+        <button class="bet-sim-side-btn" id="betSimSideNo" onclick="selectBetSimSide('no')">NO</button>
+      </div>`
+    : ""
   return `
     <div class="mi-card bet-sim-card">
       <div class="section-label">BET CALCULATOR</div>
       ${tabsHtml}
       <div class="bet-sim-body">
+        ${sideToggleHtml}
         <div class="bet-sim-input-row">
           <span class="bet-sim-label">If you bet</span>
           <span class="bet-sim-dollar">$</span>
@@ -379,14 +478,13 @@ function betSimulatorHtml(outcomes) {
             oninput="updateBetSim()" />
         </div>
         <div class="bet-sim-results" id="betSimResults">
-          <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
-          <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${defaultBet.toFixed(2)}</strong></div>
+          ${betSimResultHtml(defaultBet, prob, platform, window._simMarket ? window._simMarket.side : "yes")}
         </div>
       </div>
     </div>`
 }
 
-window._simMarket = { amount: 10, pct: 0, platform: "" }
+window._simMarket = { amount: 10, pct: 0, platform: "", side: "yes" }
 window.selectBetSimOutcome = function(btn) {
   const pct = parseFloat(btn.dataset.pct)
   const color = btn.dataset.color
@@ -403,6 +501,16 @@ window.selectBetSimOutcome = function(btn) {
   btn.style.background = color + "22"
   updateBetSim()
 }
+window.selectBetSimSide = function(side) {
+  window._simMarket.side = side
+  const yesBtn = document.getElementById("betSimSideYes")
+  const noBtn = document.getElementById("betSimSideNo")
+  if (yesBtn && noBtn) {
+    yesBtn.classList.toggle("active", side === "yes")
+    noBtn.classList.toggle("active", side === "no")
+  }
+  updateBetSim()
+}
 function updateBetSim() {
   const input = document.getElementById("betSimInput")
   const results = document.getElementById("betSimResults")
@@ -410,16 +518,12 @@ function updateBetSim() {
   const bet = Math.max(0, parseFloat(input.value) || 0)
   window._simMarket.amount = bet
   const prob = window._simMarket.pct / 100
+  const side = window._simMarket.side || "yes"
   if (prob <= 0 || prob >= 1 || bet <= 0) {
     results.innerHTML = `<div class="bet-sim-win" style="color:var(--muted)">Enter a bet amount above</div>`
     return
   }
-  const winPayout = (bet / prob).toFixed(2)
-  const profit = (winPayout - bet).toFixed(2)
-  results.innerHTML = `
-    <div class="bet-sim-win">If you <strong>win</strong>: collect <strong>$${winPayout}</strong> <span class="val-green">(+$${profit} profit)</span></div>
-    <div class="bet-sim-lose">If you <strong>lose</strong>: lose your <strong>$${bet.toFixed(2)}</strong></div>
-  `
+  results.innerHTML = betSimResultHtml(bet, prob, window._simMarket.platform || "", side)
 }
 
 // ── "What's your edge?" personal Kelly calculator ─────────────────────────────
@@ -469,6 +573,12 @@ window.updateEdgeCalc = function() {
   }
   const half = Math.round(kellyPct / 2 * 10) / 10
   const quarter = Math.round(kellyPct / 4 * 10) / 10
+  const platform = window._simMarket ? window._simMarket.platform : ""
+  let edgeNote = "Kelly sizing assumes a binary $1-payout contract model. Excludes fees and spread."
+  if (platform === "kalshi") edgeNote = "Kelly sizing assumes Kalshi $1-contract payouts. Excludes fees."
+  else if (platform === "polymarket") edgeNote = "Kelly sizing assumes Polymarket USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  else if (platform === "coinbase") edgeNote = "Kelly sizing assumes Coinbase USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  else if (platform === "gemini") edgeNote = "Kelly sizing assumes Gemini USDC/share payouts ($1 per share). Excludes fees &amp; spread."
   resultEl.innerHTML = `
     <div class="edge-result-row val-green">
       You have a <strong>+${myPct - marketPct}pt edge</strong> (you: ${myPct}% vs market: ${marketPct}%)
@@ -477,7 +587,8 @@ window.updateEdgeCalc = function() {
       <div class="edge-kelly-row"><span class="edge-kelly-label">Full Kelly:</span> <span class="val-amber">${kellyPct}% of bankroll</span> <span class="edge-kelly-hint">(aggressive)</span></div>
       <div class="edge-kelly-row"><span class="edge-kelly-label">Half Kelly:</span> <span class="val-green">${half}%</span> <span class="edge-kelly-hint">(recommended)</span></div>
       <div class="edge-kelly-row"><span class="edge-kelly-label">Quarter Kelly:</span> <span class="val-green">${quarter}%</span> <span class="edge-kelly-hint">(conservative)</span></div>
-    </div>`
+    </div>
+    <div class="bet-sim-note">${edgeNote}</div>`
 }
 
 function calcAnalyticsRow(label, prob, ask, bid, color) {
@@ -615,7 +726,7 @@ function skeletonHtml(platformLabel) {
 
 function statCard(label, value, sub = "") {
   const inner = value
-    ? `<div class="stat-value">${value}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
+    ? `<div class="stat-value">${esc(String(value))}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
     : `<div class="stat-dash"></div>`
   return `<div class="stat-card"><div class="stat-label">${tip(label)}</div>${inner}</div>`
 }
@@ -665,13 +776,22 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   const estTag = extras.isEstimate ? `<span class="est-tag">(est.)</span>` : ""
   const metaParts = []
 
-  // Dead money indicator: spread > 15% of mid = illiquid
+  // Dead money indicator: spread > 15% of mid = illiquid; LIQUID badge: spread ≤ 2% of mid AND vol ≥ $50k
   let deadMoneyHtml = ""
+  let liquidBadgeHtml = ""
   if (Number.isFinite(extras.bid) && Number.isFinite(extras.ask) && extras.ask > extras.bid && extras.ask > 0) {
     const spread = extras.ask - extras.bid
     const mid = (extras.bid + extras.ask) / 2
-    if (mid > 0 && spread / mid > 0.15) {
-      deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+    if (mid > 0) {
+      const spreadPct = spread / mid
+      if (spreadPct > 0.15) {
+        deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+      } else {
+        const vol = parseInt(String(extras.vol || "0").replace(/,/g, ""), 10)
+        if (spreadPct <= 0.02 && vol >= 50000) {
+          liquidBadgeHtml = `<span class="liquid-badge" title="Tight spread (${Math.round(spread * 100)}¢) + high volume — good market to trade">✓ LIQUID</span>`
+        }
+      }
     }
   }
 
@@ -690,8 +810,9 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
   if (extras.vol) metaParts.push(`Vol $${extras.vol}`)
   if (extras.oi) metaParts.push(`OI $${extras.oi}`)
 
-  const metaHtml = (metaParts.length || deadMoneyHtml)
-    ? `<div class="outcome-meta">${deadMoneyHtml ? `<span>${deadMoneyHtml}</span>` : ""}${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
+  const badgeHtml = deadMoneyHtml || liquidBadgeHtml
+  const metaHtml = (metaParts.length || badgeHtml)
+    ? `<div class="outcome-meta">${badgeHtml ? `<span>${badgeHtml}</span>` : ""}${metaParts.map(p => `<span>${p}</span>`).join("")}</div>`
     : ""
 
   // Feature 10: "ML" micro-label above moneyline
