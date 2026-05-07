@@ -282,8 +282,10 @@ function findSimilarMarketsCard(platform, title) {
   const kq = encodeURIComponent(keywords)
   const links = []
   if (platform !== "kalshi")    links.push(`<a href="https://kalshi.com/markets?search=${kq}" target="_blank" rel="noopener" class="similar-link">Search Kalshi ↗</a>`)
-  if (platform !== "polymarket") links.push(`<a href="https://polymarket.com/?q=${kq}" target="_blank" rel="noopener" class="similar-link">Search Polymarket ↗</a>`)
-  if (platform !== "gemini")     links.push(`<a href="https://www.gemini.com/prediction-markets" target="_blank" rel="noopener" class="similar-link">Browse Gemini ↗</a>`)
+  // polymarket.com/?q=… is silently ignored by the homepage; /search?q=… 301s to /predictions?_q=…
+  if (platform !== "polymarket") links.push(`<a href="https://polymarket.com/search?q=${kq}" target="_blank" rel="noopener" class="similar-link">Search Polymarket ↗</a>`)
+  // gemini.com/prediction-markets returns the JSON API (Content-Type: application/json); /predictions is the user-facing page
+  if (platform !== "gemini")     links.push(`<a href="https://www.gemini.com/predictions" target="_blank" rel="noopener" class="similar-link">Browse Gemini ↗</a>`)
   if (!links.length) return ""
   const shortTitle = title.length > 65 ? title.slice(0, 64) + "…" : title
   return `

@@ -145,3 +145,52 @@ test("outcomeRow wraps label text in .outcome-name-text so arrows can be exclude
   // The momentum arrow should live outside the label-text span
   assert.ok(/outcome-name-text">Team A<\/span>\s*<span class="momentum-arrow/.test(html))
 })
+
+test("findSimilarMarketsCard 'Search Polymarket' link points to /search?q= (the homepage silently ignores ?q=)", () => {
+  const ctx = loadUiContext()
+  const html = ctx.findSimilarMarketsCard("kalshi", "Will the Fed cut rates in December 2025")
+  // /search?q=… 301-redirects to /predictions?_q=… and actually filters; the homepage's ?q=… is ignored.
+  assert.ok(/href="https:\/\/polymarket\.com\/search\?q=[^"]+"/.test(html), "Search Polymarket link should hit /search?q=, not /?q=")
+  assert.ok(!/href="https:\/\/polymarket\.com\/\?q=/.test(html), "Search Polymarket link should not point to the homepage with ?q=")
+})
+
+test("findSimilarMarketsCard 'Browse Gemini' link points to /predictions (not /prediction-markets, which is the JSON API)", () => {
+  const ctx = loadUiContext()
+  const html = ctx.findSimilarMarketsCard("kalshi", "Crypto price market for the next quarter")
+  // /prediction-markets returns Content-Type: application/json — clicking it lands the user on a raw JSON dump.
+  assert.ok(/href="https:\/\/www\.gemini\.com\/predictions"/.test(html), "Browse Gemini link should point to /predictions")
+  assert.ok(!/href="https:\/\/www\.gemini\.com\/prediction-markets"/.test(html), "Browse Gemini link should not point to the JSON API endpoint")
+})
+
+test("compare.js Coinbase footnote no longer exclusively claims 'Powered by Kalshi' (Coinbase has both Kalshi and Polymarket-backed products)", () => {
+  // Top-level `const` declarations in vm.runInContext don't surface on the context object,
+  // so read the footnotes table directly from the source file.
+  const src = fs.readFileSync(path.join(__dirname, "..", "compare.js"), "utf8")
+  const tableMatch = src.match(/const PLATFORM_FOOTNOTES\s*=\s*\{([\s\S]*?)\}/)
+  assert.ok(tableMatch, "PLATFORM_FOOTNOTES table should be defined in compare.js")
+  const coinbaseLine = tableMatch[1].split("\n").find(l => /^\s*coinbase\s*:/.test(l)) || ""
+  assert.ok(coinbaseLine, "coinbase footnote line should exist in PLATFORM_FOOTNOTES")
+  // Both backings must be acknowledged: predict.coinbase.com/markets/<slug> is Polymarket-backed
+  // and www.coinbase.com/predictions/event/<TICKER> is Kalshi-backed.
+  assert.ok(/Kalshi/.test(coinbaseLine) && /Polymarket/.test(coinbaseLine),
+    `coinbase footnote should mention both Kalshi and Polymarket: got ${coinbaseLine.trim()}`)
+})
+
+test("compare.js extractTopOutcomes('coinbase', polymarketArray) returns the Polymarket top outcomes (not empty)", () => {
+  const ctx = loadUiContext()
+  // Polymarket gamma API returns an array of events. predict.coinbase.com/markets/<slug> resolves to this shape.
+  const polymarketShape = [{
+    title: "Coinbase Predict — example binary",
+    volume: 1000, volume24hr: 100, openInterest: 0, liquidity: 500,
+    markets: [{
+      outcomes: JSON.stringify(["Yes", "No"]),
+      outcomePrices: JSON.stringify(["0.62", "0.38"]),
+      bestBid: "0.61", bestAsk: "0.63",
+    }],
+  }]
+  const meta = ctx.extractTopOutcomes("coinbase", polymarketShape)
+  assert.equal(meta.title, "Coinbase Predict — example binary", "title should be propagated from the Polymarket event")
+  assert.ok(Array.isArray(meta.topOutcomes) && meta.topOutcomes.length === 2, `expected 2 top outcomes for binary Polymarket-backed Coinbase, got ${meta.topOutcomes.length}`)
+  assert.equal(meta.topOutcomes[0].pct, 62)
+  assert.equal(meta.topOutcomes[1].pct, 38)
+})
