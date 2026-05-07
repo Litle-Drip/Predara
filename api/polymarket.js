@@ -35,6 +35,11 @@ module.exports = (req, res) => {
       if (apiRes.statusCode !== 200) {
         return res.status(apiRes.statusCode).json({ error: `Polymarket API returned ${apiRes.statusCode}` })
       }
+      let parsed
+      try { parsed = JSON.parse(body) } catch (_) { parsed = null }
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return res.status(502).json({ error: "Upstream returned an empty or invalid payload" })
+      }
       res.status(200).send(body)
     })
   })

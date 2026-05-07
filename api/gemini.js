@@ -122,6 +122,10 @@ module.exports = async (req, res) => {
   try { data = JSON.parse(eventResult.body) } catch {
     return res.status(502).json({ error: "Invalid response from Gemini API" })
   }
+  if (!data || typeof data !== "object" ||
+      (!(Array.isArray(data.contracts) && data.contracts.length > 0) && !data.ticker && !data.title)) {
+    return res.status(502).json({ error: "Upstream returned an empty or invalid payload" })
+  }
 
   // Extract terms URL: check event.termsLink, then contract.termsAndConditionsUrl (may be empty string),
   // then mine the markdown link embedded in contract description text, then Builder.io scraping fallback.

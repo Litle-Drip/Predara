@@ -8,6 +8,8 @@
 async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
   try {
     if (!date || !awayAbbr || !homeAbbr) return
+    const inputEl = document.getElementById("urlInput")
+    const urlAtStart = inputEl ? inputEl.value.trim() : null
     const res = await fetch(`/api/mlb?date=${encodeURIComponent(date)}`)
     if (!res.ok) return
     const data = await res.json()
@@ -21,6 +23,9 @@ async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
       g.homeAbbr.toLowerCase() === aw && g.awayAbbr.toLowerCase() === hw
     )
     if (!game || !game.gamePk) return
+
+    const urlNow = inputEl ? inputEl.value.trim() : null
+    if (urlAtStart !== urlNow) return
 
     const [yr, mo, dy] = date.split("-")
     const gameUrl = `https://www.mlb.com/gameday/${game.awaySlug}-vs-${game.homeSlug}/${yr}/${mo}/${dy}/${game.gamePk}/live`
@@ -492,6 +497,30 @@ function onInputChange() {
   input.classList.remove("input-invalid", "input-valid")
 }
 
+function _isRecognizedMarketUrl(raw) {
+  if (!raw) return false
+  let hostname, pathname
+  try { const u = new URL(raw); hostname = u.hostname.toLowerCase(); pathname = u.pathname.toLowerCase() }
+  catch { return false }
+  if (hostname === "kalshi.com" || hostname === "www.kalshi.com")
+    return pathname.startsWith("/markets/") || pathname.startsWith("/events/")
+  if (hostname === "polymarket.com" || hostname === "www.polymarket.com")
+    return pathname.startsWith("/event/") || pathname.startsWith("/sports/") || pathname.startsWith("/esports/")
+  if (hostname === "gemini.com" || hostname === "www.gemini.com")
+    return pathname.startsWith("/predictions/") || pathname.startsWith("/prediction-markets/")
+  if (hostname === "coinbase.com" || hostname === "www.coinbase.com" || hostname === "predict.coinbase.com")
+    return pathname.startsWith("/markets/") || pathname.startsWith("/predictions/") || pathname.startsWith("/event/")
+  return false
+}
+
+function onUrlPaste(event) {
+  setTimeout(() => {
+    onInputChange()
+    const raw = (document.getElementById("urlInput")?.value || "").trim()
+    if (_isRecognizedMarketUrl(raw)) analyze()
+  }, 0)
+}
+
 let _analyzing = false
 
 async function analyze() {
@@ -622,6 +651,10 @@ async function analyze() {
           showError("Polymarket API timed out", "The request took too long. Try again in a moment.")
           return
         }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Polymarket returned an unexpected response. The market may be unavailable — try again in a moment.")
+          return
+        }
         throw new Error(errData.error || `Polymarket API error ${res.status}`)
       }
       const data = await res.json()
@@ -696,6 +729,10 @@ async function analyze() {
             showError("Kalshi API timed out", "The request took too long. Try again in a moment.")
             return
           }
+          if (res.status === 502) {
+            showError("Couldn't load market data", "Kalshi returned an unexpected response. The market may be unavailable — try again in a moment.")
+            return
+          }
           throw new Error(errData.error || `Kalshi API error ${res.status}`)
         }
         data = await res.json()
@@ -762,6 +799,10 @@ async function analyze() {
         }
         if (res.status === 504) {
           showError("Gemini API timed out", "The request took too long. Try again in a moment.")
+          return
+        }
+        if (res.status === 502) {
+          showError("Couldn't load market data", "Gemini returned an unexpected response. The market may be unavailable — try again in a moment.")
           return
         }
         throw new Error(errData.error || `Gemini API error ${res.status}`)
