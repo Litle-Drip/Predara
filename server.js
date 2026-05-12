@@ -365,6 +365,74 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Discovery / trending markets ──
+  if (parsed.pathname === "/api/discover") {
+    const results = { platforms: [] }
+
+    async function fetchPolymarketTrending() {
+      try {
+        const { status, body } = await httpsGetWithTimeout(
+          "https://gamma-api.polymarket.com/events?active=true&closed=false&order=volume&ascending=false&limit=8",
+          REQUEST_TIMEOUT_MS,
+        )
+        if (status !== 200) return []
+        const events = JSON.parse(body)
+        return (Array.isArray(events) ? events : []).map((e) => {
+          const markets = e.markets || []
+          const firstMarket = markets[0] || {}
+          const outcomes = typeof firstMarket.outcomes === "string" ? JSON.parse(firstMarket.outcomes || "[]") : firstMarket.outcomes || []
+          const prices = typeof firstMarket.outcomePrices === "string" ? JSON.parse(firstMarket.outcomePrices || "[]") : firstMarket.outcomePrices || []
+          const topIdx = prices.length ? prices.reduce((best, p, i) => parseFloat(p) > parseFloat(prices[best]) ? i : best, 0) : -1
+          return {
+            title: e.title || firstMarket.question || "Untitled",
+            url: `https://polymarket.com/event/${e.slug || ""}`,
+            volume: e.volume ? Math.round(parseFloat(e.volume)).toLocaleString() : "",
+            topOutcome: topIdx >= 0 && outcomes[topIdx] ? outcomes[topIdx] : "",
+            topPct: topIdx >= 0 && prices[topIdx] ? Math.round(parseFloat(prices[topIdx]) * 100) : "",
+          }
+        })
+      } catch { return [] }
+    }
+
+    async function fetchGeminiTrending() {
+      try {
+        const { status, body } = await httpsGetWithTimeout(
+          "https://api.gemini.com/v1/prediction-markets/events",
+          REQUEST_TIMEOUT_MS,
+        )
+        if (status !== 200) return []
+        const data = JSON.parse(body)
+        const events = Array.isArray(data) ? data : (data.events || [])
+        return events.slice(0, 8).map((e) => {
+          const contracts = e.contracts || []
+          const top = contracts[0] || {}
+          return {
+            title: e.title || e.ticker || "Untitled",
+            url: `https://www.gemini.com/predictions/${e.ticker || ""}`,
+            volume: "",
+            topOutcome: top.title || top.ticker || "",
+            topPct: top.last_price ? Math.round(parseFloat(top.last_price) * 100) : "",
+          }
+        })
+      } catch { return [] }
+    }
+
+    Promise.allSettled([fetchPolymarketTrending(), fetchGeminiTrending()])
+      .then(([polyResult, geminiResult]) => {
+        const polyMarkets = polyResult.status === "fulfilled" ? polyResult.value : []
+        const geminiMarkets = geminiResult.status === "fulfilled" ? geminiResult.value : []
+        if (polyMarkets.length) results.platforms.push({ name: "polymarket", markets: polyMarkets })
+        if (geminiMarkets.length) results.platforms.push({ name: "gemini", markets: geminiMarkets })
+        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(results))
+      })
+      .catch(() => {
+        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(results))
+      })
+    return
+  }
+
   // ── MLB schedule proxy ──
   if (parsed.pathname === "/api/mlb") {
     const date = parsed.query.date

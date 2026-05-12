@@ -402,6 +402,8 @@ function _afterSuccessfulFetch(url) {
   _refreshBookmarkBtn(url)
   _updateFreshnessDisplay()
   addShareBar(url)
+  // Hook for new features (price history, alerts, predictions, etc.)
+  if (typeof afterAnalysisHook === "function") afterAnalysisHook(url)
 }
 
 function showError(msg, hint = "") {
