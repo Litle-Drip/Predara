@@ -1,0 +1,14 @@
+{
+  "name": "Predara",
+  "short_name": "Predara",
+  "description": "Prediction market analyzer for Kalshi, Polymarket, Gemini, and Coinbase",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f11",
+  "theme_color": "#d94f20",
+  "icons": [
+    { "src": "/og-image.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["finance", "utilities"],
+  "orientation": "any"
+}

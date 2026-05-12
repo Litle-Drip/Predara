@@ -19,6 +19,10 @@
   <meta name="twitter:image" content="https://predara.org/og-image.png">
 
   <link rel="icon" href="/og-image.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#d94f20">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1462,6 +1466,396 @@
       .outcome-pct  { font-size: 30px; }
       .outcome-right { gap: 8px; }
     }
+
+    /* ═══════════════════════════════════════════════════════════════════ */
+    /* NEW FEATURES CSS                                                  */
+    /* ═══════════════════════════════════════════════════════════════════ */
+
+    /* Tab navigation */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      padding: 10px 16px;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text-bright); }
+    .tab-btn.active {
+      color: var(--orange);
+      border-bottom-color: var(--orange);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Smart paste banner */
+    .smart-paste-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      background: rgba(217,79,32,0.06);
+      border: 1px solid rgba(217,79,32,0.2);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+      flex-wrap: wrap;
+    }
+    .smart-paste-banner button {
+      background: var(--orange);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+    }
+
+    /* Toast notifications */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-bright);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 20px;
+      box-shadow: var(--shadow);
+      z-index: 9999;
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast-show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 20px;
+      padding: 0 4px;
+    }
+    .shortcut-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 16px;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .shortcut-key {
+      background: var(--bar-bg);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-bright);
+      text-align: center;
+    }
+
+    /* Price history chart */
+    .price-chart-wrap { padding: 16px 20px 20px; }
+    .price-chart-wrap canvas { width: 100%; height: auto; border-radius: 6px; }
+    .price-chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; }
+    .chart-legend-item { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+    /* Watchlist */
+    .watchlist-header { padding: 16px 0 12px; }
+    .watchlist-title-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+    .watchlist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .wl-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-shadow: var(--shadow-sm);
+    }
+    .wl-card:hover { border-color: var(--orange); box-shadow: var(--shadow); }
+    .wl-card-header { margin-bottom: 10px; }
+    .wl-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .wl-platform {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--orange);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .wl-outcome {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 3px 0;
+      color: var(--text);
+    }
+    .wl-pct { font-weight: 600; color: var(--text-bright); }
+    .wl-age { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .wl-no-data { font-size: 12px; color: var(--muted); font-style: italic; }
+
+    /* P&L Calculator */
+    .pnl-body { padding: 16px 30px 22px; }
+    .pnl-input-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .pnl-input-grid input {
+      width: 100px;
+      padding: 6px 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-bright);
+      font-family: inherit;
+      font-size: 14px;
+      text-align: center;
+    }
+    .pnl-input-grid input:focus { outline: none; border-color: var(--orange); }
+    .pnl-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); }
+    .pnl-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: var(--text); }
+    .pnl-row strong { color: var(--text-bright); }
+
+    /* Parlay Calculator */
+    .parlay-body { padding: 16px 30px 22px; }
+    .parlay-desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .parlay-leg {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .parlay-leg input {
+      padding: 8px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-bright);
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .parlay-leg input:focus { outline: none; border-color: var(--orange); }
+    .parlay-name { flex: 1; }
+    .parlay-prob { width: 80px; text-align: center; }
+    .parlay-actions { display: flex; align-items: center; gap: 12px; margin: 8px 0 14px; }
+    .parlay-bet-row { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+    .parlay-bet-row input { width: 80px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-family: inherit; font-size: 14px; text-align: center; }
+    .parlay-bet-row input:focus { outline: none; border-color: var(--orange); }
+    .parlay-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); }
+    .parlay-combined { text-align: center; margin-bottom: 12px; }
+    .parlay-combined-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+    .parlay-combined-pct { font-size: 36px; font-weight: 700; color: var(--text-bright); letter-spacing: -1px; }
+    .parlay-legs-display { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; justify-content: center; }
+    .parlay-leg-detail { font-size: 12px; color: var(--muted); background: var(--tag-bg); padding: 3px 10px; border-radius: 20px; }
+
+    /* Calendar */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+    .cal-day {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .cal-today { border-color: var(--orange); }
+    .cal-day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
+    .cal-today .cal-day-label { color: var(--orange); }
+    .cal-market {
+      font-size: 12px;
+      color: var(--text);
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cal-market:last-child { border-bottom: none; }
+    .cal-market:hover { color: var(--orange); }
+    .cal-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+    .cal-note { font-size: 12px; color: var(--muted); margin-top: 12px; font-style: italic; }
+
+    /* Price alerts */
+    .alert-body { padding: 14px 30px 20px; }
+    .alert-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--text); margin-bottom: 12px; }
+    .alert-select {
+      padding: 6px 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-bright);
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .alert-select:focus { outline: none; border-color: var(--orange); }
+    .alert-existing { margin-top: 8px; }
+    .alert-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .alert-item:last-child { border-bottom: none; }
+    .alert-note { font-size: 11px; color: var(--muted); font-style: italic; }
+
+    /* My prediction */
+    .my-prediction-card { border-left: 2px solid #8b5cf6; }
+    .my-pred-body { padding: 14px 30px 20px; }
+    .my-pred-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--text); }
+    .my-pred-saved { font-size: 12px; color: var(--muted); margin-top: 8px; font-style: italic; }
+
+    /* Embed */
+    .embed-body { padding: 14px 30px 20px; }
+    .embed-desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .embed-code-wrap { display: flex; align-items: flex-start; gap: 8px; }
+    .embed-code {
+      flex: 1;
+      font-size: 11px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    /* Correlation / related markets */
+    .corr-body { padding: 8px 16px 16px; }
+    .corr-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .corr-item:last-child { border-bottom: none; }
+    .corr-item:hover { background: var(--card-hover); color: var(--orange); }
+
+    /* Webhook settings */
+    .webhook-body { padding: 14px 30px 20px; }
+    .webhook-row { margin-bottom: 10px; }
+    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+
+    /* Arb hint row */
+    .arb-hint-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .arb-hint-row:last-child { border-bottom: none; }
+
+    /* Discovery */
+    .discover-platform { margin-bottom: 20px; }
+    .discover-platform-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .discover-market {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      box-shadow: var(--shadow-sm);
+    }
+    .discover-market:hover { border-color: var(--orange); }
+    .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
+    .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
+
+    @media (max-width: 640px) {
+      .tab-btn { font-size: 11px; padding: 8px 12px; }
+      .watchlist-grid { grid-template-columns: 1fr; }
+      .calendar-grid { grid-template-columns: 1fr 1fr; }
+      .pnl-input-grid { grid-template-columns: 1fr; }
+      .alert-form { flex-direction: column; align-items: flex-start; }
+      .parlay-leg { flex-direction: column; }
+      .parlay-name, .parlay-prob { width: 100%; }
+      .embed-code-wrap { flex-direction: column; }
+    }
   </style>
 </head>
 <body class="light">
@@ -1482,13 +1876,23 @@
     </div>
   </div>
 
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabBtn-analyze" onclick="switchTab('analyze')">Analyze</button>
+    <button class="tab-btn" id="tabBtn-discover" onclick="switchTab('discover')">Discover</button>
+    <button class="tab-btn" id="tabBtn-watchlist" onclick="switchTab('watchlist')">Watchlist</button>
+    <button class="tab-btn" id="tabBtn-calendar" onclick="switchTab('calendar')">Calendar</button>
+    <button class="tab-btn" id="tabBtn-tools" onclick="switchTab('tools')">Tools</button>
+  </div>
+
+  <div id="tab-analyze" style="display:block">
+
   <div class="search-row">
     <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
     <button onclick="analyze()">Analyze ↗</button>
   </div>
 
   <div id="inputHint" class="input-hint"></div>
-  <div class="shortcut-hint">/ new market &nbsp;·&nbsp; R refresh &nbsp;·&nbsp; S save</div>
+  <div class="shortcut-hint">/ search &nbsp;·&nbsp; R refresh &nbsp;·&nbsp; S save &nbsp;·&nbsp; B bookmarks &nbsp;·&nbsp; D discover &nbsp;·&nbsp; W watchlist &nbsp;·&nbsp; E export &nbsp;·&nbsp; ? help</div>
 
   <div class="compare-toggle-row">
     <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()">+ Compare markets</button>
@@ -1524,6 +1928,24 @@
 
   <div id="result"><div class="empty-state">Paste a Kalshi, Polymarket, Gemini, or Coinbase market URL above to analyze odds, volume, and trading data.</div></div>
 
+  </div><!-- /tab-analyze -->
+
+  <div id="tab-discover" style="display:none">
+    <div id="discoverContent"><div class="empty-state">Loading trending markets...</div></div>
+  </div>
+
+  <div id="tab-watchlist" style="display:none">
+    <div id="watchlistContent"><div class="empty-state">Loading watchlist...</div></div>
+  </div>
+
+  <div id="tab-calendar" style="display:none">
+    <div id="calendarContent"><div class="empty-state">Loading calendar...</div></div>
+  </div>
+
+  <div id="tab-tools" style="display:none">
+    <div id="toolsContent"><div class="empty-state">Loading tools...</div></div>
+  </div>
+
   <div class="footer"><span class="dot-sm">●</span> PREDARA · <a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">EDISON LABS LLC</a> · 2026</div>
 
 </div>
@@ -1534,6 +1956,7 @@
 <script src="renderers.js?v=15"></script>
 <script src="compare.js?v=15"></script>
 <script src="app.js?v=15"></script>
+<script src="features.js?v=15"></script>
 <script>
   (function () {
     // Theme
