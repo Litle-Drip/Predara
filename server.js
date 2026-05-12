@@ -241,7 +241,12 @@ const server = http.createServer((req, res) => {
     const normalizedKey = _normalizedKey
     const headers = { "Content-Type": "application/json", ...CORS_HEADERS }
 
-    function kalshiGet(apiPath) {
+    const KALSHI_HOSTS = [
+      "trading-api.kalshi.com",
+      "api.elections.kalshi.com",
+    ]
+
+    function kalshiGet(hostname, apiPath) {
       return new Promise((resolve, reject) => {
         const basePath = apiPath.split("?")[0]
         const timestamp = Date.now().toString()
@@ -253,7 +258,7 @@ const server = http.createServer((req, res) => {
           return reject(err)
         }
         const req = https.request({
-          hostname: "api.elections.kalshi.com",
+          hostname,
           path: apiPath,
           method: "GET",
           headers: {
@@ -275,27 +280,82 @@ const server = http.createServer((req, res) => {
       })
     }
 
-    Promise.resolve()
-      .then(() => kalshiGet(`/trade-api/v2/markets/${encodeURIComponent(ticker)}`))
-      .then((r) => {
-        if (r.status === 200) return r
-        return kalshiGet(`/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`)
-      })
-      .then((r) => {
-        if (r.status === 200) {
-          let parsed
-          try { parsed = JSON.parse(r.body) } catch (_) { parsed = null }
-          if (!parsed || typeof parsed !== "object" ||
-              (!(parsed.market && parsed.market.ticker) && !(parsed.event && parsed.event.event_ticker))) {
-            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
-          }
-          res.writeHead(200, headers)
-          res.end(r.body)
-        } else {
-          res.writeHead(r.status, headers)
-          res.end(JSON.stringify({ error: `API returned ${r.status}` }))
+    async function kalshiLookup() {
+      const paths = [
+        `/trade-api/v2/markets/${encodeURIComponent(ticker)}`,
+        `/trade-api/v2/events/${encodeURIComponent(ticker)}?with_nested_markets=true`,
+      ]
+      for (const hostname of KALSHI_HOSTS) {
+        for (const p of paths) {
+          const r = await kalshiGet(hostname, p)
+          if (r.status === 200) return r
         }
+      }
+      return null
+    }
+
+    kalshiLookup()
+      .then(async (found) => {
+        if (!found) {
+          res.writeHead(404, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: `Kalshi event or market "${ticker}" not found` }))
+        }
+        let data
+        try { data = JSON.parse(found.body) } catch (_) { data = null }
+        if (!data || typeof data !== "object" ||
+            (!(data.market && data.market.ticker) && !(data.event && data.event.event_ticker))) {
+          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
+        }
+
+        // Enrich event responses: fetch full market listing to capture all markets
+        if (data.event) {
+          const eventTicker = data.event.event_ticker || ticker
+          for (const hostname of KALSHI_HOSTS) {
+            try {
+              const mr = await kalshiGet(
+                hostname,
+                `/trade-api/v2/markets?event_ticker=${encodeURIComponent(eventTicker)}&limit=200`,
+              )
+              if (mr.status === 200) {
+                const md = JSON.parse(mr.body)
+                if (Array.isArray(md.markets) && md.markets.length > 0) {
+                  const nested = new Map((data.event.markets || []).map(m => [m.ticker, m]))
+                  data.event.markets = md.markets.map(m => nested.get(m.ticker) || m)
+                }
+                break
+              }
+            } catch (_) { /* best-effort */ }
+          }
+        }
+
+        // Enrich with series contract_url for "View full rules"
+        const seriesTicker = (data.event || data.market || {}).series_ticker
+          || ((data.event && data.event.markets && data.event.markets[0]) || {}).series_ticker
+          || (data.event || data.market || {}).event_ticker
+          || ((data.event && data.event.markets && data.event.markets[0]) || {}).event_ticker
+        if (seriesTicker) {
+          for (const hostname of KALSHI_HOSTS) {
+            try {
+              const sr = await kalshiGet(
+                hostname,
+                `/trade-api/v2/series/${encodeURIComponent(seriesTicker)}`,
+              )
+              if (sr.status === 200) {
+                const sd = JSON.parse(sr.body)
+                const contractUrl = (sd.series || {}).contract_url
+                if (contractUrl) {
+                  if (data.event) data.event._contract_url = contractUrl
+                  if (data.market) data.market._contract_url = contractUrl
+                }
+                break
+              }
+            } catch (_) { /* series fetch is best-effort */ }
+          }
+        }
+
+        res.writeHead(200, headers)
+        res.end(JSON.stringify(data))
       })
       .catch((err) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
