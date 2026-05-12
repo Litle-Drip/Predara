@@ -4,7 +4,7 @@ const PLATFORM_FOOTNOTES = {
   kalshi:     "US-regulated by the CFTC. Real money. Requires US residency.",
   polymarket: "Decentralized (Polygon blockchain). Global access. US users may need VPN.",
   gemini:     "Operated by Gemini exchange. Smaller market selection.",
-  coinbase:   "Powered by Kalshi. US-regulated. Available to Coinbase users.",
+  coinbase:   "Available to Coinbase users. Routed via Kalshi (uppercase tickers) or Polymarket (lowercase slugs) depending on the market.",
 }
 
 function fmtCompareNum(n) {
@@ -66,9 +66,12 @@ function extractTopOutcomes(platform, data) {
       }
     }
     if (platform === "coinbase") {
-      // Coinbase uppercase-ticker URLs resolve through Kalshi — reuse that logic
+      // Coinbase has two product surfaces with different backings:
+      //   www.coinbase.com/predictions/event/<UPPERCASE_TICKER> → Kalshi-backed
+      //   predict.coinbase.com/markets/<lowercase-slug>          → Polymarket-backed
+      // The Kalshi proxy returns { event } / { market }; the Polymarket proxy returns an array of events.
       if (data && data.event) return extractTopOutcomes("kalshi", data)
-      return { title: "", topOutcomes: [], stats: [] }
+      return extractTopOutcomes("polymarket", data)
     }
     if (platform === "polymarket") {
       const event = Array.isArray(data) ? data[0] : data
