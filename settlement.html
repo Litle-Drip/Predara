@@ -384,8 +384,15 @@
 
     @media (max-width: 560px) {
       .app { padding: 18px 14px 56px; }
-      .app-header { margin-bottom: 22px; }
-      .tab-nav { display: none; }
+      .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+      .tab-nav {
+        position: static;
+        transform: none;
+        order: 2;
+        flex: 1;
+      }
+      .tab-nav a { flex: 1; text-align: center; }
+      .theme-toggle { order: 2; }
       .intake-row { flex-direction: column; }
       .btn-review { width: 100%; }
       .shortcut-hint { display: none; }
