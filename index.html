@@ -812,7 +812,12 @@
     .mode-tab { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 11px; border-radius: 5px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
     .mode-tab:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
     .mode-tab.active { background: var(--orange); color: #fff; }
-    @media (max-width: 540px) { .mode-tabs { display: none; } }
+    @media (max-width: 540px) {
+      .app-header { flex-wrap: wrap; gap: 10px; }
+      .header-controls { order: 2; width: 100%; justify-content: space-between; margin-left: 0; }
+      .mode-tabs { flex: 1; }
+      .mode-tab { flex: 1; text-align: center; }
+    }
 
     /* ── Footer ── */
     .footer {
