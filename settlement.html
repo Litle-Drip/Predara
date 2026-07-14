@@ -421,12 +421,12 @@
 
   <div class="intake">
     <div class="intake-label">Settlement Desk</div>
-    <div class="intake-desc">After a market closes, paste the Gemini ticker or URL and AI will cross-check the outcome against real-world results — confirming correct settlements or flagging discrepancies.</div>
+    <div class="intake-desc">After a market closes, paste a ticker or URL from Gemini, Kalshi, Polymarket, or Coinbase — settlement is confirmed directly from the platform's API data with no AI cost for clean results.</div>
     <div class="intake-row">
       <input
         id="tickerInput"
         type="text"
-        placeholder="Paste ticker, instrument symbol, or Gemini URL…"
+        placeholder="Paste ticker or URL — Gemini, Kalshi, Polymarket, Coinbase…"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
@@ -553,7 +553,7 @@
     el.innerHTML = `
       <div class="empty-state-icon">🔍</div>
       <div class="empty-state-title">No cases yet</div>
-      <div>Paste a Gemini ticker or market URL above to audit its settlement.</div>
+      <div>Paste a ticker or URL from Gemini, Kalshi, Polymarket, or Coinbase above to audit its settlement.</div>
     `
     return el
   }
