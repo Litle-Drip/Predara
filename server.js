@@ -443,29 +443,35 @@ const server = http.createServer((req, res) => {
 
       // Trim to minimal settlement fields only
       const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
+
+      // Separate winners from losers — only send winners in full to keep the
+      // prompt lean even for large fields (e.g. MASTERS26 has 86 contracts).
+      const trimContract = c => ({
+        label: c.label || c.displayName || "",
+        status: c.status || "",
+        resolutionSide: c.resolutionSide || "",
+        result: c.result || "",
+        resolvedAt: c.resolvedAt || "",
+        lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : (c.prices?.lastTradePrice ?? null),
+      })
+      const winners = contracts.filter(c => c.resolutionSide === "yes" || c.result === "yes")
+      const losers  = contracts.filter(c => c.resolutionSide !== "yes" && c.result !== "yes")
+
       const trimmed = {
         ticker: eventData.ticker || ticker,
         title: eventData.title || "",
         status: eventData.status || "",
         resolvedSide: eventData.resolvedSide || "",
         resolvedAt: eventData.resolvedAt || "",
-        contracts: contracts.map(c => ({
-          label: c.label || c.displayName || "",
-          status: c.status || "",
-          resolutionSide: c.resolutionSide || "",
-          result: c.result || "",
-          resolvedAt: c.resolvedAt || "",
-          lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : (c.prices?.lastTradePrice ?? null),
-        })),
+        totalContracts: contracts.length,
+        winners: winners.map(trimContract),
+        // For losers just include label + status so Claude has full picture without bloat
+        losers: losers.map(c => ({ label: c.label || c.displayName || "", status: c.status || "" })),
       }
 
       const systemPrompt = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. Analyze whether the market's settlement appears correct based on the data and your knowledge of the underlying real-world event.
 
-Key data interpretation rules:
-- resolutionSide: "yes" on a contract = that contract is the WINNER (Gemini markets).
-- result: "yes" on a contract = that contract is the WINNER (Kalshi markets).
-- lastTradePrice ~1.0 on a contract also indicates the winner when the above fields are absent.
-- Use whichever field is populated to identify the winning outcome, then cross-check against your knowledge of the real-world event result.
+Data structure: the payload has a "winners" array (contracts with resolutionSide:"yes" or result:"yes") and a "losers" array (all others, label+status only). Check the winners array to identify who won, then verify against your knowledge of the real-world result.
 
 Your final response must be a single raw JSON object — no markdown, no code fences, no commentary. First character must be { and last must be }. Schema:
 {"ticker":string,"title":string,"status":string,"resolvedSide":string,"verdict":"confirmed"|"discrepancy"|"needs_review","summary":"2-3 sentence explanation of your finding","keyFacts":["short fact","short fact","short fact"],"recommendation":"1-2 sentences: what a support agent should do next"}
