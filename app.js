@@ -619,10 +619,10 @@ async function analyze() {
           if (kr.ok && (kd.event || kd.market)) {
             if (kd.event) {
               kd.event._allMarkets = [...(kd.event.markets || [])]
-              result.innerHTML = renderKalshiEvent(kd.event, accent, "coinbase")
+              result.innerHTML = renderKalshiEvent(kd.event, accent, "coinbase", url)
             } else {
               const fakeEvent = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {} }
-              result.innerHTML = renderKalshiEvent(fakeEvent, accent, "coinbase")
+              result.innerHTML = renderKalshiEvent(fakeEvent, accent, "coinbase", url)
             }
             _afterSuccessfulFetch(url)
             return
@@ -672,7 +672,7 @@ async function analyze() {
         return
       }
 
-      result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
+      result.innerHTML = renderPolymarketEvent(event, markets, accent, platform, url)
       // For Polymarket MLB sports markets inject a live gameday link
       if (event.slug && /^mlb-/i.test(event.slug) && Array.isArray(event.teams) && event.teams.length >= 2) {
         const dateMatch = event.slug.match(/(\d{4}-\d{2}-\d{2})$/)
@@ -750,7 +750,7 @@ async function analyze() {
           const specific = data.event.markets.filter(m => m.ticker?.toUpperCase() === ticker)
           if (specific.length > 0) data.event.markets = specific
         }
-        result.innerHTML = renderKalshiEvent(data.event, accent)
+        result.innerHTML = renderKalshiEvent(data.event, accent, "kalshi", url)
         _afterSuccessfulFetch(url)
       } else if (data.market) {
         const m = data.market
@@ -763,7 +763,7 @@ async function analyze() {
           series_ticker: m.series_ticker,
           _contract_url: m._contract_url,
         }
-        result.innerHTML = renderKalshiEvent(fakeEvent, accent)
+        result.innerHTML = renderKalshiEvent(fakeEvent, accent, "kalshi", url)
         _afterSuccessfulFetch(url)
       } else {
         throw new Error("Unexpected API response.")
@@ -815,7 +815,7 @@ async function analyze() {
       const data = await res.json()
       if (!data || (!data.title && !data.contracts && !data.ticker)) throw new Error("No event data returned.")
 
-      result.innerHTML = renderGeminiEvent(data, accent)
+      result.innerHTML = renderGeminiEvent(data, accent, url)
       // For Gemini MLB markets (ticker: MLB-YYMMDDHHmm-AWAY-HOME-M) inject gameday link
       {
         const mlbM = ticker.match(/^MLB-(\d{2})(\d{2})(\d{2})\d{4}-([A-Z]+)-([A-Z]+)/i)

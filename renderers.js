@@ -133,20 +133,20 @@ function renderMarket(norm, accent) {
 // ── Backwards-compatible wrappers ─────────────────────────────────────────────
 // These preserve the existing call signatures used by analyze() and fetchOneMarket().
 
-function renderKalshiEvent(ev, accent, platformKey = "kalshi") {
+function renderKalshiEvent(ev, accent, platformKey = "kalshi", inputUrl = "") {
   const markets = (ev.markets || []).filter(m => m.yes_sub_title)
   if (!markets.length) return `<div class="mi-error">No outcome data available for this market.</div>`
-  return renderMarket(normalizeKalshi(ev, platformKey), accent)
+  return renderMarket(normalizeKalshi(ev, platformKey, inputUrl), accent)
 }
 
-function renderGeminiEvent(event, accent) {
-  const norm = normalizeGemini(event)
+function renderGeminiEvent(event, accent, inputUrl = "") {
+  const norm = normalizeGemini(event, inputUrl)
   if (!norm) return `<div class="mi-error">No outcome data found for this event.</div>`
   return renderMarket(norm, accent)
 }
 
-function renderPolymarketEvent(event, markets, accent, platformKey = "polymarket") {
-  const norm = normalizePolymarket(event, markets, platformKey)
+function renderPolymarketEvent(event, markets, accent, platformKey = "polymarket", inputUrl = "") {
+  const norm = normalizePolymarket(event, markets, platformKey, inputUrl)
   if (!norm) return `<div class="mi-error">No outcome data found for this market.</div>`
   return renderMarket(norm, accent)
 }
