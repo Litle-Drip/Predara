@@ -117,9 +117,9 @@
     .tab-nav {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       margin-left: auto;
-      background: var(--surface);
+      background: #222;
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 3px;
@@ -132,20 +132,20 @@
       font-weight: 500;
       color: var(--muted);
       text-decoration: none;
-      padding: 5px 12px;
-      border-radius: 6px;
+      padding: 5px 11px;
+      border-radius: 5px;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
     }
 
     .tab-nav a:hover {
       color: var(--text-mid);
-      background: rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.06);
     }
 
     .tab-nav a.active {
-      background: var(--teal-dim);
-      color: var(--teal);
+      background: #00dcfa;
+      color: #000;
     }
 
     /* ── Intake panel ── */
@@ -160,11 +160,18 @@
 
     .intake-label {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 15px;
+      font-weight: 700;
       color: var(--text-bright);
-      margin-bottom: 10px;
-      letter-spacing: -0.1px;
+      margin-bottom: 6px;
+      letter-spacing: -0.2px;
+    }
+
+    .intake-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
     }
 
     .intake-row {
@@ -486,7 +493,8 @@
   </div>
 
   <div class="intake">
-    <div class="intake-label">Settlement Review</div>
+    <div class="intake-label">Settlement Desk</div>
+    <div class="intake-desc">After a market closes, paste the Gemini ticker or URL and AI will cross-check the outcome against real-world results — confirming correct settlements or flagging discrepancies.</div>
     <div class="intake-row">
       <input
         id="tickerInput"
