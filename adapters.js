@@ -92,7 +92,7 @@ function sourceLabel(source, fallback = "Resolution source") {
 }
 
 // ── normalizeKalshi ────────────────────────────────────────────────────────────
-function normalizeKalshi(ev, platformKey = "kalshi") {
+function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
   const markets    = (ev.markets || []).filter(m => m.yes_sub_title)
   const allMarkets = (ev._allMarkets || ev.markets || []).filter(m => m.yes_sub_title)
   if (!markets.length) return null
@@ -402,14 +402,14 @@ function normalizeKalshi(ev, platformKey = "kalshi") {
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
-    sourceUrl: platformKey === "coinbase"
+    sourceUrl: inputUrl || (platformKey === "coinbase"
       ? (ev.event_ticker ? `https://coinbase.com/predictions/event/${ev.event_ticker}` : "")
-      : (ev.event_ticker ? `https://kalshi.com/events/${ev.event_ticker}` : ""),
+      : (ev.event_ticker ? `https://kalshi.com/events/${ev.event_ticker}` : "")),
   }
 }
 
 // ── normalizeGemini ────────────────────────────────────────────────────────────
-function normalizeGemini(event) {
+function normalizeGemini(event, inputUrl = "") {
   const status = (event.status || "").toLowerCase()
   const isOpen = status === "active" || status === "approved" || status === "open"
   const statusDot  = isOpen ? "dot-green" : "dot-red"
@@ -704,12 +704,12 @@ function normalizeGemini(event) {
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: event.description || "",
-    sourceUrl: geminiTicker ? `https://www.gemini.com/predictions/${geminiTicker}` : "",
+    sourceUrl: inputUrl || (geminiTicker ? `https://www.gemini.com/predictions/${geminiTicker}` : ""),
   }
 }
 
 // ── normalizePolymarket ────────────────────────────────────────────────────────
-function normalizePolymarket(event, markets, platformKey = "polymarket") {
+function normalizePolymarket(event, markets, platformKey = "polymarket", inputUrl = "") {
   const outcomes = []
   const analyticsSource = []
   const categoricalEntries = []
@@ -1082,10 +1082,10 @@ function normalizePolymarket(event, markets, platformKey = "polymarket") {
     ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
     resSourceHtml,
     rawRulesText: first.description || event.description || "",
-    sourceUrl: event.slug
+    sourceUrl: inputUrl || (event.slug
       ? (platformKey === "coinbase"
           ? `https://predict.coinbase.com/markets/${event.slug}`
           : `https://polymarket.com/event/${event.slug}`)
-      : "",
+      : ""),
   }
 }
