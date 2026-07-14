@@ -445,26 +445,9 @@ function betSimResultHtml(bet, prob, platform, side) {
   const countLine = count != null
     ? `<div class="bet-sim-count">You buy <strong>~${formatCount(count)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
     : ""
-  let sensitivityLine = ""
-  if (count != null && bet > 0 && effectiveProb > 0 && effectiveProb < 1) {
-    const shift = 0.10
-    const probHi = effectiveProb + shift
-    const probLo = effectiveProb - shift
-    const parts = []
-    if (probHi < 1) {
-      const cHi = bet / probHi
-      const diff = Math.round(count - cHi)
-      if (diff > 0) parts.push(`+10 pp → ~${formatCount(cHi)} ${countUnit} (−${diff})`)
-    }
-    if (probLo > 0) {
-      const cLo = bet / probLo
-      const diff = Math.round(cLo - count)
-      if (diff > 0) parts.push(`−10 pp → ~${formatCount(cLo)} ${countUnit} (+${diff})`)
-    }
-    if (parts.length) {
-      sensitivityLine = `<div class="bet-sim-sensitivity">If odds shift: ${parts.join(" · ")}</div>`
-    }
-  }
+  const sensTable = (count != null && bet > 0 && effectiveProb > 0 && effectiveProb < 1)
+    ? oddsSensTableHtml(bet, effectiveProb, countUnit)
+    : ""
   const sideLabel = side === "no" ? "NO" : "YES"
   let feeLine = ""
   if (fee != null && fee > 0 && profit > 0) {
@@ -476,11 +459,35 @@ function betSimResultHtml(bet, prob, platform, side) {
   }
   return `
     ${countLine}
-    ${sensitivityLine}
     <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
     ${feeLine}
     <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
-    <div class="bet-sim-note">${note}</div>`
+    <div class="bet-sim-note">${note}</div>
+    ${sensTable}`
+}
+
+function oddsSensTableHtml(bet, effectiveProb, countUnit) {
+  const anchors = [0.10, 0.30, 0.50, 0.70, 0.90]
+  const DEDUP_EPS = 0.02
+  const filtered = anchors.filter(a => Math.abs(a - effectiveProb) >= DEDUP_EPS)
+  const allLevels = [...filtered, effectiveProb].sort((a, b) => a - b)
+  const rowsHtml = allLevels.map(p => {
+    const isCurrent = p === effectiveProb
+    const cnt = bet / p
+    const payout = cnt * 1.0
+    const profit = payout - bet
+    const cls = isCurrent ? ' class="odds-sens-current"' : ""
+    const marker = isCurrent ? " ◀" : ""
+    return `<tr${cls}><td>${Math.round(p * 100)}%${marker}</td><td>~${formatCount(cnt)} ${countUnit}</td><td>$${payout.toFixed(2)}</td><td class="val-green">+$${profit.toFixed(2)}</td></tr>`
+  }).join("")
+  return `
+    <details class="odds-sens-details">
+      <summary class="odds-sens-summary">Odds sensitivity table</summary>
+      <table class="odds-sens-table">
+        <thead><tr><th>Odds</th><th>Size</th><th>Collect</th><th>Profit</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </details>`
 }
 
 function betSimulatorHtml(outcomes) {

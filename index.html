@@ -493,8 +493,35 @@
       font-family: inherit;
     }
     .bet-sim-tab:hover { border-color: var(--orange); color: var(--orange); }
-    .bet-sim-sensitivity { font-size: 12px; color: var(--muted); margin-top: 4px; margin-bottom: 8px; line-height: 1.55; }
     .bet-sim-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.55; font-style: italic; }
+    .odds-sens-details { margin-top: 12px; }
+    .odds-sens-summary {
+      font-size: 12px; color: var(--muted); cursor: pointer;
+      list-style: none; user-select: none;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .odds-sens-summary::-webkit-details-marker { display: none; }
+    .odds-sens-summary::before { content: "▶"; font-size: 9px; transition: transform 0.15s; }
+    details[open] .odds-sens-summary::before { transform: rotate(90deg); }
+    .odds-sens-summary:hover { color: var(--orange); }
+    .odds-sens-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12px; margin-top: 8px;
+    }
+    .odds-sens-table th {
+      text-align: left; color: var(--muted);
+      font-weight: 500; padding: 3px 8px 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .odds-sens-table td {
+      padding: 5px 8px 5px 0; color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .odds-sens-table tr:last-child td { border-bottom: none; }
+    .odds-sens-current td {
+      color: var(--text-bright); font-weight: 600;
+      background: rgba(251,146,60,0.07);
+    }
     .bet-sim-fee { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.6; }
     .bet-sim-fee strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-fee-detail { opacity: 0.65; margin-left: 4px; }
