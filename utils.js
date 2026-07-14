@@ -364,4 +364,9 @@ function plainEnglishRules(rulesText) {
       .replace(/\.$/, "")
     )
     .filter(s => s.length >= 10)
+    .filter((s, i, arr) => {
+      const normalize = t => t.replace(/[\s.,;:!?]+/g, " ").trim().toLowerCase()
+      const key = normalize(s)
+      return arr.findIndex(t => normalize(t) === key) === i
+    })
 }
