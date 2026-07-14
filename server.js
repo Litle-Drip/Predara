@@ -580,18 +580,20 @@ const server = http.createServer((req, res) => {
         contracts: contracts.slice(0, 10).map(c => ({
           label: c.label || c.displayName || "",
           status: c.status || "",
-          resolvedSide: c.resolvedSide || "",
+          resolutionSide: c.resolutionSide || "",
+          result: c.result || "",
           resolvedAt: c.resolvedAt || "",
-          lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : (c.prices && c.prices.lastTradePrice != null ? c.prices.lastTradePrice : null),
+          lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : (c.prices?.lastTradePrice ?? null),
         })),
       }
 
       const systemPrompt = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. Analyze whether the market's settlement appears correct based on the data and your knowledge of the underlying real-world event.
 
 Key data interpretation rules:
-- lastTradePrice of 1.0 (or "1") on a contract means it resolved YES (winner). lastTradePrice of 0.0 (or "0") means it resolved NO (loser).
-- If resolvedSide fields are empty but one contract has lastTradePrice ~1.0, that contract is the winner — use it to determine the resolved outcome.
-- Cross-check the identified winner against your knowledge of the real-world event result.
+- resolutionSide: "yes" on a contract = that contract is the WINNER (Gemini markets).
+- result: "yes" on a contract = that contract is the WINNER (Kalshi markets).
+- lastTradePrice ~1.0 on a contract also indicates the winner when the above fields are absent.
+- Use whichever field is populated to identify the winning outcome, then cross-check against your knowledge of the real-world event result.
 
 Your final response must be a single raw JSON object — no markdown, no code fences, no commentary. First character must be { and last must be }. Schema:
 {"ticker":string,"title":string,"status":string,"resolvedSide":string,"verdict":"confirmed"|"discrepancy"|"needs_review","summary":"2-3 sentence explanation of your finding","keyFacts":["short fact","short fact","short fact"],"recommendation":"1-2 sentences: what a support agent should do next"}
