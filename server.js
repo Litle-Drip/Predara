@@ -349,7 +349,11 @@ const server = http.createServer((req, res) => {
         }
         try {
           const data = JSON.parse(body)
-          const games = (data.dates || []).flatMap(d => d.games || [])
+          if (!data || typeof data !== "object" || !Array.isArray(data.dates)) {
+            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+            return res.end(JSON.stringify({ error: "MLB API returned an unexpected response shape" }))
+          }
+          const games = data.dates.flatMap(d => d.games || [])
           const toSlug = n => (n || "").toLowerCase().replace(/\s+/g, "-")
           const simplified = games.map(g => ({
             gamePk:   g.gamePk,

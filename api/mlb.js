@@ -37,7 +37,10 @@ module.exports = (req, res) => {
       }
       try {
         const data = JSON.parse(body)
-        const games = (data.dates || []).flatMap(d => d.games || [])
+        if (!data || typeof data !== "object" || !Array.isArray(data.dates)) {
+          return res.status(502).json({ error: "MLB API returned an unexpected response shape" })
+        }
+        const games = data.dates.flatMap(d => d.games || [])
         const toSlug = n => (n || "").toLowerCase().replace(/\s+/g, "-")
         const simplified = games.map(g => ({
           gamePk:   g.gamePk,
