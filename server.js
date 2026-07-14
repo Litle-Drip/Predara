@@ -24,7 +24,7 @@ const MIME = {
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 }
 
@@ -45,6 +45,33 @@ let _normalizedKey = null
 // Only allow alphanumeric, hyphen, underscore, dot in tickers/slugs
 function isSafeParam(str) {
   return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
+}
+
+function httpsPostJson(hostname, reqPath, extraHeaders, bodyObj, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const bodyStr = JSON.stringify(bodyObj)
+    const req = https.request({
+      hostname,
+      path: reqPath,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(bodyStr),
+        ...extraHeaders,
+      },
+    }, (apiRes) => {
+      let body = ""
+      apiRes.on("data", chunk => { body += chunk })
+      apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+    })
+    req.setTimeout(timeoutMs || 15000, () => {
+      req.destroy()
+      reject(new Error("Request timed out"))
+    })
+    req.on("error", reject)
+    req.write(bodyStr)
+    req.end()
+  })
 }
 
 function httpsGetWithTimeout(targetUrl, timeoutMs) {
@@ -345,6 +372,156 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Settlement review ──
+  if (parsed.pathname === "/api/settlement-review" && req.method === "POST") {
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+    if (!ANTHROPIC_API_KEY) {
+      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ verdict: "error", summary: "Settlement review is not configured. Set the ANTHROPIC_API_KEY environment variable." }))
+    }
+
+    let rawBody = ""
+    req.on("data", chunk => { rawBody += chunk })
+    req.on("end", async () => {
+      const sendError = (summary) => {
+        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ verdict: "error", summary }))
+      }
+
+      let input
+      try {
+        const parsed_body = JSON.parse(rawBody)
+        input = (typeof parsed_body.input === "string" ? parsed_body.input : "").trim()
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+        return res.end(JSON.stringify({ verdict: "error", summary: "Invalid request body — expected JSON with an `input` field." }))
+      }
+
+      if (!input) {
+        res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+        return res.end(JSON.stringify({ verdict: "error", summary: "No input provided. Paste a Gemini ticker, instrument symbol, or event URL." }))
+      }
+
+      // Extract event ticker from raw input
+      let ticker = input
+      try {
+        const u = new URL(input)
+        const segments = u.pathname.split("/").filter(Boolean)
+        const predIdx = segments.indexOf("predictions")
+        ticker = (predIdx !== -1 && segments[predIdx + 1])
+          ? segments[predIdx + 1]
+          : (segments[segments.length - 1] || input)
+      } catch {
+        // Not a URL — strip trailing instrument suffix (-Y / -N) to get event ticker
+        ticker = input.replace(/[_-](Y|N)$/i, "").trim()
+      }
+
+      if (!ticker || !isSafeParam(ticker)) {
+        res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+        return res.end(JSON.stringify({ verdict: "error", summary: `Could not extract a valid ticker from: "${input.slice(0, 80)}"` }))
+      }
+
+      // Fetch Gemini event data (same upstream as /api/gemini)
+      let eventData
+      try {
+        const { status: gemStatus, body: gemBody } = await httpsGetWithTimeout(
+          `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`,
+          REQUEST_TIMEOUT_MS
+        )
+        if (gemStatus !== 200) {
+          return res.end(JSON.stringify({
+            verdict: "needs_review", ticker, title: ticker,
+            status: "unknown", resolvedSide: "unknown",
+            summary: `Could not fetch event data for ticker "${ticker}" — Gemini API returned ${gemStatus}. Verify the ticker is correct.`,
+            keyFacts: [`Ticker tried: ${ticker}`, `Gemini API status: ${gemStatus}`],
+            recommendation: "Check the ticker spelling and try again. If the event is very recent it may not yet be indexed.",
+          }))
+        }
+        eventData = JSON.parse(gemBody)
+      } catch (err) {
+        return sendError(`Failed to fetch Gemini event data: ${err.message}`)
+      }
+
+      // Trim to only what Claude needs for analysis
+      const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
+      const trimmed = {
+        ticker: eventData.ticker || ticker,
+        title: eventData.title || "",
+        status: eventData.status || "",
+        resolvedSide: eventData.resolvedSide || "",
+        resolvedAt: eventData.resolvedAt || "",
+        description: typeof eventData.description === "string"
+          ? eventData.description.slice(0, 400) : "",
+        contracts: contracts.slice(0, 10).map(c => ({
+          label: c.label || c.displayName || "",
+          status: c.status || "",
+          resolvedSide: c.resolvedSide || "",
+          resolvedAt: c.resolvedAt || "",
+          closeDate: c.closeDate || c.expiryDate || "",
+          lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : null,
+        })),
+      }
+
+      const systemPrompt = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. Analyze whether the market's settlement appears correct based on the data and your knowledge of the underlying real-world event.
+
+Your final response must be a single raw JSON object — no markdown, no code fences, no commentary. First character must be { and last must be }. Schema:
+{"ticker":string,"title":string,"status":string,"resolvedSide":string,"verdict":"confirmed"|"discrepancy"|"needs_review","summary":"2-3 sentence explanation of your finding","keyFacts":["short fact","short fact","short fact"],"recommendation":"1-2 sentences: what a support agent should do next"}
+
+Use "confirmed" if settlement looks correct, "discrepancy" if something appears wrong, "needs_review" if data is insufficient.`
+
+      const userMessage = `Input: ${input}\n\nGemini event data:\n${JSON.stringify(trimmed, null, 2)}`
+
+      // Call Anthropic claude-3-5-haiku (cheap, fast)
+      let claudeText
+      try {
+        const { status: aiStatus, body: aiBody } = await httpsPostJson(
+          "api.anthropic.com",
+          "/v1/messages",
+          { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+          { model: "claude-3-5-haiku-20241022", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: userMessage }] },
+          20000
+        )
+        const aiJson = JSON.parse(aiBody)
+        if (aiStatus !== 200) {
+          return sendError(`AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}`)
+        }
+        claudeText = aiJson?.content?.[0]?.text || ""
+      } catch (err) {
+        return sendError(`AI analysis failed: ${err.message}`)
+      }
+
+      // Extract outermost {...} to guard against preamble text
+      const firstBrace = claudeText.indexOf("{")
+      const lastBrace = claudeText.lastIndexOf("}")
+      if (firstBrace === -1 || lastBrace <= firstBrace) {
+        return sendError("AI returned an unrecognized response format. Please try again.")
+      }
+
+      let verdict
+      try {
+        verdict = JSON.parse(claudeText.slice(firstBrace, lastBrace + 1))
+      } catch {
+        return sendError("AI returned malformed JSON. Please try again.")
+      }
+
+      // Validate and fill safe defaults for any missing required fields
+      const VALID_VERDICTS = new Set(["confirmed", "discrepancy", "needs_review"])
+      if (!VALID_VERDICTS.has(verdict.verdict)) verdict.verdict = "needs_review"
+      if (!verdict.ticker) verdict.ticker = trimmed.ticker
+      if (!verdict.title) verdict.title = trimmed.title || ticker
+      if (!verdict.status) verdict.status = trimmed.status || "unknown"
+      if (!verdict.resolvedSide) verdict.resolvedSide = trimmed.resolvedSide || "unknown"
+      if (!Array.isArray(verdict.keyFacts)) verdict.keyFacts = []
+      if (!verdict.summary) verdict.summary = "No summary provided."
+      if (!verdict.recommendation) verdict.recommendation = "Review manually."
+
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+      res.end(JSON.stringify(verdict))
+    })
+
+    return
+  }
+
   // ── Static file server (path traversal safe) ──
   let reqPath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
   const filePath = path.resolve(STATIC_ROOT, "." + reqPath)
@@ -368,6 +545,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running at http://0.0.0.0:${PORT}`)
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.warn("Warning: ANTHROPIC_API_KEY not set — /api/settlement-review will return errors until configured")
+  }
 })
 
 server.on("error", (err) => {
