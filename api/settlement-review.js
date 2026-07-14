@@ -121,7 +121,7 @@ module.exports = async (req, res) => {
     status: eventData.status || "",
     resolvedSide: eventData.resolvedSide || "",
     resolvedAt: eventData.resolvedAt || "",
-    contracts: contracts.slice(0, 10).map(c => ({
+    contracts: contracts.map(c => ({
       label: c.label || c.displayName || "",
       status: c.status || "",
       resolutionSide: c.resolutionSide || "",
