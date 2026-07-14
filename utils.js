@@ -315,25 +315,47 @@ function plainEnglishRules(rulesText) {
       const isListMarker = LIST_MARKER_RE.test(line)
       const isContinuation = /^\s/.test(line) && !isListMarker
       if (isContinuation && rawChunks.length > 0) {
-        rawChunks[rawChunks.length - 1] += " " + line.trim()
+        // Only fold if this line genuinely continues the previous chunk's sentence.
+        // If the previous chunk already ended with sentence-closing punctuation and
+        // the current (trimmed) line starts a new sentence (capital letter), treat it
+        // as a fresh chunk so that prose following a list item is never silently
+        // merged into that list item.
+        const prev = rawChunks[rawChunks.length - 1]
+        const prevEndsSentence = /[.!?]\s*$/.test(prev)
+        const lineStartsNewSentence = /^[A-Z]/.test(line.trim())
+        if (prevEndsSentence && lineStartsNewSentence) {
+          rawChunks.push(line.trim())
+        } else {
+          rawChunks[rawChunks.length - 1] += " " + line.trim()
+        }
       } else {
         rawChunks.push(line)
       }
     }
-    // Join any adjacent non-list, non-indented lines that belong to the same chunk
+    // Join any adjacent non-list, non-indented lines that belong to the same chunk.
+    // Each entry carries a `listAdjacent` flag that is true when the raw chunk
+    // immediately follows a list item — needed so prose that separates from a list
+    // item due to the rawChunks boundary logic is not dropped by the keyword filter.
     const chunks = []
+    let lastWasList = false
     for (const raw of rawChunks) {
-      if (!LIST_MARKER_RE.test(raw) && chunks.length > 0 && !LIST_MARKER_RE.test(chunks[chunks.length - 1])) {
-        chunks[chunks.length - 1] += " " + raw.trim()
+      const rawIsList = LIST_MARKER_RE.test(raw)
+      if (!rawIsList && chunks.length > 0 && !chunks[chunks.length - 1].isList) {
+        chunks[chunks.length - 1].text += " " + raw.trim()
       } else {
-        chunks.push(raw)
+        chunks.push({ text: raw, isList: rawIsList, listAdjacent: !rawIsList && lastWasList })
       }
+      lastWasList = rawIsList
     }
-    for (const chunk of chunks) {
+    for (const chunkObj of chunks) {
+      const chunk = chunkObj.text
       // Collapse any residual internal whitespace to a single space
       const normalized = chunk.replace(/\s+/g, " ").trim()
       // Detect whether this chunk started with a list marker before stripping it.
-      const fromList = /^\s*(?:\d+[.)]\s+|[-•*]\s+)/.test(normalized)
+      // Also treat chunks that immediately follow a list item as list-associated so
+      // that prose sentences adjacent to numbered items are not dropped by the
+      // keyword verb filter.
+      const fromList = /^\s*(?:\d+[.)]\s+|[-•*]\s+)/.test(normalized) || chunkObj.listAdjacent
       // Strip any leading list marker (e.g. "1. ", "2) ", "- ", "• ") so the
       // checklist renderer doesn't double-up with its own bullet icon.
       const stripped = normalized.replace(/^\s*(?:\d+[.)]\s+|[-•*]\s+)/, "")
