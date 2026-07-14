@@ -803,10 +803,12 @@
       transition: border-color 0.18s, color 0.18s;
     }
     .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
-    .header-controls { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .settlement-link { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
-    .settlement-link:hover { color: var(--text-bright); border-color: var(--text); }
-    @media (max-width: 480px) { .settlement-link { display: none; } }
+    .header-controls { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .mode-tabs { display: flex; align-items: center; gap: 3px; background: var(--bar-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; flex-shrink: 0; }
+    .mode-tab { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 11px; border-radius: 5px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
+    .mode-tab:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
+    .mode-tab.active { background: var(--orange); color: #fff; }
+    @media (max-width: 540px) { .mode-tabs { display: none; } }
 
     /* ── Footer ── */
     .footer {
@@ -1481,7 +1483,10 @@
       </div>
     </div>
     <div class="header-controls">
-      <a href="/settlement.html" class="settlement-link" title="Settlement Desk — AI-powered settlement auditing for Gemini markets">Settlement Desk →</a>
+      <nav class="mode-tabs" aria-label="App mode">
+        <a class="mode-tab active" href="/">Analyze</a>
+        <a class="mode-tab" href="/settlement.html">Settlement Desk</a>
+      </nav>
       <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
     </div>
