@@ -242,13 +242,60 @@ function resolutionConfidenceHtml(rawRulesText) {
 }
 
 // ── Resolution checklist ───────────────────────────────────────────────────────
-function resolutionChecklist(sentences) {
+// outcomes: NormalizedOutcome[] — used to flag sentences that match a high-
+// probability outcome so traders can see at a glance which conditions are
+// likely to trigger. A sentence "matches" when:
+//   • it contains "you win"  → cross-ref against the YES / leading outcome
+//   • it contains "you lose" → cross-ref against the NO  / trailing outcome
+//   • it contains an outcome label (multi-outcome markets, case-insensitive)
+// The indicator is shown when the matched outcome is ≥ 65%.
+function resolutionChecklist(sentences, outcomes) {
   if (!sentences || !sentences.length) return ""
+
+  // Build a lookup: normalised label → { pct, color }
+  const outcomeMap = []
+  if (Array.isArray(outcomes)) {
+    outcomes.forEach(o => {
+      if (o && typeof o.label === "string") {
+        outcomeMap.push({ label: o.label.toLowerCase(), pct: o.pct || 0, color: o.color || "var(--orange)" })
+      }
+    })
+  }
+
+  const THRESHOLD = 65
+
+  function matchPct(sentence) {
+    const sl = sentence.toLowerCase()
+
+    // "you win" → the YES / highest-probability side
+    if (/\byou win\b/.test(sl)) {
+      const yes = outcomeMap.find(o => o.label === "yes") || outcomeMap[0]
+      if (yes && yes.pct >= THRESHOLD) return yes
+    }
+
+    // "you lose" → the NO / lowest-probability side
+    if (/\byou lose\b/.test(sl)) {
+      const no = outcomeMap.find(o => o.label === "no") || outcomeMap[outcomeMap.length - 1]
+      if (no && no.pct >= THRESHOLD) return no
+    }
+
+    // Multi-outcome: any outcome label found verbatim in the sentence
+    for (const o of outcomeMap) {
+      if (o.label.length > 1 && sl.includes(o.label) && o.pct >= THRESHOLD) return o
+    }
+
+    return null
+  }
+
   return sentences.map(s => {
     const inner = (typeof s === "string" && s.startsWith("<")) ? s : esc(s)
+    const match = typeof s === "string" ? matchPct(s) : null
+    const iconHtml = match
+      ? `<span class="rule-check-icon rule-check-active" style="color:${match.color}" title="${esc("Conditions likely met \u2014 " + match.label.toUpperCase() + " is at " + Math.round(match.pct) + "%")}">●</span>`
+      : `<span class="rule-check-icon">○</span>`
     return `
-    <div class="rule-check-item">
-      <span class="rule-check-icon">○</span>
+    <div class="rule-check-item${match ? " rule-check-item--live" : ""}">
+      ${iconHtml}
       <span class="rule-check-text">${inner}</span>
     </div>`
   }).join("")
