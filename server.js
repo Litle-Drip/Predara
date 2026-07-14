@@ -429,20 +429,15 @@ const server = http.createServer((req, res) => {
           REQUEST_TIMEOUT_MS
         )
         if (gemStatus !== 200) {
-          return res.end(JSON.stringify({
-            verdict: "needs_review", ticker, title: ticker,
-            status: "unknown", resolvedSide: "unknown",
-            summary: `Could not fetch event data for ticker "${ticker}" — Gemini API returned ${gemStatus}. Verify the ticker is correct.`,
-            keyFacts: [`Ticker tried: ${ticker}`, `Gemini API status: ${gemStatus}`],
-            recommendation: "Check the ticker spelling and try again. If the event is very recent it may not yet be indexed.",
-          }))
+          res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+          return res.end(JSON.stringify({ verdict: "error", summary: `Could not fetch event data for ticker "${ticker}" — Gemini API returned ${gemStatus}. Verify the ticker is correct.` }))
         }
         eventData = JSON.parse(gemBody)
       } catch (err) {
         return sendError(`Failed to fetch Gemini event data: ${err.message}`)
       }
 
-      // Trim to only what Claude needs for analysis
+      // Trim to minimal settlement fields only
       const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
       const trimmed = {
         ticker: eventData.ticker || ticker,
@@ -450,15 +445,11 @@ const server = http.createServer((req, res) => {
         status: eventData.status || "",
         resolvedSide: eventData.resolvedSide || "",
         resolvedAt: eventData.resolvedAt || "",
-        description: typeof eventData.description === "string"
-          ? eventData.description.slice(0, 400) : "",
         contracts: contracts.slice(0, 10).map(c => ({
           label: c.label || c.displayName || "",
           status: c.status || "",
           resolvedSide: c.resolvedSide || "",
           resolvedAt: c.resolvedAt || "",
-          closeDate: c.closeDate || c.expiryDate || "",
-          lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : null,
         })),
       }
 
