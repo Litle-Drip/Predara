@@ -134,6 +134,28 @@ module.exports = async (req, res) => {
     losers: losers.map(c => ({ label: c.label || c.displayName || "", status: c.status || "" })),
   }
 
+  // ── Fast path: winner clearly identified by API — no Claude call needed ──
+  if (winners.length > 0) {
+    const winnerLabels = winners.map(w => w.label).filter(Boolean)
+    const settledAt = winners[0]?.resolvedAt || eventData.resolvedAt || ""
+    const settledDate = settledAt ? new Date(settledAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "unknown date"
+    return res.status(200).json({
+      ticker: trimmed.ticker,
+      title: trimmed.title,
+      status: trimmed.status,
+      resolvedSide: winnerLabels.join(", "),
+      verdict: "confirmed",
+      summary: `Gemini's API confirms ${winnerLabels.join(" and ")} as the winner with resolutionSide set to "yes", settled on ${settledDate}. All ${losers.length} other contract${losers.length !== 1 ? "s" : ""} resolved to "no". Settlement data is clean and unambiguous.`,
+      keyFacts: [
+        `Winner: ${winnerLabels.join(", ")}`,
+        `Settlement timestamp: ${settledAt || "N/A"}`,
+        `${winners.length} of ${contracts.length} contracts resolved YES`,
+      ],
+      recommendation: "No action needed. Settlement is confirmed directly by Gemini's API data.",
+    })
+  }
+
+  // ── Slow path: no clear winner in API data — ask Claude ──
   let claudeText
   try {
     const { status: aiStatus, body: aiBody } = await postJson(

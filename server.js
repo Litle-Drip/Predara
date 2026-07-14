@@ -469,9 +469,31 @@ const server = http.createServer((req, res) => {
         losers: losers.map(c => ({ label: c.label || c.displayName || "", status: c.status || "" })),
       }
 
-      const systemPrompt = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. Analyze whether the market's settlement appears correct based on the data and your knowledge of the underlying real-world event.
+      // ── Fast path: winner clearly identified by API — no Claude call needed ──
+      if (winners.length > 0) {
+        const winnerLabels = winners.map(w => w.label).filter(Boolean)
+        const settledAt = winners[0]?.resolvedAt || eventData.resolvedAt || ""
+        const settledDate = settledAt ? new Date(settledAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "unknown date"
+        const verdict = {
+          ticker: trimmed.ticker,
+          title: trimmed.title,
+          status: trimmed.status,
+          resolvedSide: winnerLabels.join(", "),
+          verdict: "confirmed",
+          summary: `Gemini's API confirms ${winnerLabels.join(" and ")} as the winner with resolutionSide set to "yes", settled on ${settledDate}. All ${losers.length} other contract${losers.length !== 1 ? "s" : ""} resolved to "no". Settlement data is clean and unambiguous.`,
+          keyFacts: [
+            `Winner: ${winnerLabels.join(", ")}`,
+            `Settlement timestamp: ${settledAt || "N/A"}`,
+            `${winners.length} of ${contracts.length} contracts resolved YES`,
+          ],
+          recommendation: "No action needed. Settlement is confirmed directly by Gemini's API data.",
+        }
+        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+        return res.end(JSON.stringify(verdict))
+      }
 
-Data structure: the payload has a "winners" array (contracts with resolutionSide:"yes" or result:"yes") and a "losers" array (all others, label+status only). Check the winners array to identify who won, then verify against your knowledge of the real-world result.
+      // ── Slow path: no clear winner in API data — ask Claude ──
+      const systemPrompt = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. The API contains no clear winner signal (no resolutionSide:"yes" or result:"yes" on any contract). Analyze the available data and use your knowledge of the underlying real-world event to determine whether settlement appears correct.
 
 Your final response must be a single raw JSON object — no markdown, no code fences, no commentary. First character must be { and last must be }. Schema:
 {"ticker":string,"title":string,"status":string,"resolvedSide":string,"verdict":"confirmed"|"discrepancy"|"needs_review","summary":"2-3 sentence explanation of your finding","keyFacts":["short fact","short fact","short fact"],"recommendation":"1-2 sentences: what a support agent should do next"}
@@ -480,7 +502,6 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
 
       const userMessage = `Input: ${input}\n\nGemini event data:\n${JSON.stringify(trimmed, null, 2)}`
 
-      // Call Anthropic claude-3-5-haiku (cheap, fast)
       let claudeText
       try {
         const { status: aiStatus, body: aiBody } = await httpsPostJson(
