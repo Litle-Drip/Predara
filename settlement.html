@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settlement Desk — Predara</title>
+  <meta name="description" content="AI-powered settlement auditing for Gemini prediction markets.">
+  <link rel="icon" href="/og-image.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #141414;
+      --surface:   #1c1c1c;
+      --border:    #2a2a2a;
+      --border-hi: #3a3a3a;
+      --text:      #b8b8b8;
+      --text-mid:  #d4d4d4;
+      --text-bright: #f0f0f0;
+      --muted:     #666;
+      --teal:      #00dcfa;
+      --teal-dim:  rgba(0, 220, 250, 0.12);
+      --teal-bg:   rgba(0, 220, 250, 0.08);
+      --shadow:    0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.35);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+
+      /* Verdict colours */
+      --confirmed-bg:   #0f2e20;
+      --confirmed-text: #4ade80;
+      --confirmed-pill-bg:   #0f8a5e;
+      --confirmed-pill-text: #e2f7ee;
+
+      --discrepancy-bg:   #2e1010;
+      --discrepancy-text: #f87171;
+      --discrepancy-pill-bg:   #c73a2f;
+      --discrepancy-pill-text: #fceceb;
+
+      --needs-bg:   #2b220a;
+      --needs-text: #fbbf24;
+      --needs-pill-bg:   #a37012;
+      --needs-pill-text: #fdf3dc;
+
+      --error-bg:   #1e1e1e;
+      --error-text: #888;
+      --error-pill-bg:   #333;
+      --error-pill-text: #aaa;
+
+      --pending-bg:   #1e1e1e;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 16px 64px;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    .logo-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .app-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .app-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .app-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-bright);
+      letter-spacing: -0.3px;
+    }
+
+    .app-subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+      margin-top: 1px;
+    }
+
+    /* ── Tab nav ── */
+    .tab-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      flex-shrink: 0;
+    }
+
+    .tab-nav a {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .tab-nav a:hover {
+      color: var(--text-mid);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .tab-nav a.active {
+      background: var(--teal-dim);
+      color: var(--teal);
+    }
+
+    /* ── Intake panel ── */
+    .intake {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .intake-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 10px;
+      letter-spacing: -0.1px;
+    }
+
+    .intake-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .intake-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border-hi);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--text-bright);
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 0;
+    }
+
+    .intake-row input::placeholder {
+      color: var(--muted);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px;
+    }
+
+    .intake-row input:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 2px var(--teal-dim);
+    }
+
+    .btn-review {
+      background: var(--teal);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-review:hover { opacity: 0.85; }
+    .btn-review:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .shortcut-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 56px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .empty-state-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    .empty-state-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    /* ── Case cards ── */
+    .case-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .case-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.15s;
+    }
+
+    .case-card:hover { border-color: var(--border-hi); }
+
+    .case-card.verdict-confirmed  { border-left: 3px solid var(--confirmed-pill-bg); }
+    .case-card.verdict-discrepancy { border-left: 3px solid var(--discrepancy-pill-bg); }
+    .case-card.verdict-needs_review { border-left: 3px solid var(--needs-pill-bg); }
+    .case-card.verdict-error { border-left: 3px solid #444; }
+    .case-card.verdict-pending { border-left: 3px solid var(--teal); }
+
+    .case-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .case-header:hover { background: rgba(255,255,255,0.02); }
+
+    .case-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .case-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+
+    .case-ticker {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--teal);
+      background: var(--teal-bg);
+      padding: 2px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .case-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-bright);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .verdict-pill {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .pill-confirmed   { background: var(--confirmed-pill-bg);   color: var(--confirmed-pill-text); }
+    .pill-discrepancy { background: var(--discrepancy-pill-bg); color: var(--discrepancy-pill-text); }
+    .pill-needs_review { background: var(--needs-pill-bg);      color: var(--needs-pill-text); }
+    .pill-error       { background: var(--error-pill-bg);       color: var(--error-pill-text); }
+    .pill-pending     {
+      background: var(--teal-dim);
+      color: var(--teal);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .case-summary {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.45;
+      margin-top: 2px;
+    }
+
+    .case-timestamp {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Expand chevron ── */
+    .case-chevron {
+      font-size: 13px;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: transform 0.2s;
+      margin-top: 2px;
+    }
+
+    .case-card.expanded .case-chevron { transform: rotate(180deg); }
+
+    /* ── Case body (expanded) ── */
+    .case-body {
+      display: none;
+      padding: 0 16px 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .case-card.expanded .case-body { display: block; }
+
+    .case-section-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin: 14px 0 6px;
+    }
+
+    .key-facts {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .key-facts li {
+      font-size: 13px;
+      color: var(--text-mid);
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.4;
+    }
+
+    .key-facts li::before {
+      content: "·";
+      position: absolute;
+      left: 0;
+      color: var(--teal);
+      font-size: 16px;
+      line-height: 1;
+      top: 1px;
+    }
+
+    .recommendation {
+      font-size: 13px;
+      color: var(--text-mid);
+      line-height: 1.45;
+      background: rgba(255,255,255,0.025);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .case-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 14px;
+    }
+
+    .btn-remove {
+      background: none;
+      border: 1px solid var(--border-hi);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-remove:hover {
+      border-color: #c73a2f;
+      color: #f87171;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--teal-dim);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 540px) {
+      .app { padding: 16px 12px 48px; }
+      .app-header { margin-bottom: 20px; }
+      .tab-nav { display: none; }
+      .intake-row { flex-direction: column; }
+      .btn-review { width: 100%; }
+      .shortcut-hint { display: none; }
+      .case-title { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="app-header">
+    <a class="logo-link" href="/" title="Back to Analyze">
+      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
+      <div>
+        <div class="app-title">Predara</div>
+        <div class="app-subtitle">Prediction market analyzer</div>
+      </div>
+    </a>
+    <nav class="tab-nav" aria-label="App sections">
+      <a href="/">Analyze</a>
+      <a href="/settlement.html" class="active">Settlement Desk</a>
+    </nav>
+  </div>
+
+  <div class="intake">
+    <div class="intake-label">Settlement Review</div>
+    <div class="intake-row">
+      <input
+        id="tickerInput"
+        type="text"
+        placeholder="Paste ticker, instrument symbol, or Gemini URL…"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        onkeydown="if(event.key==='Enter')submitReview()"
+      />
+      <button class="btn-review" id="reviewBtn" onclick="submitReview()">Review ↗</button>
+    </div>
+    <div class="shortcut-hint">Press Enter to submit</div>
+  </div>
+
+  <div id="caseList" class="case-list"></div>
+
+</div>
+
+<script>
+  const STORAGE_KEY = "predara-settlement-cases"
+
+  /* ── Storage ── */
+  function loadCases() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]") } catch { return [] }
+  }
+
+  function saveCases(cases) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cases)) } catch {}
+  }
+
+  /* ── Render helpers ── */
+  function verdictLabel(v) {
+    return { confirmed: "Confirmed", discrepancy: "Discrepancy", needs_review: "Needs Review", error: "Error", pending: "Reviewing…" }[v] || v
+  }
+
+  function pillClass(v) {
+    return "verdict-pill pill-" + (v || "error")
+  }
+
+  function formatTs(ts) {
+    try {
+      return new Date(ts).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    } catch { return "" }
+  }
+
+  function renderCard(c) {
+    const isPending = c.verdict === "pending"
+    const card = document.createElement("div")
+    card.className = "case-card verdict-" + (c.verdict || "error")
+    card.dataset.id = c.id
+
+    const tickerLabel = c.ticker || c.input || "—"
+    const title = (!isPending && c.title && c.title !== tickerLabel) ? c.title : ""
+    const summary = isPending
+      ? '<span class="spinner"></span>Sending to AI for analysis…'
+      : esc(c.summary || "")
+
+    const topRow = `
+      <span class="case-ticker">${esc(tickerLabel)}</span>
+      ${title ? `<span class="case-title">${esc(title)}</span>` : ""}
+      <span class="${pillClass(c.verdict)}">${isPending ? '<span class="spinner"></span>' : ""}${esc(verdictLabel(c.verdict))}</span>
+    `
+
+    // Remove button always available on every card (pending or resolved)
+    const removeBtn = `<button class="btn-remove" onclick="removeCase('${c.id}', event)" style="margin-top:${isPending ? "10px" : "0"}">Remove</button>`
+
+    let bodyHtml = ""
+    if (isPending) {
+      bodyHtml = `<div style="padding:0 16px 12px;display:flex;justify-content:flex-end">${removeBtn}</div>`
+    } else {
+      const facts = Array.isArray(c.keyFacts) ? c.keyFacts : []
+      const factItems = facts.map(f => `<li>${esc(f)}</li>`).join("")
+      bodyHtml = `
+        <div class="case-body">
+          ${facts.length ? `<div class="case-section-label">Key Facts</div><ul class="key-facts">${factItems}</ul>` : ""}
+          ${c.recommendation ? `<div class="case-section-label">Recommendation</div><div class="recommendation">${esc(c.recommendation)}</div>` : ""}
+          <div class="case-footer">${removeBtn}</div>
+        </div>
+      `
+    }
+
+    card.innerHTML = `
+      <div class="case-header" onclick="${isPending ? "" : "toggleCard(this)"}">
+        <div class="case-meta">
+          <div class="case-top">${topRow}</div>
+          <div class="case-summary">${summary}</div>
+          <div class="case-timestamp">${formatTs(c.ts)}</div>
+        </div>
+        ${!isPending ? '<div class="case-chevron">▾</div>' : ""}
+      </div>
+      ${bodyHtml}
+    `
+    return card
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  }
+
+  function toggleCard(headerEl) {
+    const card = headerEl.closest(".case-card")
+    if (card) card.classList.toggle("expanded")
+  }
+
+  /* ── Empty state ── */
+  function renderEmptyState() {
+    const el = document.createElement("div")
+    el.className = "empty-state"
+    el.innerHTML = `
+      <div class="empty-state-icon">🔍</div>
+      <div class="empty-state-title">No cases yet</div>
+      <div>Paste a Gemini ticker or market URL above to audit its settlement.</div>
+    `
+    return el
+  }
+
+  /* ── Full re-render from storage ── */
+  function renderAll() {
+    const cases = loadCases()
+    const list = document.getElementById("caseList")
+    list.innerHTML = ""
+    if (cases.length === 0) {
+      list.appendChild(renderEmptyState())
+      return
+    }
+    // Storage is newest-first (unshift on insert) — append preserves that order
+    cases.forEach(c => list.appendChild(renderCard(c)))
+  }
+
+  const PENDING_TIMEOUT_MS = 25000  // abort fetch after 25 s
+  const STALE_PENDING_MS = 120000  // cases stuck pending >2 min at boot → error
+
+  /* ── Submit ── */
+  async function submitReview() {
+    const input = document.getElementById("tickerInput").value.trim()
+    if (!input) { document.getElementById("tickerInput").focus(); return }
+
+    const btn = document.getElementById("reviewBtn")
+    btn.disabled = true
+    document.getElementById("tickerInput").value = ""
+
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+    const ts = new Date().toISOString()
+    const pendingCase = { id, input, ticker: input, title: "", verdict: "pending", summary: "", keyFacts: [], recommendation: "", ts }
+
+    // Persist pending card and render immediately (newest-first via unshift)
+    const cases = loadCases()
+    cases.unshift(pendingCase)
+    saveCases(cases)
+    renderAll()
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), PENDING_TIMEOUT_MS)
+
+    function resolveCase(update) {
+      clearTimeout(timer)
+      const stored = loadCases()
+      const idx = stored.findIndex(c => c.id === id)
+      if (idx !== -1) { stored[idx] = { id, input, ts, ...update }; saveCases(stored) }
+      renderAll()
+      btn.disabled = false
+    }
+
+    try {
+      const res = await fetch("/api/settlement-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+        signal: controller.signal,
+      })
+      const data = await res.json()
+      resolveCase({
+        ticker:         data.ticker || input,
+        title:          data.title || "",
+        verdict:        data.verdict || "error",
+        summary:        data.summary || "No summary returned.",
+        keyFacts:       Array.isArray(data.keyFacts) ? data.keyFacts : [],
+        recommendation: data.recommendation || "",
+      })
+    } catch (err) {
+      const timedOut = err.name === "AbortError"
+      resolveCase({
+        ticker: input, title: "", verdict: "error",
+        summary: timedOut ? "Request timed out. The AI may be slow — please try again." : "Request failed: " + (err.message || "network error"),
+        keyFacts: [], recommendation: "",
+      })
+    }
+  }
+
+  /* ── Remove ── */
+  function removeCase(id, event) {
+    event.stopPropagation()
+    const cases = loadCases().filter(c => c.id !== id)
+    saveCases(cases)
+    renderAll()
+  }
+
+  /* ── Boot: sweep stale pending cases ── */
+  function sweepStalePending() {
+    const now = Date.now()
+    const cases = loadCases()
+    let changed = false
+    cases.forEach(c => {
+      if (c.verdict === "pending" && (now - new Date(c.ts).getTime()) > STALE_PENDING_MS) {
+        c.verdict = "error"
+        c.summary = "Review did not complete (page was closed or refreshed mid-request). Re-submit to try again."
+        c.keyFacts = []
+        c.recommendation = ""
+        changed = true
+      }
+    })
+    if (changed) saveCases(cases)
+  }
+
+  sweepStalePending()
+  renderAll()
+</script>
+</body>
+</html>

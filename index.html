@@ -521,6 +521,7 @@
       color: var(--orange);
       background: rgba(251,146,60,0.10);
     }
+    .bet-sim-side-pct { font-weight: 400; opacity: 0.75; }
 
     /* ── Tooltips ── */
     .tip {
@@ -807,6 +808,9 @@
     }
     .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
     .header-controls { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .settlement-link { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .settlement-link:hover { color: var(--text-bright); border-color: var(--text); }
+    @media (max-width: 480px) { .settlement-link { display: none; } }
 
     /* ── Footer ── */
     .footer {
@@ -1871,6 +1875,7 @@
       </div>
     </div>
     <div class="header-controls">
+      <a href="/settlement.html" class="settlement-link" title="Settlement Desk — AI-powered settlement auditing for Gemini markets">Settlement Desk →</a>
       <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
     </div>

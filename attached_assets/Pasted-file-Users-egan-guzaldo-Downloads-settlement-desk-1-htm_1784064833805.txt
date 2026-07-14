@@ -1,0 +1,115 @@
+file:///Users/egan.guzaldo/Downloads/settlement_desk_1.html
+
+# Settlement Desk — Handoff for Predara Integration
+
+## What this is
+
+A single-page tool for auditing Gemini prediction-market settlements. A user pastes a ticker, instrument symbol, or Gemini event API link. The tool fetches the event's live data, checks it against real-world facts (final score, whether the event even had overtime, etc.), and files a verdict — **Confirmed**, **Discrepancy**, or **Needs review** — with a short summary, key facts, and a recommended next action for a support agent.
+
+Think of it as a "market analyzer" mode specific to settlement correctness, rather than odds/volume — a natural companion tab next to Predara's existing Analyze view.
+
+## ⚠️ Architecture caveat — read this first
+
+The reference build (attached: `settlement_desk.html`) is a **Claude Artifact**, which gets two things for free that a standalone app does not:
+
+1. An authenticated `fetch('https://api.anthropic.com/v1/messages')` call with no API key needed client-side (Anthropic's sandbox injects auth).
+2. An `mcp_servers` parameter that gives that single API call live tool access to the user's connected Gemini MCP server — so the model can call a `gemini_get_prediction_event`-style tool directly, mid-response.
+
+**Predara can't lift this `fetch` call as-is unless it's also running inside a Claude Artifact.** To reproduce the behavior in Predara's own stack, you need a backend endpoint (Predara's server, not the browser) that:
+- Holds an Anthropic API key (or your LLM provider of choice) server-side
+- Has some way to fetch Gemini prediction-market data — either Gemini's public/authenticated REST API directly, or an MCP client wired to Gemini's MCP server
+- Exposes a simple endpoint like `POST /api/settlement-review` that the new tab's frontend calls, which internally does the "fetch event → cross-check facts → return verdict JSON" work and streams the result back
+
+Everything below (prompt, schema, UI, storage) ports over directly — only the "who actually calls the LLM and holds the keys" part needs to move from client to Predara's backend.
+
+## Data flow
+
+```
+User pastes input (ticker / instrument symbol / API URL)
+        │
+        ▼
+Backend endpoint receives raw input
+        │
+        ▼
+LLM call (system prompt below) with:
+  - Gemini data access (MCP tool or direct REST call)
+  - Web search tool (to verify real-world facts)
+        │
+        ▼
+Model's final reply = ONE raw JSON object (schema below)
+        │
+        ▼
+Frontend renders a "case card" + persists it (per-user, local to Predara's own storage/DB)
+```
+
+## LLM prompt spec
+
+**System prompt** (used as-is, provider-agnostic):
+
+> You are a settlement auditor for Gemini prediction markets. Given raw input (a ticker, an instrument symbol, or a Gemini event API URL) identify the underlying event ticker, fetch the event and its contracts from Gemini, and use web search to verify any real-world facts relevant to settlement (e.g. final score, whether the event type even allows overtime, disputed rules). Then decide whether the market's settlement is correct.
+>
+> Use your tools first (silently, without narrating what you're about to do). Once you have everything you need, your FINAL text response must contain nothing but a single raw JSON object — no markdown code fences, no lead-in commentary, no explanation before or after it. The very first character of your final response must be `{` and the very last character must be `}`. Match this schema exactly:
+>
+> `{"ticker": string, "title": string, "status": string, "resolvedSide": string, "verdict": "confirmed" | "discrepancy" | "needs_review", "summary": string (2-3 sentences), "keyFacts": [string, string, string], "recommendation": string (1-2 sentences, what a support agent should do next)}`
+>
+> If you cannot locate the event at all, set verdict to "needs_review" and explain why in summary, with resolvedSide as "unknown".
+
+**User message:** the raw pasted input, unmodified.
+
+**Known failure mode:** some models occasionally prepend reasoning text ("I'll start by...") before the JSON despite the instruction above. Don't assume the whole response body is clean JSON — **extract the outermost `{...}` block** from the final text response (first `{` to last `}`) before parsing, and use the *last* text block if the response has several (earlier ones may be interleaved with tool-use narration).
+
+## Response schema
+
+| Field | Type | Notes |
+|---|---|---|
+| `ticker` | string | Event/contract ticker |
+| `title` | string | Human-readable event name |
+| `status` | string | e.g. "settled", "active" |
+| `resolvedSide` | string | e.g. "yes" / "no" / "unknown" |
+| `verdict` | enum | `confirmed` \| `discrepancy` \| `needs_review` |
+| `summary` | string | 2-3 sentence explanation |
+| `keyFacts` | string[] | 3-5 short bullet facts |
+| `recommendation` | string | What a support agent should do next |
+
+## UI spec
+
+**Layout:** single column, max-width ~1100px, centered. Header bar, then an "intake" panel (input + button), then a stacked list of collapsible "case cards," newest first. Empty state when no cases exist yet.
+
+**Case card interaction:** click the header row to expand/collapse. New cases render immediately in a "pending" (spinner) state, then update in place once the review completes. Each expanded card has a "Remove case" action.
+
+**Design tokens (Gemini brand palette — black / white / turquoise):**
+
+| Token | Hex | Use |
+|---|---|---|
+| `--ink` | `#0a0a0a` | Page background |
+| `--ink-2` | `#141414` | Intake panel background |
+| `--rule` | `#2a2a2a` | Hairline borders on dark surfaces |
+| `--paper` | `#ffffff` | Case card background |
+| `--paper-dim` | `#eef1f2` | Subtle dividers/fills on cards |
+| `--text-on-ink` | `#f2f2f0` | Body text on dark background |
+| `--text-muted` | `#8b9093` | Secondary text on dark background |
+| `--accent` (turquoise) | `#00dcfa` | Buttons, focus states, ticker highlight, recommendation border |
+| `--accent-ink` | `#00232a` | Text color on turquoise buttons |
+| Confirmed pill | text `#0f8a5e` / bg `#e2f7ee` | |
+| Discrepancy pill | text `#c73a2f` / bg `#fceceb` | |
+| Needs-review pill | text `#a37012` / bg `#fdf3dc` | |
+| Pending pill | text `#00a5bb` / bg `#e3fbff` | |
+
+**Type:**
+- Display / headings: **Space Grotesk** (600–700)
+- Body: **IBM Plex Sans**
+- Tickers, mono data, buttons, labels: **IBM Plex Mono**
+
+**Status pills:** filled rounded pills (`border-radius: 999px`), not outlined — this reads as clean exchange-UI rather than a stamped document.
+
+## Storage
+
+Reference build uses per-user key-value storage (`review:<sanitized-ticker>-<timestamp>` → JSON blob of the full case object), scoped private to the user. In Predara, this maps to whatever per-user persistence Predara already uses for saved/watchlist items — same shape works: one record per case, keyed by ticker + timestamp, storing the full verdict JSON plus an `addedAt` epoch ms for sort order.
+
+## Error handling
+
+If the backend call fails or the response can't be parsed into the schema, store and render a case in an `error` state with a short human-readable message (not a raw stack trace) and still offer "Remove case." Never leave a case stuck on the pending spinner indefinitely — always resolve to `confirmed` / `discrepancy` / `needs_review` / `error`.
+
+## Reference file
+
+`settlement_desk.html` (attached) — full working single-file implementation. Useful as a visual/behavioral reference even though the API-calling logic needs to move server-side per the caveat above.

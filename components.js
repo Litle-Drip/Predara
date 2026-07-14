@@ -460,11 +460,14 @@ function betSimulatorHtml(outcomes) {
           onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
       }).join("")}</div>`
     : ""
+  const yesPct = first.pct
+  const noPct = 100 - first.pct
+  const savedSide = window._simMarket ? window._simMarket.side || "yes" : "yes"
   const sideToggleHtml = isBinary
     ? `<div class="bet-sim-side-toggle" id="betSimSideToggle">
         <span class="bet-sim-side-label">Betting side:</span>
-        <button class="bet-sim-side-btn active" id="betSimSideYes" onclick="selectBetSimSide('yes')">YES</button>
-        <button class="bet-sim-side-btn" id="betSimSideNo" onclick="selectBetSimSide('no')">NO</button>
+        <button class="bet-sim-side-btn${savedSide !== "no" ? " active" : ""}" id="betSimSideYes" onclick="selectBetSimSide('yes')">YES <span class="bet-sim-side-pct" id="betSimYesPct">· ${yesPct}%</span></button>
+        <button class="bet-sim-side-btn${savedSide === "no" ? " active" : ""}" id="betSimSideNo" onclick="selectBetSimSide('no')">NO <span class="bet-sim-side-pct" id="betSimNoPct">· ${noPct}%</span></button>
       </div>`
     : ""
   return `
@@ -501,6 +504,13 @@ window.selectBetSimOutcome = function(btn) {
   btn.style.borderColor = color
   btn.style.color = color
   btn.style.background = color + "22"
+  const side = window._simMarket.side || "yes"
+  const yesBtn = document.getElementById("betSimSideYes")
+  const noBtn = document.getElementById("betSimSideNo")
+  if (yesBtn && noBtn) {
+    yesBtn.classList.toggle("active", side === "yes")
+    noBtn.classList.toggle("active", side === "no")
+  }
   updateBetSim()
 }
 window.selectBetSimSide = function(side) {
