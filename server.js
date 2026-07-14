@@ -519,6 +519,10 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify({ verdict: "error", summary }))
       }
+      const sendJson = (obj) => {
+        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(obj))
+      }
 
       let input
       try {
@@ -531,108 +535,187 @@ const server = http.createServer((req, res) => {
 
       if (!input) {
         res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
-        return res.end(JSON.stringify({ verdict: "error", summary: "No input provided. Paste a Gemini ticker, instrument symbol, or event URL." }))
+        return res.end(JSON.stringify({ verdict: "error", summary: "No input provided. Paste a ticker or market URL from Gemini, Kalshi, Polymarket, or Coinbase." }))
       }
 
-      // Extract event ticker from raw input
-      let ticker = input
+      // ── Platform detection ──
+      const lower = input.toLowerCase()
+      let platform = "gemini"
+      if      (lower.includes("polymarket.com"))               platform = "polymarket"
+      else if (lower.includes("predict.coinbase.com"))         platform = "coinbase-poly"
+      else if (lower.includes("coinbase.com/predictions/event")) platform = "coinbase-kalshi"
+      else if (lower.includes("coinbase.com"))                 platform = "coinbase-poly"
+      else if (lower.includes("kalshi.com"))                   platform = "kalshi"
+      else if (lower.includes("gemini.com"))                   platform = "gemini"
+      else if (/^[a-z][a-z0-9-]{4,}$/.test(input))            platform = "polymarket"
+
+      // ── Identifier extraction ──
+      let identifier = input
       try {
         const u = new URL(input)
-        const segments = u.pathname.split("/").filter(Boolean)
-        const predIdx = segments.indexOf("predictions")
-        ticker = (predIdx !== -1 && segments[predIdx + 1])
-          ? segments[predIdx + 1]
-          : (segments[segments.length - 1] || input)
+        const segs = u.pathname.split("/").filter(Boolean)
+        identifier = segs[segs.length - 1] || input
       } catch {
-        // Not a URL — strip trailing instrument suffix (-Y / -N) to get event ticker
-        ticker = input.replace(/[_-](Y|N)$/i, "").trim()
+        identifier = input.replace(/[_-](Y|N)$/i, "").trim()
       }
 
-      if (!ticker || !isSafeParam(ticker)) {
+      if (!identifier || !isSafeParam(identifier)) {
         res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
-        return res.end(JSON.stringify({ verdict: "error", summary: `Could not extract a valid ticker from: "${input.slice(0, 80)}"` }))
+        return res.end(JSON.stringify({ verdict: "error", summary: `Could not extract a valid identifier from: "${input.slice(0, 80)}"` }))
       }
 
-      // Fetch Gemini event data (same upstream as /api/gemini)
-      let eventData
+      // ── Fetch event data & extract winners ──
+      let winnersData
       try {
-        const { status: gemStatus, body: gemBody } = await httpsGetWithTimeout(
-          `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`,
-          REQUEST_TIMEOUT_MS
-        )
-        if (gemStatus !== 200) {
-          res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
-          return res.end(JSON.stringify({ verdict: "error", summary: `Could not fetch event data for ticker "${ticker}" — Gemini API returned ${gemStatus}. Verify the ticker is correct.` }))
+        if (platform === "kalshi" || platform === "coinbase-kalshi") {
+          const keyId = process.env.KALSHI_API_KEY_ID
+          const privateKey = process.env.KALSHI_PRIVATE_KEY
+          if (!keyId || !privateKey) return sendError("Kalshi credentials not configured — cannot audit Kalshi/Coinbase markets on this server.")
+          if (!_normalizedKey) _normalizedKey = normalizePem(privateKey)
+          const nk = _normalizedKey
+
+          const kalshiGet = (apiPath) => new Promise((resolve, reject) => {
+            const basePath = apiPath.split("?")[0]
+            const ts = Date.now().toString()
+            let sig
+            try { sig = crypto.createSign("SHA256").update(ts + "GET" + basePath).sign(nk, "base64") }
+            catch (e) { return reject(e) }
+            const r = https.request({
+              hostname: "api.elections.kalshi.com", path: apiPath, method: "GET",
+              headers: { "KALSHI-ACCESS-KEY": keyId, "KALSHI-ACCESS-TIMESTAMP": ts, "KALSHI-ACCESS-SIGNATURE": sig, "Content-Type": "application/json" },
+            }, (apiRes) => {
+              let body = ""
+              apiRes.on("data", c => { body += c })
+              apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+            })
+            r.setTimeout(REQUEST_TIMEOUT_MS, () => { r.destroy(); reject(new Error("Kalshi API timed out")) })
+            r.on("error", reject).end()
+          })
+
+          const mktRes = await kalshiGet(`/trade-api/v2/markets/${encodeURIComponent(identifier)}`)
+          let raw
+          if (mktRes.status === 200) {
+            raw = JSON.parse(mktRes.body)
+          } else {
+            const evtRes = await kalshiGet(`/trade-api/v2/events/${encodeURIComponent(identifier)}?with_nested_markets=true`)
+            if (evtRes.status !== 200) return sendError(`Could not fetch Kalshi data for "${identifier}" (HTTP ${evtRes.status}).`)
+            raw = JSON.parse(evtRes.body)
+          }
+
+          if (raw.market) {
+            const m = raw.market
+            const resolvedAt = m.close_time || ""
+            const winners = m.result === "yes" ? [{ label: "Yes", resolvedAt }]
+                          : m.result === "no"  ? [{ label: "No",  resolvedAt }] : []
+            const losers  = m.result === "yes" ? [{ label: "No",  status: m.status || "" }]
+                          : m.result === "no"  ? [{ label: "Yes", status: m.status || "" }] : []
+            winnersData = { title: m.subtitle || m.title || identifier, ticker: m.event_ticker || identifier, status: m.status || "", resolvedAt, winners, losers, contracts: 2, platformName: "Kalshi" }
+          } else if (raw.event) {
+            const e = raw.event
+            const markets = raw.markets || []
+            const winners = markets.filter(m => m.result === "yes").map(m => ({ label: m.subtitle || m.title || m.ticker, resolvedAt: m.close_time || "" }))
+            const losers  = markets.filter(m => m.result !== "yes").map(m => ({ label: m.subtitle || m.title || m.ticker, status: m.status || "" }))
+            winnersData = { title: e.title || identifier, ticker: e.event_ticker || identifier, status: e.status || "", resolvedAt: e.close_time || "", winners, losers, contracts: markets.length, platformName: "Kalshi" }
+          } else {
+            return sendError("Kalshi API returned an unrecognized response shape.")
+          }
+
+        } else if (platform === "polymarket" || platform === "coinbase-poly") {
+          const { status: pmStatus, body: pmBody } = await httpsGetWithTimeout(
+            `https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(identifier)}`,
+            REQUEST_TIMEOUT_MS
+          )
+          if (pmStatus !== 200) return sendError(`Could not fetch Polymarket data for "${identifier}" (HTTP ${pmStatus}).`)
+          const pmData = JSON.parse(pmBody)
+          const event = Array.isArray(pmData) ? pmData[0] : pmData
+          if (!event) return sendError(`No Polymarket event found for slug "${identifier}".`)
+
+          const pmMarkets = event.markets || []
+          const winners = [], losers = []
+          for (const m of pmMarkets) {
+            const outcomes = m.outcomes ? (typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : m.outcomes) : []
+            const prices   = m.outcomePrices ? (typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : m.outcomePrices) : []
+            for (let i = 0; i < outcomes.length; i++) {
+              const price = parseFloat(prices[i] || "0")
+              if (price >= 0.99) winners.push({ label: outcomes[i], resolvedAt: m.endDate || event.endDate || "" })
+              else if (m.closed) losers.push({ label: outcomes[i], status: "settled" })
+            }
+          }
+          const totalOutcomes = pmMarkets.reduce((n, m) => {
+            const o = m.outcomes ? (typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : m.outcomes) : []
+            return n + o.length
+          }, 0)
+          winnersData = { title: event.title || identifier, ticker: event.slug || identifier, status: event.closed ? "settled" : (event.active ? "active" : "unknown"), resolvedAt: event.endDate || "", winners, losers, contracts: totalOutcomes, platformName: "Polymarket" }
+
+        } else {
+          // Gemini (default)
+          const { status: gemStatus, body: gemBody } = await httpsGetWithTimeout(
+            `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(identifier)}`,
+            REQUEST_TIMEOUT_MS
+          )
+          if (gemStatus !== 200) return sendError(`Could not fetch Gemini event data for "${identifier}" (HTTP ${gemStatus}). Verify the ticker is correct.`)
+          const eventData = JSON.parse(gemBody)
+          const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
+          const winners = contracts.filter(c => c.resolutionSide === "yes" || c.result === "yes")
+            .map(c => ({ label: c.label || c.displayName || "", resolvedAt: c.resolvedAt || "" }))
+          const losers  = contracts.filter(c => c.resolutionSide !== "yes" && c.result !== "yes")
+            .map(c => ({ label: c.label || c.displayName || "", status: c.status || "" }))
+          winnersData = { title: eventData.title || identifier, ticker: eventData.ticker || identifier, status: eventData.status || "", resolvedAt: eventData.resolvedAt || "", winners, losers, contracts: contracts.length, platformName: "Gemini" }
         }
-        eventData = JSON.parse(gemBody)
       } catch (err) {
-        return sendError(`Failed to fetch Gemini event data: ${err.message}`)
+        return sendError(`Failed to fetch settlement data: ${err.message}`)
       }
 
-      // Trim to minimal settlement fields only
-      const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
+      const { title, ticker, status, resolvedAt, winners, losers, contracts, platformName } = winnersData
 
-      // Separate winners from losers — only send winners in full to keep the
-      // prompt lean even for large fields (e.g. MASTERS26 has 86 contracts).
-      const trimContract = c => ({
-        label: c.label || c.displayName || "",
-        status: c.status || "",
-        resolutionSide: c.resolutionSide || "",
-        result: c.result || "",
-        resolvedAt: c.resolvedAt || "",
-        lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : (c.prices?.lastTradePrice ?? null),
-      })
-      const winners = contracts.filter(c => c.resolutionSide === "yes" || c.result === "yes")
-      const losers  = contracts.filter(c => c.resolutionSide !== "yes" && c.result !== "yes")
-
-      const trimmed = {
-        ticker: eventData.ticker || ticker,
-        title: eventData.title || "",
-        status: eventData.status || "",
-        resolvedSide: eventData.resolvedSide || "",
-        resolvedAt: eventData.resolvedAt || "",
-        totalContracts: contracts.length,
-        winners: winners.map(trimContract),
-        // For losers just include label + status so Claude has full picture without bloat
-        losers: losers.map(c => ({ label: c.label || c.displayName || "", status: c.status || "" })),
+      // ── Fast path: winner clearly identified by API — no Claude call needed ──
+      if (winners.length > 0) {
+        const winnerLabels = winners.map(w => w.label).filter(Boolean)
+        const settledAt = winners[0]?.resolvedAt || resolvedAt || ""
+        const settledDate = settledAt ? new Date(settledAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "unknown date"
+        return sendJson({
+          ticker, title, status,
+          resolvedSide: winnerLabels.join(", "),
+          verdict: "confirmed",
+          summary: `${platformName}'s API confirms ${winnerLabels.join(" and ")} as the winner, settled on ${settledDate}. ${losers.length > 0 ? `All ${losers.length} other outcome${losers.length !== 1 ? "s" : ""} resolved against.` : ""} Settlement data is clean and unambiguous.`,
+          keyFacts: [
+            `Winner: ${winnerLabels.join(", ")}`,
+            `Settlement timestamp: ${settledAt || "N/A"}`,
+            `${winners.length} of ${contracts} outcome${contracts !== 1 ? "s" : ""} resolved YES`,
+          ],
+          recommendation: "No action needed. Settlement is confirmed directly by the platform's API data.",
+        })
       }
 
-      const systemPrompt = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. Analyze whether the market's settlement appears correct based on the data and your knowledge of the underlying real-world event.
+      // ── Slow path: no clear winner in API data — ask Claude ──
+      const trimmed = { ticker, title, status, resolvedAt, platform: platformName, winners, losers, totalContracts: contracts }
 
-Data structure: the payload has a "winners" array (contracts with resolutionSide:"yes" or result:"yes") and a "losers" array (all others, label+status only). Check the winners array to identify who won, then verify against your knowledge of the real-world result.
+      const systemPrompt = `You are a settlement auditor for prediction markets (Gemini, Kalshi, Polymarket, Coinbase). The API data contains no clear winner signal. Analyze the available data and use your knowledge of the real-world event to determine whether settlement appears correct.
 
 Your final response must be a single raw JSON object — no markdown, no code fences, no commentary. First character must be { and last must be }. Schema:
 {"ticker":string,"title":string,"status":string,"resolvedSide":string,"verdict":"confirmed"|"discrepancy"|"needs_review","summary":"2-3 sentence explanation of your finding","keyFacts":["short fact","short fact","short fact"],"recommendation":"1-2 sentences: what a support agent should do next"}
 
 Use "confirmed" if settlement looks correct, "discrepancy" if something appears wrong, "needs_review" if data is truly insufficient.`
 
-      const userMessage = `Input: ${input}\n\nGemini event data:\n${JSON.stringify(trimmed, null, 2)}`
-
-      // Call Anthropic claude-3-5-haiku (cheap, fast)
       let claudeText
       try {
         const { status: aiStatus, body: aiBody } = await httpsPostJson(
           "api.anthropic.com",
           "/v1/messages",
           { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-          { model: "claude-haiku-4-5", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: userMessage }] },
+          { model: "claude-haiku-4-5", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: `Input: ${input}\n\nEvent data:\n${JSON.stringify(trimmed, null, 2)}` }] },
           20000
         )
         const aiJson = JSON.parse(aiBody)
-        if (aiStatus !== 200) {
-          return sendError(`AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}`)
-        }
+        if (aiStatus !== 200) return sendError(`AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}`)
         claudeText = aiJson?.content?.[0]?.text || ""
       } catch (err) {
         return sendError(`AI analysis failed: ${err.message}`)
       }
 
-      // Extract outermost {...} to guard against preamble text
       const firstBrace = claudeText.indexOf("{")
       const lastBrace = claudeText.lastIndexOf("}")
-      if (firstBrace === -1 || lastBrace <= firstBrace) {
-        return sendError("AI returned an unrecognized response format. Please try again.")
-      }
+      if (firstBrace === -1 || lastBrace <= firstBrace) return sendError("AI returned an unrecognized response format. Please try again.")
 
       let verdict
       try {
@@ -641,19 +724,17 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
         return sendError("AI returned malformed JSON. Please try again.")
       }
 
-      // Validate and fill safe defaults for any missing required fields
       const VALID_VERDICTS = new Set(["confirmed", "discrepancy", "needs_review"])
       if (!VALID_VERDICTS.has(verdict.verdict)) verdict.verdict = "needs_review"
-      if (!verdict.ticker) verdict.ticker = trimmed.ticker
-      if (!verdict.title) verdict.title = trimmed.title || ticker
-      if (!verdict.status) verdict.status = trimmed.status || "unknown"
-      if (!verdict.resolvedSide) verdict.resolvedSide = trimmed.resolvedSide || "unknown"
+      if (!verdict.ticker) verdict.ticker = ticker
+      if (!verdict.title) verdict.title = title || ticker
+      if (!verdict.status) verdict.status = status || "unknown"
+      if (!verdict.resolvedSide) verdict.resolvedSide = "unknown"
       if (!Array.isArray(verdict.keyFacts)) verdict.keyFacts = []
       if (!verdict.summary) verdict.summary = "No summary provided."
       if (!verdict.recommendation) verdict.recommendation = "Review manually."
 
-      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
-      res.end(JSON.stringify(verdict))
+      sendJson(verdict)
     })
 
     return
