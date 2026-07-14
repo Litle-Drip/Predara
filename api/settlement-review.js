@@ -45,10 +45,15 @@ function postJson(hostname, path, headers, bodyObj) {
 
 const SYSTEM_PROMPT = `You are a settlement auditor for Gemini prediction markets. You receive structured event data from Gemini's API. Analyze whether the market's settlement appears correct based on the data and your knowledge of the underlying real-world event.
 
+Key data interpretation rules:
+- lastTradePrice of 1.0 (or "1") on a contract means it resolved YES (winner). lastTradePrice of 0.0 (or "0") means it resolved NO (loser).
+- If resolvedSide fields are empty but one contract has lastTradePrice ~1.0, that contract is the winner — use it to determine the resolved outcome.
+- Cross-check the identified winner against your knowledge of the real-world event result.
+
 Your final response must be a single raw JSON object — no markdown, no code fences, no commentary. First character must be { and last must be }. Schema:
 {"ticker":string,"title":string,"status":string,"resolvedSide":string,"verdict":"confirmed"|"discrepancy"|"needs_review","summary":"2-3 sentence explanation of your finding","keyFacts":["short fact","short fact","short fact"],"recommendation":"1-2 sentences: what a support agent should do next"}
 
-Use "confirmed" if settlement looks correct, "discrepancy" if something appears wrong, "needs_review" if data is insufficient.`
+Use "confirmed" if settlement looks correct, "discrepancy" if something appears wrong, "needs_review" if data is truly insufficient.`
 
 const VALID_VERDICTS = new Set(["confirmed", "discrepancy", "needs_review"])
 
@@ -120,6 +125,7 @@ module.exports = async (req, res) => {
       status: c.status || "",
       resolvedSide: c.resolvedSide || "",
       resolvedAt: c.resolvedAt || "",
+      lastTradePrice: c.lastTradePrice != null ? c.lastTradePrice : (c.prices && c.prices.lastTradePrice != null ? c.prices.lastTradePrice : null),
     })),
   }
 
