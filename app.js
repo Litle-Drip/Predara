@@ -665,7 +665,10 @@ async function analyze() {
         return
       }
       const markets = event.markets || []
-      if (!markets.length) throw new Error("No market data found.")
+      if (!markets.length || !event.title) {
+        showError("Couldn't load market data", "Polymarket returned an incomplete response for this event — the market may still be loading or has been removed. Try again in a moment.")
+        return
+      }
 
       result.innerHTML = renderPolymarketEvent(event, markets, accent, platform)
       // For Polymarket MLB sports markets inject a live gameday link
