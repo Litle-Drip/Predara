@@ -551,23 +551,26 @@
       <span class="${pillClass(c.verdict)}">${isPending ? '<span class="spinner"></span>' : ""}${esc(verdictLabel(c.verdict))}</span>
     `
 
+    // Remove button always available on every card (pending or resolved)
+    const removeBtn = `<button class="btn-remove" onclick="removeCase('${c.id}', event)" style="margin-top:${isPending ? "10px" : "0"}">Remove</button>`
+
     let bodyHtml = ""
-    if (!isPending) {
+    if (isPending) {
+      bodyHtml = `<div style="padding:0 16px 12px;display:flex;justify-content:flex-end">${removeBtn}</div>`
+    } else {
       const facts = Array.isArray(c.keyFacts) ? c.keyFacts : []
       const factItems = facts.map(f => `<li>${esc(f)}</li>`).join("")
       bodyHtml = `
         <div class="case-body">
           ${facts.length ? `<div class="case-section-label">Key Facts</div><ul class="key-facts">${factItems}</ul>` : ""}
           ${c.recommendation ? `<div class="case-section-label">Recommendation</div><div class="recommendation">${esc(c.recommendation)}</div>` : ""}
-          <div class="case-footer">
-            <button class="btn-remove" onclick="removeCase('${c.id}', event)">Remove</button>
-          </div>
+          <div class="case-footer">${removeBtn}</div>
         </div>
       `
     }
 
     card.innerHTML = `
-      <div class="case-header" onclick="toggleCard(this)">
+      <div class="case-header" onclick="${isPending ? "" : "toggleCard(this)"}">
         <div class="case-meta">
           <div class="case-top">${topRow}</div>
           <div class="case-summary">${summary}</div>
@@ -610,8 +613,12 @@
       list.appendChild(renderEmptyState())
       return
     }
-    cases.forEach(c => list.prepend(renderCard(c)))
+    // Storage is newest-first (unshift on insert) — append preserves that order
+    cases.forEach(c => list.appendChild(renderCard(c)))
   }
+
+  const PENDING_TIMEOUT_MS = 25000  // abort fetch after 25 s
+  const STALE_PENDING_MS = 120000  // cases stuck pending >2 min at boot → error
 
   /* ── Submit ── */
   async function submitReview() {
@@ -626,51 +633,48 @@
     const ts = new Date().toISOString()
     const pendingCase = { id, input, ticker: input, title: "", verdict: "pending", summary: "", keyFacts: [], recommendation: "", ts }
 
-    // Persist pending card and render immediately
+    // Persist pending card and render immediately (newest-first via unshift)
     const cases = loadCases()
     cases.unshift(pendingCase)
     saveCases(cases)
     renderAll()
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), PENDING_TIMEOUT_MS)
+
+    function resolveCase(update) {
+      clearTimeout(timer)
+      const stored = loadCases()
+      const idx = stored.findIndex(c => c.id === id)
+      if (idx !== -1) { stored[idx] = { id, input, ts, ...update }; saveCases(stored) }
+      renderAll()
+      btn.disabled = false
+    }
 
     try {
       const res = await fetch("/api/settlement-review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input }),
+        signal: controller.signal,
       })
       const data = await res.json()
-
-      // Update the stored case in-place
-      const stored = loadCases()
-      const idx = stored.findIndex(c => c.id === id)
-      if (idx !== -1) {
-        stored[idx] = {
-          id, input, ts,
-          ticker:         data.ticker || input,
-          title:          data.title || "",
-          verdict:        data.verdict || "error",
-          summary:        data.summary || "No summary returned.",
-          keyFacts:       Array.isArray(data.keyFacts) ? data.keyFacts : [],
-          recommendation: data.recommendation || "",
-        }
-        saveCases(stored)
-      }
+      resolveCase({
+        ticker:         data.ticker || input,
+        title:          data.title || "",
+        verdict:        data.verdict || "error",
+        summary:        data.summary || "No summary returned.",
+        keyFacts:       Array.isArray(data.keyFacts) ? data.keyFacts : [],
+        recommendation: data.recommendation || "",
+      })
     } catch (err) {
-      const stored = loadCases()
-      const idx = stored.findIndex(c => c.id === id)
-      if (idx !== -1) {
-        stored[idx] = {
-          id, input, ts,
-          ticker: input, title: "", verdict: "error",
-          summary: "Request failed: " + (err.message || "network error"),
-          keyFacts: [], recommendation: "",
-        }
-        saveCases(stored)
-      }
+      const timedOut = err.name === "AbortError"
+      resolveCase({
+        ticker: input, title: "", verdict: "error",
+        summary: timedOut ? "Request timed out. The AI may be slow — please try again." : "Request failed: " + (err.message || "network error"),
+        keyFacts: [], recommendation: "",
+      })
     }
-
-    renderAll()
-    btn.disabled = false
   }
 
   /* ── Remove ── */
@@ -681,7 +685,24 @@
     renderAll()
   }
 
-  /* ── Boot ── */
+  /* ── Boot: sweep stale pending cases ── */
+  function sweepStalePending() {
+    const now = Date.now()
+    const cases = loadCases()
+    let changed = false
+    cases.forEach(c => {
+      if (c.verdict === "pending" && (now - new Date(c.ts).getTime()) > STALE_PENDING_MS) {
+        c.verdict = "error"
+        c.summary = "Review did not complete (page was closed or refreshed mid-request). Re-submit to try again."
+        c.keyFacts = []
+        c.recommendation = ""
+        changed = true
+      }
+    })
+    if (changed) saveCases(cases)
+  }
+
+  sweepStalePending()
   renderAll()
 </script>
 </body>
