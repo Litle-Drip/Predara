@@ -543,7 +543,7 @@
     const title = (!isPending && c.title && c.title !== tickerLabel) ? c.title : ""
     const summary = isPending
       ? '<span class="spinner"></span>Sending to AI for analysis…'
-      : (c.summary || "")
+      : esc(c.summary || "")
 
     const topRow = `
       <span class="case-ticker">${esc(tickerLabel)}</span>
