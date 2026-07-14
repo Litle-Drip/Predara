@@ -478,7 +478,7 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
           "api.anthropic.com",
           "/v1/messages",
           { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-          { model: "claude-3-5-haiku-20241022", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: userMessage }] },
+          { model: "claude-haiku-4-5", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: userMessage }] },
           20000
         )
         const aiJson = JSON.parse(aiBody)
