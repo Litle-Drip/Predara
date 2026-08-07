@@ -416,6 +416,82 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Kalshi live incentive programs (Rewards tab) ──
+  // Lists all currently active liquidity/volume incentive programs, across every
+  // market — not tied to a single ticker lookup like /api/kalshi above.
+  if (parsed.pathname === "/api/kalshi-incentives") {
+    const keyId = process.env.KALSHI_API_KEY_ID
+    const privateKey = process.env.KALSHI_PRIVATE_KEY
+    if (!keyId || !privateKey) {
+      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Kalshi credentials not configured." }))
+    }
+
+    if (!_normalizedKey) _normalizedKey = normalizePem(privateKey)
+    const normalizedKey = _normalizedKey
+    const headers = { "Content-Type": "application/json", ...CORS_HEADERS }
+
+    const KALSHI_HOSTS = [
+      "trading-api.kalshi.com",
+      "api.elections.kalshi.com",
+    ]
+
+    function kalshiGet(hostname, apiPath) {
+      return new Promise((resolve, reject) => {
+        const basePath = apiPath.split("?")[0]
+        const timestamp = Date.now().toString()
+        const msgString = timestamp + "GET" + basePath
+        let signature
+        try {
+          signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
+        } catch (err) {
+          return reject(err)
+        }
+        const req = https.request({
+          hostname,
+          path: apiPath,
+          method: "GET",
+          headers: {
+            "KALSHI-ACCESS-KEY": keyId,
+            "KALSHI-ACCESS-TIMESTAMP": timestamp,
+            "KALSHI-ACCESS-SIGNATURE": signature,
+            "Content-Type": "application/json",
+          },
+        }, (apiRes) => {
+          let body = ""
+          apiRes.on("data", (chunk) => { body += chunk })
+          apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+        })
+        req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+          req.destroy()
+          reject(new Error("Kalshi API request timed out"))
+        })
+        req.on("error", reject).end()
+      })
+    }
+
+    ;(async () => {
+      try {
+        for (const hostname of KALSHI_HOSTS) {
+          const r = await kalshiGet(hostname, `/trade-api/v2/incentive_programs?status=active`)
+          if (r.status === 200) {
+            let data
+            try { data = JSON.parse(r.body) } catch { continue }
+            res.writeHead(200, headers)
+            return res.end(JSON.stringify({ incentive_programs: Array.isArray(data.incentive_programs) ? data.incentive_programs : [] }))
+          }
+        }
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: "Kalshi incentive programs unavailable" }))
+      } catch (err) {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      }
+    })()
+
+    return
+  }
+
   // ── Discovery / trending markets ──
   if (parsed.pathname === "/api/discover") {
     const results = { platforms: [] }
