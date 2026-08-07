@@ -811,6 +811,92 @@ function rewardsCard(rows, note) {
     </div>`
 }
 
+// Interactive maker-rewards calculator: enter an order size + price (and, for platforms
+// without a live per-market pool, an assumed pool) to see whether it would qualify for
+// that market's active liquidity program and roughly what it could earn.
+// program: { platform, platformLabel, isLive, poolAmount, poolLabel, minSize,
+//            maxSpreadCents, midpointCents, sizeUnit }
+function rewardsCalculatorHtml(program) {
+  if (!program) return ""
+  const defaultSize = program.minSize || 100
+  const defaultPrice = program.midpointCents != null ? program.midpointCents : 50
+  const defaultCompetitors = 5
+  const defaultPool = program.poolAmount || 200
+  return `
+    <div class="mi-card rewards-calc-card">
+      <div class="section-label">🧮 REWARDS CALCULATOR</div>
+      <div class="bet-sim-body">
+        ${!program.isLive ? `<div class="rewards-calc-sandbox-note">Sandbox estimate — ${esc(program.platformLabel)} doesn't expose this market's live reward pool via API. Adjust the assumed daily pool below to match the current program terms on ${esc(program.platformLabel)}'s official page.</div>` : ""}
+        <div class="rewards-calc-row">
+          <span class="bet-sim-label">Order size</span>
+          <input type="number" class="bet-sim-input rewards-calc-input" id="rcSize" value="${defaultSize}" min="1" step="1" oninput="updateRewardsCalc()" />
+          <span class="rewards-calc-unit">${esc(program.sizeUnit)}</span>
+        </div>
+        <div class="rewards-calc-row">
+          <span class="bet-sim-label">Your price</span>
+          <input type="number" class="bet-sim-input rewards-calc-input" id="rcPrice" value="${defaultPrice}" min="1" max="99" step="1" oninput="updateRewardsCalc()" />
+          <span class="rewards-calc-unit">¢${program.midpointCents != null ? ` (mid: ${program.midpointCents}¢)` : ""}</span>
+        </div>
+        <div class="rewards-calc-row">
+          <span class="bet-sim-label">Assume</span>
+          <input type="number" class="bet-sim-input rewards-calc-input" id="rcCompetitors" value="${defaultCompetitors}" min="0" step="1" oninput="updateRewardsCalc()" />
+          <span class="rewards-calc-unit">other similar-sized orders also qualifying</span>
+        </div>
+        ${!program.isLive ? `
+        <div class="rewards-calc-row">
+          <span class="bet-sim-label">Assumed daily pool</span>
+          <span class="bet-sim-dollar">$</span>
+          <input type="number" class="bet-sim-input rewards-calc-input" id="rcPool" value="${defaultPool}" min="1" step="1" oninput="updateRewardsCalc()" />
+        </div>` : ""}
+        <div class="bet-sim-results" id="rewardsCalcResults">${_rewardsCalcResultHtml(program, defaultSize, defaultPrice, defaultCompetitors, defaultPool)}</div>
+      </div>
+    </div>`
+}
+
+window._rewardsProgram = null
+
+function _rewardsCalcResultHtml(program, size, price, competitors, pool) {
+  const distance = program.midpointCents != null ? Math.abs(price - program.midpointCents) : null
+  const sizeOk = program.minSize == null || size >= program.minSize
+  const spreadOk = program.maxSpreadCents == null || distance == null || distance <= program.maxSpreadCents
+  const qualifies = program.isLive ? (sizeOk && spreadOk) : true
+
+  if (!qualifies) {
+    const reasons = []
+    if (!sizeOk) reasons.push(`increase your size to at least ${Math.round(program.minSize).toLocaleString()} ${esc(program.sizeUnit)}`)
+    if (!spreadOk) reasons.push(`move your price within ${program.maxSpreadCents}¢ of the ${program.midpointCents}¢ midpoint`)
+    return `
+      <div class="rewards-calc-badge rewards-calc-no">✗ Wouldn't qualify</div>
+      <div class="bet-sim-lose">To qualify: ${reasons.join(" and ")}.</div>`
+  }
+
+  const share = pool > 0 ? pool / (competitors + 1) : 0
+  const suffix = program.poolLabel || ""
+  return `
+    <div class="rewards-calc-badge rewards-calc-yes">✓ Would qualify</div>
+    <div class="bet-sim-win">
+      ${distance != null ? `<div>Distance from midpoint: <strong>${distance}¢</strong></div>` : ""}
+      <div>If you're the only qualifying order: <strong>$${Math.round(pool).toLocaleString()}${esc(suffix)}</strong></div>
+      <div>Split with ~${Math.round(competitors).toLocaleString()} similar competing orders: <strong>~$${Math.round(share).toLocaleString()}${esc(suffix)}</strong></div>
+    </div>
+    <div class="bet-sim-note">Estimate assumes an even split among qualifying resting orders of similar size and price. Real programs score orders by price proximity and size, and actual payouts depend on live competing liquidity you can't see in advance. Not financial advice.</div>`
+}
+
+function updateRewardsCalc() {
+  const program = window._rewardsProgram
+  const results = document.getElementById("rewardsCalcResults")
+  if (!program || !results) return
+  const sizeEl = document.getElementById("rcSize")
+  const priceEl = document.getElementById("rcPrice")
+  const compEl = document.getElementById("rcCompetitors")
+  const poolEl = document.getElementById("rcPool")
+  const size = Math.max(0, parseFloat(sizeEl && sizeEl.value) || 0)
+  const price = Math.max(1, Math.min(99, parseFloat(priceEl && priceEl.value) || 50))
+  const competitors = Math.max(0, parseFloat(compEl && compEl.value) || 0)
+  const pool = poolEl ? Math.max(0, parseFloat(poolEl.value) || 0) : (program.poolAmount || 0)
+  results.innerHTML = _rewardsCalcResultHtml(program, size, price, competitors, pool)
+}
+
 function infoRow(key, val) {
   if (!val || val === "—") return ""
   const keyHtml = GLOSSARY[key.toUpperCase()] ? tip(key, key.toUpperCase()) : esc(key)

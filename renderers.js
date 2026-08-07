@@ -5,6 +5,10 @@
 function renderMarket(norm, accent) {
   if (!norm) return `<div class="mi-error">No market data available.</div>`
 
+  // Read by updateRewardsCalc(); explicitly set from norm here (rather than as a
+  // side effect during normalize) so it's always in sync with what's on screen.
+  window._rewardsProgram = norm.rewardsProgram || null
+
   const staleHtml   = staleWarningHtml(norm.staleIso)
   const timeLeft    = fmtTimeRemaining(norm.closeIso)
   const urgencyHtml = timeLeft
