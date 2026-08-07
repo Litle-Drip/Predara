@@ -30,6 +30,12 @@ const GLOSSARY = {
   "BEST SPREAD":      "The tightest bid-ask gap across all outcomes. Lower means cheaper to enter and exit positions.",
   "OVERROUND":        "Sum of all outcome probabilities. 100% is fair; 103% means the exchange takes 3% — lower is better for traders.",
   "MARKET AGE":       "How long this market has been accepting trades. Older markets have more established price consensus; newer ones tend to be noisier.",
+  "ACTIVE PROGRAMS":  "Liquidity or volume incentive programs currently running on this market.",
+  "REWARD POOL":      "Total dollar amount being split among qualifying participants for this program's period.",
+  "MIN ORDER SIZE":   "The minimum resting order size required to qualify for liquidity rewards.",
+  "MAX SPREAD":       "How far from the midpoint a resting order can be and still qualify for liquidity rewards. Tighter values require closer-to-market quotes.",
+  "MAKER REBATE":     "A rebate paid on resting limit orders that get filled — a share of the taker fee your liquidity generated.",
+  "TAKER REWARD":     "A reward paid for orders that fill immediately against resting liquidity, encouraging active trading volume.",
 }
 
 function fmtMarketAge(isoOrDate) {

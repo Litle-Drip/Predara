@@ -126,6 +126,8 @@ function renderMarket(norm, accent) {
 
     ${analyticsHtml}
 
+    ${norm.rewardsHtml || ""}
+
     ${findSimilarHtml}
   `
 }

@@ -379,6 +379,24 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     runnerUp: kalshiRunnerUp,
   } : null
 
+  // Liquidity/Volume Incentive Programs: Kalshi runs time-boxed reward pools on select
+  // markets for resting orders that improve depth. Server attaches _incentive_programs
+  // (filtered to this event's markets) when available — best-effort, may be absent.
+  const incentivePrograms = Array.isArray(ev._incentive_programs) ? ev._incentive_programs : []
+  let rewardsHtml = ""
+  if (incentivePrograms.length > 0) {
+    const totalPool = incentivePrograms.reduce((s, p) => s + (parseFloat(p.period_reward || 0) || 0), 0)
+    const rows = [
+      { key: "ACTIVE PROGRAMS", val: `${incentivePrograms.length}` },
+      totalPool > 0 ? { key: "REWARD POOL", val: `$${fmtNum(totalPool)}` } : null,
+    ].filter(Boolean)
+    const desc = incentivePrograms.map(p => p.incentive_description).find(Boolean)
+      || "This market has an active Kalshi liquidity or volume incentive program rewarding resting orders that improve market depth."
+    rewardsHtml = rewardsCard(rows,
+      `${esc(desc)} <a href="https://kalshi.com/incentives" target="_blank" rel="noopener" style="color:var(--orange)">View program details ↗</a>`
+    )
+  }
+
   return {
     platform: platformKey,
     title: eventTitle || eventSubTitle,
@@ -401,6 +419,7 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     betExplainerText,
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
+    rewardsHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
     sourceUrl: inputUrl || (platformKey === "coinbase"
       ? (ev.event_ticker ? `https://coinbase.com/predictions/event/${ev.event_ticker}` : "")
@@ -674,6 +693,21 @@ function normalizeGemini(event, inputUrl = "") {
     durationDays: geminiDurationDays,
   } : null
 
+  // Gemini Predictions runs several trader incentive programs (Market Maker Program,
+  // Maker Rebate, Liquidity Rewards, Taker Rewards). These are account-level/contracted
+  // programs, not flagged per-market in the public event API, so this is general program
+  // info rather than a live "this market qualifies" signal — shown only while a market
+  // is still open for trading.
+  const rewardsHtml = isOpen ? rewardsCard([], `
+    Gemini Predictions runs trader incentive programs across its event contracts —
+    <strong>Maker Rebates</strong> (cash back on resting orders that fill, as a share of taker fees),
+    <strong>Liquidity Rewards</strong> (daily payouts for quality resting orders, filled or not),
+    <strong>Taker Rewards</strong> (rewards for active trading volume), and a contracted
+    <strong>Market Maker Program</strong> for consistent two-sided quoting.
+    Eligibility and payouts vary by market and program.
+    <a href="https://developer.gemini.com/prediction-markets/liquidity-rewards-program" target="_blank" rel="noopener" style="color:var(--orange)">View current programs ↗</a>
+  `) : ""
+
   return {
     platform: "gemini",
     title: event.title || "Gemini Prediction Market",
@@ -703,6 +737,7 @@ function normalizeGemini(event, inputUrl = "") {
     betExplainerText,
     ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
     resSourceHtml,
+    rewardsHtml,
     rawRulesText: event.description || "",
     sourceUrl: inputUrl || (geminiTicker ? `https://www.gemini.com/predictions/${geminiTicker}` : ""),
   }
@@ -882,6 +917,33 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
 
   analyticsSource.sort((a, b) => b.prob - a.prob)
   const leadPct = analyticsSource.length ? Math.round(analyticsSource[0].prob * 100) : 0
+
+  // Liquidity Rewards: Polymarket pays daily rewards for resting limit orders near the
+  // midpoint (filled or not) via clobRewards, gated by rewardsMinSize/rewardsMaxSpread.
+  // Maker Rebates (a separate program paying a share of taker fees on fills) don't have
+  // a queryable per-market field, so we surface them as context in the footnote.
+  let pmDailyRate = 0
+  let pmMinSize = null
+  let pmMaxSpread = null
+  markets.forEach(m => {
+    let cr = m.clobRewards
+    if (typeof cr === "string") { try { cr = JSON.parse(cr) } catch (e) { cr = null } }
+    if (Array.isArray(cr)) {
+      cr.forEach(r => { pmDailyRate += parseFloat(r.rewardsDailyRate || 0) || 0 })
+    }
+    const minSize = parseFloat(m.rewardsMinSize || 0)
+    if (minSize > 0 && (pmMinSize == null || minSize < pmMinSize)) pmMinSize = minSize
+    const maxSpread = parseFloat(m.rewardsMaxSpread || 0)
+    if (maxSpread > 0 && (pmMaxSpread == null || maxSpread > pmMaxSpread)) pmMaxSpread = maxSpread
+  })
+  const pmRewardsRows = [
+    pmDailyRate > 0 ? { key: "REWARD POOL", val: `$${fmtNum(pmDailyRate)}/day` } : null,
+    pmMinSize != null ? { key: "MIN ORDER SIZE", val: `${fmtNum(pmMinSize)} shares` } : null,
+    pmMaxSpread != null ? { key: "MAX SPREAD", val: `${pmMaxSpread}¢ from midpoint` } : null,
+  ].filter(Boolean)
+  const rewardsHtml = pmRewardsRows.length ? rewardsCard(pmRewardsRows,
+    `Earn by placing resting limit orders (making markets) near the midpoint — rewarded whether or not they fill. Separate Maker Rebates pay a share of taker fees when your resting order does fill. <a href="https://docs.polymarket.com/market-makers/liquidity-rewards" target="_blank" rel="noopener" style="color:var(--orange)">Program details ↗</a>`
+  ) : ""
 
   // Bet explainer
   let betExplainerText = ""
@@ -1081,6 +1143,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
     betExplainerText,
     ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
     resSourceHtml,
+    rewardsHtml,
     rawRulesText: first.description || event.description || "",
     sourceUrl: inputUrl || (event.slug
       ? (platformKey === "coinbase"

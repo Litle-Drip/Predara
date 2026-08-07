@@ -356,6 +356,30 @@ const server = http.createServer((req, res) => {
           }
         }
 
+        // Enrich with active liquidity/volume incentive programs for this event's markets.
+        // Best-effort: one list call (status=active), filtered client-side to our tickers.
+        try {
+          const tickerSet = new Set([
+            ...((data.event && data.event.markets) || []).map(m => m.ticker).filter(Boolean),
+            ...(data.market ? [data.market.ticker] : []),
+          ])
+          if (tickerSet.size > 0) {
+            for (const hostname of KALSHI_HOSTS) {
+              const ir = await kalshiGet(hostname, `/trade-api/v2/incentive_programs?status=active`)
+              if (ir.status === 200) {
+                const idata = JSON.parse(ir.body)
+                const programs = (Array.isArray(idata.incentive_programs) ? idata.incentive_programs : [])
+                  .filter(p => tickerSet.has(p.market_ticker))
+                if (programs.length > 0) {
+                  if (data.event) data.event._incentive_programs = programs
+                  if (data.market) data.market._incentive_programs = programs.filter(p => p.market_ticker === data.market.ticker)
+                }
+                break
+              }
+            }
+          }
+        } catch (_) { /* incentive programs are best-effort */ }
+
         // Enrich with series contract_url for "View full rules"
         const seriesTicker = (data.event || data.market || {}).series_ticker
           || ((data.event && data.event.markets && data.event.markets[0]) || {}).series_ticker
