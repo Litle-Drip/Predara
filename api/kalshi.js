@@ -145,6 +145,31 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Enrich with active liquidity/volume incentive programs for this event's markets.
+    // Best-effort: one list call (status=active), filtered client-side to our tickers —
+    // avoids a per-market call regardless of how many markets the event has.
+    try {
+      const tickerSet = new Set([
+        ...((data.event && data.event.markets) || []).map(m => m.ticker).filter(Boolean),
+        ...(data.market ? [data.market.ticker] : []),
+      ])
+      if (tickerSet.size > 0) {
+        for (const hostname of KALSHI_HOSTS) {
+          const ir = await kalshiRequest(hostname, `/trade-api/v2/incentive_programs?status=active`, keyId, normalizedKey)
+          if (ir.status === 200) {
+            const idata = JSON.parse(ir.body)
+            const programs = (Array.isArray(idata.incentive_programs) ? idata.incentive_programs : [])
+              .filter(p => tickerSet.has(p.market_ticker))
+            if (programs.length > 0) {
+              if (data.event) data.event._incentive_programs = programs
+              if (data.market) data.market._incentive_programs = programs.filter(p => p.market_ticker === data.market.ticker)
+            }
+            break
+          }
+        }
+      }
+    } catch (_) { /* incentive programs are best-effort */ }
+
     // Enrich with series contract_url so the front-end can surface "View full rules"
     // series_ticker lives on market objects, not always on the event itself — fall back to first nested market
     const seriesTicker = (data.event || data.market || {}).series_ticker

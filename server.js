@@ -356,6 +356,30 @@ const server = http.createServer((req, res) => {
           }
         }
 
+        // Enrich with active liquidity/volume incentive programs for this event's markets.
+        // Best-effort: one list call (status=active), filtered client-side to our tickers.
+        try {
+          const tickerSet = new Set([
+            ...((data.event && data.event.markets) || []).map(m => m.ticker).filter(Boolean),
+            ...(data.market ? [data.market.ticker] : []),
+          ])
+          if (tickerSet.size > 0) {
+            for (const hostname of KALSHI_HOSTS) {
+              const ir = await kalshiGet(hostname, `/trade-api/v2/incentive_programs?status=active`)
+              if (ir.status === 200) {
+                const idata = JSON.parse(ir.body)
+                const programs = (Array.isArray(idata.incentive_programs) ? idata.incentive_programs : [])
+                  .filter(p => tickerSet.has(p.market_ticker))
+                if (programs.length > 0) {
+                  if (data.event) data.event._incentive_programs = programs
+                  if (data.market) data.market._incentive_programs = programs.filter(p => p.market_ticker === data.market.ticker)
+                }
+                break
+              }
+            }
+          }
+        } catch (_) { /* incentive programs are best-effort */ }
+
         // Enrich with series contract_url for "View full rules"
         const seriesTicker = (data.event || data.market || {}).series_ticker
           || ((data.event && data.event.markets && data.event.markets[0]) || {}).series_ticker
@@ -388,6 +412,82 @@ const server = http.createServer((req, res) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify({ error: err.message }))
       })
+
+    return
+  }
+
+  // ── Kalshi live incentive programs (Rewards tab) ──
+  // Lists all currently active liquidity/volume incentive programs, across every
+  // market — not tied to a single ticker lookup like /api/kalshi above.
+  if (parsed.pathname === "/api/kalshi-incentives") {
+    const keyId = process.env.KALSHI_API_KEY_ID
+    const privateKey = process.env.KALSHI_PRIVATE_KEY
+    if (!keyId || !privateKey) {
+      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Kalshi credentials not configured." }))
+    }
+
+    if (!_normalizedKey) _normalizedKey = normalizePem(privateKey)
+    const normalizedKey = _normalizedKey
+    const headers = { "Content-Type": "application/json", ...CORS_HEADERS }
+
+    const KALSHI_HOSTS = [
+      "trading-api.kalshi.com",
+      "api.elections.kalshi.com",
+    ]
+
+    function kalshiGet(hostname, apiPath) {
+      return new Promise((resolve, reject) => {
+        const basePath = apiPath.split("?")[0]
+        const timestamp = Date.now().toString()
+        const msgString = timestamp + "GET" + basePath
+        let signature
+        try {
+          signature = crypto.createSign("SHA256").update(msgString).sign(normalizedKey, "base64")
+        } catch (err) {
+          return reject(err)
+        }
+        const req = https.request({
+          hostname,
+          path: apiPath,
+          method: "GET",
+          headers: {
+            "KALSHI-ACCESS-KEY": keyId,
+            "KALSHI-ACCESS-TIMESTAMP": timestamp,
+            "KALSHI-ACCESS-SIGNATURE": signature,
+            "Content-Type": "application/json",
+          },
+        }, (apiRes) => {
+          let body = ""
+          apiRes.on("data", (chunk) => { body += chunk })
+          apiRes.on("end", () => resolve({ status: apiRes.statusCode, body }))
+        })
+        req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+          req.destroy()
+          reject(new Error("Kalshi API request timed out"))
+        })
+        req.on("error", reject).end()
+      })
+    }
+
+    ;(async () => {
+      try {
+        for (const hostname of KALSHI_HOSTS) {
+          const r = await kalshiGet(hostname, `/trade-api/v2/incentive_programs?status=active`)
+          if (r.status === 200) {
+            let data
+            try { data = JSON.parse(r.body) } catch { continue }
+            res.writeHead(200, headers)
+            return res.end(JSON.stringify({ incentive_programs: Array.isArray(data.incentive_programs) ? data.incentive_programs : [] }))
+          }
+        }
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: "Kalshi incentive programs unavailable" }))
+      } catch (err) {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      }
+    })()
 
     return
   }

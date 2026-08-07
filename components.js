@@ -797,6 +797,20 @@ function statCard(label, value, sub = "") {
   return `<div class="stat-card"><div class="stat-label">${tip(label)}</div>${inner}</div>`
 }
 
+// Liquidity/maker/taker reward program card — shared across Kalshi, Polymarket, and Gemini.
+// rows: { key, val }[] rendered via infoRow (auto-glossary-linked when key matches GLOSSARY).
+// note: optional pre-rendered HTML footnote (e.g. program description + link out).
+function rewardsCard(rows, note) {
+  const body = (rows || []).map(r => infoRow(r.key, r.val)).filter(Boolean).join("")
+  if (!body && !note) return ""
+  return `
+    <div class="mi-card">
+      <div class="section-label">💰 LIQUIDITY &amp; TRADING REWARDS</div>
+      ${body}
+      ${note ? `<div class="platform-footnote">${note}</div>` : ""}
+    </div>`
+}
+
 function infoRow(key, val) {
   if (!val || val === "—") return ""
   const keyHtml = GLOSSARY[key.toUpperCase()] ? tip(key, key.toUpperCase()) : esc(key)

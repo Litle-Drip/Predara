@@ -1886,6 +1886,26 @@
     .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
 
+    /* Rewards tab */
+    .rewards-platform-card { margin-bottom: 20px; }
+    .rewards-platform-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .rewards-platform-badge { padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 11px; color: #fff; letter-spacing: 0.2px; }
+    .rewards-platform-sub { font-size: 12px; color: var(--muted); }
+    .rewards-program-item { padding: 14px 0; border-top: 1px solid var(--border); }
+    .rewards-program-item:first-child { border-top: none; padding-top: 0; }
+    .rewards-program-name { font-weight: 600; font-size: 13px; color: var(--text-bright); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .rewards-program-desc { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .rewards-program-link { font-size: 12px; margin-top: 6px; display: inline-block; color: var(--orange); }
+    .rewards-note-box { font-size: 12px; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 12px; line-height: 1.6; }
+    .rewards-live-wrap { overflow-x: auto; margin-top: 10px; }
+    .rewards-live-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .rewards-live-table th, .rewards-live-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .rewards-live-table th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; }
+    .rewards-live-table td.rw-desc { white-space: normal; min-width: 220px; color: var(--text); }
+    .rewards-live-table tr:last-child td { border-bottom: none; }
+    .rewards-live-table tr:hover td { background: var(--card); }
+    .rewards-badge-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--green); color: #fff; font-weight: 600; }
+
     @media (max-width: 640px) {
       .tab-btn { font-size: 11px; padding: 8px 12px; }
       .watchlist-grid { grid-template-columns: 1fr; }
@@ -1926,6 +1946,7 @@
     <button class="tab-btn" id="tabBtn-watchlist" onclick="switchTab('watchlist')">Watchlist</button>
     <button class="tab-btn" id="tabBtn-calendar" onclick="switchTab('calendar')">Calendar</button>
     <button class="tab-btn" id="tabBtn-tools" onclick="switchTab('tools')">Tools</button>
+    <button class="tab-btn" id="tabBtn-rewards" onclick="switchTab('rewards')">Rewards</button>
   </div>
 
   <div id="tab-analyze" style="display:block">
@@ -1990,17 +2011,21 @@
     <div id="toolsContent"><div class="empty-state">Loading tools...</div></div>
   </div>
 
+  <div id="tab-rewards" style="display:none">
+    <div id="rewardsContent"><div class="empty-state">Loading reward programs...</div></div>
+  </div>
+
   <div class="footer"><span class="dot-sm">●</span> PREDARA · <a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">EDISON LABS LLC</a> · 2026</div>
 
 </div>
 
-<script src="utils.js?v=15"></script>
-<script src="components.js?v=15"></script>
-<script src="adapters.js?v=15"></script>
-<script src="renderers.js?v=15"></script>
-<script src="compare.js?v=15"></script>
-<script src="app.js?v=15"></script>
-<script src="features.js?v=15"></script>
+<script src="utils.js?v=17"></script>
+<script src="components.js?v=17"></script>
+<script src="adapters.js?v=17"></script>
+<script src="renderers.js?v=17"></script>
+<script src="compare.js?v=17"></script>
+<script src="app.js?v=17"></script>
+<script src="features.js?v=17"></script>
 <script>
   (function () {
     // Theme

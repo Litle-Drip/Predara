@@ -621,7 +621,7 @@ async function analyze() {
               kd.event._allMarkets = [...(kd.event.markets || [])]
               result.innerHTML = renderKalshiEvent(kd.event, accent, "coinbase", url)
             } else {
-              const fakeEvent = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {} }
+              const fakeEvent = { title: kd.market.title, sub_title: "", category: "Markets", markets: [kd.market], product_metadata: {}, _incentive_programs: kd.market._incentive_programs }
               result.innerHTML = renderKalshiEvent(fakeEvent, accent, "coinbase", url)
             }
             _afterSuccessfulFetch(url)
@@ -762,6 +762,7 @@ async function analyze() {
           product_metadata: {},
           series_ticker: m.series_ticker,
           _contract_url: m._contract_url,
+          _incentive_programs: m._incentive_programs,
         }
         result.innerHTML = renderKalshiEvent(fakeEvent, accent, "kalshi", url)
         _afterSuccessfulFetch(url)

@@ -1152,7 +1152,7 @@ let _currentTab = "analyze"
 
 function switchTab(tab) {
   _currentTab = tab
-  const tabs = ["analyze", "discover", "watchlist", "calendar", "tools"]
+  const tabs = ["analyze", "discover", "watchlist", "calendar", "tools", "rewards"]
   tabs.forEach((t) => {
     const el = document.getElementById(`tab-${t}`)
     const btn = document.getElementById(`tabBtn-${t}`)
@@ -1164,6 +1164,7 @@ function switchTab(tab) {
   if (tab === "watchlist") renderWatchlist()
   if (tab === "calendar") renderCalendar()
   if (tab === "tools") renderToolsTab()
+  if (tab === "rewards") renderRewardsTab()
 }
 
 function renderToolsTab() {
@@ -1183,6 +1184,161 @@ function renderToolsTab() {
     </div>`
   // Initialize P&L calculator
   setTimeout(() => { if (typeof updatePnl === "function") updatePnl() }, 50)
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// REWARDS TAB — maker/taker liquidity & volume incentive programs, all 4 platforms
+// ════════════════════════════════════════════════════════════════════════════════
+function _rewardsProgramItem(name, desc, link, linkLabel, badge) {
+  return `
+    <div class="rewards-program-item">
+      <div class="rewards-program-name">${esc(name)}${badge ? ` <span class="rewards-badge-pill">${esc(badge)}</span>` : ""}</div>
+      <div class="rewards-program-desc">${desc}</div>
+      ${link ? `<a class="rewards-program-link" href="${esc(link)}" target="_blank" rel="noopener">${esc(linkLabel || "Program details")} ↗</a>` : ""}
+    </div>`
+}
+
+function _rewardsPlatformCard(key, subtitle, programsHtml, extraHtml = "") {
+  const p = PLATFORMS[key] || { label: key.toUpperCase(), accent: "#999" }
+  return `
+    <div class="mi-card rewards-platform-card">
+      <div class="rewards-platform-head">
+        <span class="rewards-platform-badge" style="background:${p.accent}">${esc(p.label)}</span>
+        <span class="rewards-platform-sub">${esc(subtitle)}</span>
+      </div>
+      ${programsHtml}
+      ${extraHtml}
+    </div>`
+}
+
+function renderRewardsTab() {
+  const container = document.getElementById("rewardsContent")
+  if (!container) return
+
+  const kalshiPrograms = [
+    _rewardsProgramItem(
+      "Liquidity Incentive Program",
+      "Pays traders for placing resting orders that improve market depth — you earn for maintaining orders on the book, even if they never fill. Each program sets a Target Size (contracts that must stay resting on each side) and a Discount Factor (how steeply orders priced away from the reference price are discounted).",
+      "https://help.kalshi.com/en/articles/13823851-liquidity-incentive-program", "Program details"
+    ),
+    _rewardsProgramItem(
+      "Volume Incentive Program",
+      "Rewards traders based on total trading volume on a market over the program period — active in addition to, or instead of, a liquidity program on the same market.",
+      "https://help.kalshi.com/en/articles/13823850-what-is-the-kalshi-volume-incentive-program", "Program details"
+    ),
+    _rewardsProgramItem(
+      "Combo Incentive Program",
+      "A combined liquidity + volume structure, run on select markets when Kalshi wants to bootstrap both depth and trading activity at once.",
+      "https://help.kalshi.com/en/articles/15410257-combo-incentive-program", "Program details"
+    ),
+  ].join("")
+  const kalshiExtra = `
+    <div id="kalshiLiveIncentives" class="rewards-note-box">Loading live active programs…</div>`
+
+  const polymarketPrograms = [
+    _rewardsProgramItem(
+      "Liquidity Rewards",
+      "Pays makers daily for the quality of their resting limit orders near the midpoint — rewarded whether or not the order fills. Every second, each resting order is scored (discount factor ^ ticks-from-best-price × size) and the daily reward pool is split pro-rata by score. Gated by a minimum order size and a maximum spread from midpoint, both set per market.",
+      "https://docs.polymarket.com/market-makers/liquidity-rewards", "Program details"
+    ),
+    _rewardsProgramItem(
+      "Maker Rebates",
+      "Pays a share of the taker fee back to the maker whenever a resting limit order gets filled — separate from Liquidity Rewards, and only earned on completed fills.",
+      "https://help.polymarket.com/en/articles/13364471-maker-rebates-program", "Program details"
+    ),
+  ].join("")
+  const polymarketExtra = `
+    <div class="rewards-note-box">Open any Polymarket market in the <strong>Analyze</strong> tab — if it has an active Liquidity Rewards program, its daily reward pool, minimum order size, and max spread show automatically in the market's Rewards card.</div>`
+
+  const geminiPrograms = [
+    _rewardsProgramItem(
+      "Market Maker Program", "Contracted market makers agree to provide consistent, two-sided liquidity in event contract markets in exchange for negotiated incentives and adjusted parameters set in their market maker agreement.",
+      "https://www.gemini.com/titan/market-makers", "Apply / details"
+    ),
+    _rewardsProgramItem(
+      "Maker Rebate Program", "Rebates on maker (resting) orders are calculated as a percentage of the taker fee generated on the fill — up to 5% of fill notional value — so makers are paid proportionally to the taker fee value their liquidity produced.",
+      "https://developer.gemini.com/prediction-markets/maker-rebate-program", "Program details"
+    ),
+    _rewardsProgramItem(
+      "Liquidity Rewards Program", "Pays makers daily for the quality of their resting orders on selected events, even when those orders don't fill. Designed to deepen books, tighten spreads, and bootstrap activity — daily pool sizes typically range $10–$1,000 per event.",
+      "https://developer.gemini.com/prediction-markets/liquidity-rewards-program", "Program details"
+    ),
+    _rewardsProgramItem(
+      "Taker Rewards Program", "Rewards eligible participants for taker volume (orders that match immediately against resting liquidity) via a Daily Reward that scales with recent activity plus a Monthly Bonus evaluated on monthly volume. Time-boxed promotional program — check current dates before relying on it.",
+      "https://developer.gemini.com/prediction-markets/taker-rewards-program", "Program details", "PROMOTIONAL"
+    ),
+  ].join("")
+  const geminiExtra = `
+    <div class="rewards-note-box">You can't be in a contracted Market Maker Program and the Taker Rewards Program at the same time — but Maker Rebates and Taker Rewards can be combined.</div>`
+
+  const coinbasePrograms = [
+    _rewardsProgramItem(
+      "Underlying-venue rewards (Kalshi)",
+      `Markets at <code>coinbase.com/predictions/event/&lt;TICKER&gt;</code> (uppercase tickers) are routed through Kalshi's order book — Kalshi's Liquidity, Volume, and Combo Incentive Programs above apply directly.`,
+      "https://kalshi.com/incentives", "Kalshi incentives"
+    ),
+    _rewardsProgramItem(
+      "Underlying-venue rewards (Polymarket)",
+      `Markets at <code>predict.coinbase.com/markets/&lt;slug&gt;</code> (lowercase slugs) are routed through Polymarket's CLOB — Polymarket's Liquidity Rewards and Maker Rebates above apply directly.`,
+      "https://docs.polymarket.com/market-makers/liquidity-rewards", "Polymarket rewards"
+    ),
+  ].join("")
+  const coinbaseExtra = `
+    <div class="rewards-note-box">Coinbase Predictions doesn't run its own separate maker/taker program — reward eligibility depends on which venue (Kalshi or Polymarket) is actually matching the order for that market. Check the URL format to know which set of programs applies.</div>`
+
+  container.innerHTML = `
+    <div class="mi-card" style="margin-bottom:20px">
+      <div class="section-label">💰 REWARD PROGRAMS ACROSS PLATFORMS</div>
+      <div class="rewards-program-desc" style="padding-top:4px">
+        A reference for market makers and active traders: every maker/taker liquidity incentive currently offered
+        by Kalshi, Polymarket, Gemini, and Coinbase Predictions, in one place. Program terms, eligibility, and payouts
+        change — always confirm current details on the linked official page before trading around a program.
+      </div>
+    </div>
+    ${_rewardsPlatformCard("kalshi", "Liquidity, Volume & Combo Incentive Programs", kalshiPrograms, kalshiExtra)}
+    ${_rewardsPlatformCard("polymarket", "Liquidity Rewards & Maker Rebates", polymarketPrograms, polymarketExtra)}
+    ${_rewardsPlatformCard("gemini", "Market Maker, Maker Rebate, Liquidity & Taker Rewards", geminiPrograms, geminiExtra)}
+    ${_rewardsPlatformCard("coinbase", "Inherits rewards from the underlying venue", coinbasePrograms, coinbaseExtra)}
+  `
+  _loadKalshiLiveIncentives()
+}
+
+async function _loadKalshiLiveIncentives() {
+  const box = document.getElementById("kalshiLiveIncentives")
+  if (!box) return
+  try {
+    const res = await fetch("/api/kalshi-incentives")
+    if (!res.ok) throw new Error("unavailable")
+    const data = await res.json()
+    const programs = Array.isArray(data.incentive_programs) ? data.incentive_programs : []
+    if (!programs.length) {
+      box.innerHTML = "No active Kalshi incentive programs right now — check back later, or browse markets at kalshi.com/incentives."
+      return
+    }
+    const rows = programs.slice(0, 30).map(p => {
+      const ticker = esc(p.market_ticker || "—")
+      const desc = esc(p.incentive_description || "Incentive program")
+      const pool = p.period_reward ? `$${fmtNum(parseFloat(p.period_reward)) || 0}` : "—"
+      const ends = p.end_date ? new Date(p.end_date).toLocaleDateString() : "—"
+      const url = p.market_ticker ? `https://kalshi.com/markets/${p.market_ticker.split("-")[0].toLowerCase()}/${p.market_ticker.toLowerCase()}` : ""
+      return `<tr${url ? ` style="cursor:pointer" onclick="window.open('${url}','_blank')"` : ""}>
+        <td>${ticker}</td>
+        <td class="rw-desc">${desc}</td>
+        <td>${pool}</td>
+        <td>${esc(ends)}</td>
+      </tr>`
+    }).join("")
+    box.outerHTML = `
+      <div class="rewards-live-wrap" id="kalshiLiveIncentives">
+        <table class="rewards-live-table">
+          <thead><tr><th>Market</th><th>Program</th><th>Reward pool</th><th>Ends</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="rewards-note-box">${programs.length} active program${programs.length === 1 ? "" : "s"} right now. Click a row to open the market on Kalshi.</div>`
+  } catch {
+    box.innerHTML = "Couldn't load live Kalshi programs right now. Browse current programs directly at <a href=\"https://kalshi.com/incentives\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--orange)\">kalshi.com/incentives ↗</a>."
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
