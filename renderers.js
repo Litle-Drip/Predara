@@ -5,6 +5,10 @@
 function renderMarket(norm, accent) {
   if (!norm) return `<div class="mi-error">No market data available.</div>`
 
+  // Exposed so history/bookmarks can record when the market actually closes
+  // (the Calendar tab groups tracked markets by their close date).
+  if (typeof window !== "undefined") window._lastCloseIso = norm.closeIso || ""
+
   const staleHtml   = staleWarningHtml(norm.staleIso)
   const timeLeft    = fmtTimeRemaining(norm.closeIso)
   const urgencyHtml = timeLeft

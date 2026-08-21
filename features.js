@@ -465,32 +465,44 @@ function renderCalendar() {
     return
   }
 
-  // Group by day (using ts from bookmarks/history)
+  // Group markets by the day they actually close, using the close date captured
+  // when the market was analyzed. Markets closing outside the two-week window
+  // (or saved before close dates were recorded) are listed separately.
   const now = new Date()
+  const _localDayKey = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+
   const days = {}
   for (let i = 0; i < 14; i++) {
     const d = new Date(now)
     d.setDate(d.getDate() + i)
-    const key = d.toISOString().slice(0, 10)
-    days[key] = { label: d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }), markets: [] }
+    days[_localDayKey(d)] = {
+      label: d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+      markets: [],
+    }
   }
+  const todayKey = _localDayKey(now)
 
-  // Put recent markets in "today"
-  const todayKey = now.toISOString().slice(0, 10)
+  const later = []
   allMarkets.forEach((m) => {
-    if (days[todayKey]) days[todayKey].markets.push(m)
+    const close = m.closeIso ? new Date(m.closeIso) : null
+    const key = close && !isNaN(close) ? _localDayKey(close) : null
+    if (key && days[key]) days[key].markets.push(m)
+    else later.push(m)
   })
+
+  const marketItem = (m, sub) => `
+    <div class="cal-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+      ${m.platform ? `<span class="wl-platform">${esc(m.platform.toUpperCase())}</span>` : ""}
+      <span>${esc(m.title || m.url.slice(-40))}</span>
+      ${sub ? `<span class="cal-market-sub">${esc(sub)}</span>` : ""}
+    </div>`
 
   const daysHtml = Object.entries(days).map(([key, day]) => {
     const isToday = key === todayKey
     const marketsHtml = day.markets.length
-      ? day.markets.slice(0, 5).map((m) =>
-          `<div class="cal-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
-            ${m.platform ? `<span class="wl-platform">${esc(m.platform.toUpperCase())}</span>` : ""}
-            <span>${esc(m.title || m.url.slice(-40))}</span>
-          </div>`
-        ).join("")
-      : `<div class="cal-empty">${isToday ? "Your tracked markets appear here" : "—"}</div>`
+      ? day.markets.slice(0, 5).map((m) => marketItem(m)).join("")
+      : `<div class="cal-empty">—</div>`
     return `
       <div class="cal-day ${isToday ? "cal-today" : ""}">
         <div class="cal-day-label">${day.label}${isToday ? " (today)" : ""}</div>
@@ -498,9 +510,17 @@ function renderCalendar() {
       </div>`
   }).join("")
 
+  const laterHtml = later.length
+    ? `<div class="cal-later">
+        <div class="cal-later-label">Closing later or date unknown</div>
+        ${later.slice(0, 12).map((m) => marketItem(m, m.closeIso ? fmtDate(m.closeIso) : "no close date recorded")).join("")}
+      </div>`
+    : ""
+
   container.innerHTML = `
     <div class="calendar-grid">${daysHtml}</div>
-    <div class="cal-note">Markets are shown based on when you last analyzed them. Close/resolution dates from the market data will appear as more markets are tracked.</div>`
+    ${laterHtml}
+    <div class="cal-note">Grouped by each market's close date from the platform's own data. Markets saved before their close date was recorded show up under “date unknown” — re-analyze them to place them on the calendar.</div>`
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
