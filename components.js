@@ -288,7 +288,10 @@ function resolutionChecklist(sentences, outcomes) {
   }
 
   return sentences.map(s => {
-    const inner = (typeof s === "string" && s.startsWith("<")) ? s : esc(s)
+    // Rule sentences arrive as plain text. linkKnownSources() escapes the
+    // sentence itself and only injects anchors for a fixed allowlist of sources,
+    // so its output is safe to insert directly; anything else is escaped here.
+    const inner = typeof s === "string" ? (linkKnownSources(s) || esc(s)) : esc(s)
     const match = typeof s === "string" ? matchPct(s) : null
     const iconHtml = match
       ? `<span class="rule-check-icon rule-check-active" style="color:${match.color}" title="${esc("Conditions likely met \u2014 " + match.label.toUpperCase() + " is at " + Math.round(match.pct) + "%")}">●</span>`

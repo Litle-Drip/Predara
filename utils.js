@@ -122,6 +122,44 @@ function tip(text, key) {
   return `<span class="tip" tabindex="0" data-tip="${esc(def)}">${esc(text)}</span>`
 }
 
+// ── Tag chips ─────────────────────────────────────────────────────────────────
+// Renders category/topic chips for a market header. Only the leading (primary)
+// topic and reward chips carry an accent color — the rest stay neutral so a
+// market with a dozen upstream tags doesn't turn the header into a rainbow. The
+// list is capped and the overflow collapses into a single "+N" chip.
+const TAG_CHIP_LIMIT = 5
+function tagChipsHtml(labels, opts) {
+  if (!Array.isArray(labels)) return ""
+  const earnTip = (opts && opts.earnTip) || ""
+  const clean = labels.map(l => String(l == null ? "" : l).trim()).filter(Boolean)
+  if (!clean.length) return ""
+
+  const isEarn = l => /^earn\b/i.test(l)
+  const earn = clean.filter(isEarn)
+  const topics = clean.filter(l => !isEarn(l))
+  const shown = topics.slice(0, TAG_CHIP_LIMIT)
+  const hidden = topics.slice(TAG_CHIP_LIMIT)
+
+  const chips = shown.map((label, i) => {
+    const text = esc(label.toUpperCase())
+    if (i > 0) return `<span class="tag-cat tag-cat--muted">${text}</span>`
+    const col = categoryColor(label)
+    return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${text}</span>`
+  })
+
+  earn.forEach(label => {
+    const col = "#c9a227"
+    const tipAttr = earnTip ? ` data-tip="${esc(earnTip)}"` : ""
+    const cls = earnTip ? "tag-cat tip tip-bottom" : "tag-cat"
+    chips.push(`<span class="${cls}" style="color:${col};border-color:${col};background:${col}1a"${tipAttr}>${esc(label.toUpperCase())}</span>`)
+  })
+
+  if (hidden.length) {
+    chips.push(`<span class="tag-cat tag-cat--muted" title="${esc(hidden.join(", "))}">+${hidden.length}</span>`)
+  }
+  return chips.join("")
+}
+
 function toMoneyline(pct) {
   if (pct <= 0 || pct >= 100) return "—"
   return pct >= 50
@@ -391,6 +429,9 @@ function plainEnglishRules(rulesText) {
       .replace(/,\s*then you win\.?$/i, ", you win.")
       .replace(/\.$/, "")
     )
+    // Sentence-case the opening word. Splitting on abbreviations ("Nov. 7") can
+    // leave a fragment starting mid-sentence, which reads like a typo in the UI.
+    .map(s => (/^[a-z]/.test(s) ? s.charAt(0).toUpperCase() + s.slice(1) : s))
     .filter(s => s.length >= 10)
     .filter((s, i, arr) => {
       const normalize = t => t.replace(/[\s.,;:!?]+/g, " ").trim().toLowerCase()

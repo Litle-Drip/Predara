@@ -417,7 +417,7 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
+    ruleSentences,
     resSourceHtml,
     rewardsHtml,
     rawRulesText: [first.rules_primary, first.rules_secondary].filter(Boolean).join("\n\n"),
@@ -511,12 +511,7 @@ function normalizeGemini(event, inputUrl = "") {
   let tags = Array.isArray(event.tags) ? event.tags : []
   const cat = event.category || ""
   if (cat && !tags.includes(cat)) tags = [cat, ...tags]
-  const tagsHtml = tags
-    .filter(t => t != null)
-    .map(t => {
-      const col = categoryColor(String(t))
-      return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${esc(String(t).toUpperCase())}</span>`
-    }).join("")
+  const tagsHtml = tagChipsHtml(tags.filter(t => t != null).map(t => String(t)))
 
   // Timing
   const contractCloseDate = contracts.length > 0
@@ -735,7 +730,7 @@ function normalizeGemini(event, inputUrl = "") {
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences: ruleSentences.map(s => linkKnownSources(s) || s),
+    ruleSentences,
     resSourceHtml,
     rewardsHtml,
     rawRulesText: event.description || "",
@@ -905,15 +900,9 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
     })
   })
 
-  const tagsHtml = dedupedLabels.map(label => {
-      const isEarn = /^earn\b/i.test(label.trim())
-      const col = isEarn ? "#c9a227" : categoryColor(label)
-      const classes = isEarn ? "tag-cat tip tip-bottom" : "tag-cat"
-      const tipAttr = isEarn
-        ? ` data-tip="Polymarket rewards liquidity providers on this market. The % shown is the annualized return earned by placing resting limit orders (making markets)."`
-        : ""
-      return `<span class="${classes}" style="color:${col};border-color:${col};background:${col}1a"${tipAttr}>${esc(label.toUpperCase())}</span>`
-    }).join("")
+  const tagsHtml = tagChipsHtml(dedupedLabels, {
+    earnTip: "Polymarket rewards liquidity providers on this market. The % shown is the annualized return earned by placing resting limit orders (making markets).",
+  })
 
   analyticsSource.sort((a, b) => b.prob - a.prob)
   const leadPct = analyticsSource.length ? Math.round(analyticsSource[0].prob * 100) : 0
@@ -1141,7 +1130,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
     analyticsSource,
     leadPct,
     betExplainerText,
-    ruleSentences: limitedRules.map(s => linkKnownSources(s) || s),
+    ruleSentences: limitedRules,
     resSourceHtml,
     rewardsHtml,
     rawRulesText: first.description || event.description || "",

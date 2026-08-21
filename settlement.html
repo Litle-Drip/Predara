@@ -400,7 +400,7 @@
     }
   </style>
 </head>
-<body>
+<body class="light">
 
 <div class="app">
 
@@ -442,24 +442,20 @@
 </div>
 
 <script>
-  /* ── Theme ── */
+  /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {
-    const saved = localStorage.getItem('predara-theme')
-    if (saved === 'light') document.body.classList.add('light')
+    if (localStorage.getItem('predara-theme') === 'dark') {
+      document.body.classList.remove('light')
+      const btn = document.getElementById('themeToggle')
+      if (btn) btn.textContent = '☾'
+    }
   })()
 
   function toggleTheme() {
     const isLight = document.body.classList.toggle('light')
     localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
-    document.getElementById('themeToggle').textContent = isLight ? '☽' : '☀'
+    document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
   }
-
-  ;(function() {
-    if (localStorage.getItem('predara-theme') === 'light') {
-      const btn = document.getElementById('themeToggle')
-      if (btn) btn.textContent = '☽'
-    }
-  })()
 
   const STORAGE_KEY = "predara-settlement-cases"
 

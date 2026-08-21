@@ -48,6 +48,42 @@ test("plainEnglishRules keeps sentences whose verbs are conjugated (resolves/set
   assert.ok(sentences.length >= 3, `expected 3+ sentences, got ${sentences.length}: ${JSON.stringify(sentences)}`)
 })
 
+test("resolutionChecklist renders source links as anchors, never as escaped markup", () => {
+  const ctx = loadUiContext()
+  const html = ctx.resolutionChecklist(
+    ["The resolution source for this market is the Associated Press"],
+    [{ label: "Yes", pct: 40 }]
+  )
+  assert.ok(html.includes('href="https://apnews.com"'), "source should be linked")
+  assert.equal(html.includes("&lt;a href"), false, "anchor markup must not be double-escaped")
+})
+
+test("resolutionChecklist escapes rule text that contains markup", () => {
+  const ctx = loadUiContext()
+  const html = ctx.resolutionChecklist(["Resolves YES if <script>alert(1)</script> happens"], [])
+  assert.equal(html.includes("<script>"), false, "raw script tag must be escaped")
+  assert.ok(html.includes("&lt;script&gt;"))
+})
+
+test("plainEnglishRules sentence-cases fragments that start lowercase", () => {
+  const ctx = loadUiContext()
+  const sentences = ctx.plainEnglishRules("this market will resolve based on who is inaugurated")
+  assert.equal(sentences[0][0], "T", `expected capitalized sentence, got: ${sentences[0]}`)
+})
+
+test("tagChipsHtml caps visible chips and keeps reward chips", () => {
+  const ctx = loadUiContext()
+  const html = ctx.tagChipsHtml(
+    ["Politics", "US Election", "World", "Global", "Main", "Extra", "Overflow", "Earn 4%"],
+    { earnTip: "reward info" }
+  )
+  const chipCount = (html.match(/<span/g) || []).length
+  assert.equal(chipCount, 7, `expected 5 topics + earn + overflow chips, got ${chipCount}`)
+  assert.ok(html.includes(">+2</span>"), "overflow chips collapse into a +N chip")
+  assert.ok(html.includes("EARN 4%"), "reward chip always shown")
+  assert.ok(html.includes("tag-cat--muted"), "secondary chips are neutral")
+})
+
 test("Kalshi binary NO outcome omits bid/ask when YES has no quote (no bogus 0¢/0¢)", () => {
   const ctx = loadUiContext()
   const norm = ctx.normalizeKalshi({

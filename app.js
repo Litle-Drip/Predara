@@ -120,7 +120,7 @@ function _getHistory() {
 function _logHistory(url, title, platform) {
   if (!url) return
   const hist = _getHistory().filter(h => h.url !== url)
-  hist.unshift({ url, title: title || "", platform: platform || "", ts: Date.now() })
+  hist.unshift({ url, title: title || "", platform: platform || "", ts: Date.now(), closeIso: _currentCloseIso() })
   try { localStorage.setItem("predara-history", JSON.stringify(hist.slice(0, 50))) } catch {}
   _renderHistoryPanel()
 }
@@ -161,7 +161,7 @@ function _getBookmarks() {
 function _saveBookmark(url, title, platform) {
   if (!url) return
   const bms = _getBookmarks().filter(b => b.url !== url)
-  bms.unshift({ url, title: title || "", platform: platform || "", ts: Date.now() })
+  bms.unshift({ url, title: title || "", platform: platform || "", ts: Date.now(), closeIso: _currentCloseIso() })
   try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms.slice(0, 100))) } catch {}
   _renderBookmarksPanel(); _refreshBookmarkBtn(url)
 }
@@ -232,6 +232,9 @@ function _closeAllPanels() {
 
 function _currentTitle() {
   return document.querySelector("#result .event-title")?.textContent?.trim() || ""
+}
+function _currentCloseIso() {
+  return (typeof window !== "undefined" && window._lastCloseIso) || ""
 }
 function _currentPlatform() {
   const lower = (document.getElementById("urlInput")?.value || "").toLowerCase()
@@ -413,6 +416,43 @@ function showError(msg, hint = "") {
       <div class="error-content"><span>${esc(msg)}</span>${hintHtml}</div>
       <button class="retry-btn" onclick="document.getElementById('urlInput').select();document.getElementById('urlInput').focus()">TRY AGAIN ↺</button>
     </div>`
+}
+
+// Snapshot of the first-run state so it can be restored when the user clears
+// the current analysis (logo click).
+let _startStateHtml = ""
+function _rememberStartState() {
+  const result = document.getElementById("result")
+  if (result && !_startStateHtml) _startStateHtml = result.innerHTML
+}
+
+function resetToHome() {
+  _rememberStartState()
+  const input = document.getElementById("urlInput")
+  if (input) {
+    input.value = ""
+    input.classList.remove("input-valid", "input-invalid")
+  }
+  const hint = document.getElementById("inputHint")
+  if (hint) {
+    hint.textContent = ""
+    hint.className = "input-hint"
+  }
+  const result = document.getElementById("result")
+  if (result && _startStateHtml) result.innerHTML = _startStateHtml
+  const shareControls = document.getElementById("shareControls")
+  if (shareControls) shareControls.style.display = "none"
+  const fetchedAt = document.getElementById("fetchedAt")
+  if (fetchedAt) fetchedAt.style.display = "none"
+  if (typeof switchTab === "function") switchTab("analyze")
+}
+
+function loadExample(url) {
+  const input = document.getElementById("urlInput")
+  if (!input) return
+  input.value = url
+  onInputChange()
+  analyze()
 }
 
 function onInputChange() {
