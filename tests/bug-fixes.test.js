@@ -78,10 +78,27 @@ test("tagChipsHtml caps visible chips and keeps reward chips", () => {
     { earnTip: "reward info" }
   )
   const chipCount = (html.match(/<span/g) || []).length
-  assert.equal(chipCount, 7, `expected 5 topics + earn + overflow chips, got ${chipCount}`)
-  assert.ok(html.includes(">+2</span>"), "overflow chips collapse into a +N chip")
+  assert.equal(chipCount, 6, `expected 4 topics + earn + overflow chips, got ${chipCount}`)
+  assert.ok(html.includes(">+3</span>"), "overflow chips collapse into a +N chip")
   assert.ok(html.includes("EARN 4%"), "reward chip always shown")
-  assert.ok(html.includes("tag-cat--muted"), "secondary chips are neutral")
+  // Topic chips carry no inline color — only the platform and reward chips do.
+  const topicChips = html.match(/<span class="tag-cat[^"]*"[^>]*>/g) || []
+  const coloredTopics = topicChips.filter(c => c.includes("tag-cat--muted") && c.includes("style="))
+  assert.equal(coloredTopics.length, 0, "topic chips must be neutral")
+})
+
+test("statCard labels missing platform metrics instead of rendering an empty stub", () => {
+  const ctx = loadUiContext()
+  assert.ok(ctx.statCard("24H VOLUME", "").includes("Not reported"))
+  assert.ok(ctx.statCard("24H VOLUME", "—").includes("Not reported"))
+  assert.ok(ctx.statCard("VOLUME TRADED", "$322").includes("$322"))
+})
+
+test("sourceLabel names CDN-hosted contract documents instead of showing the CDN host", () => {
+  const ctx = loadUiContext()
+  assert.equal(ctx.sourceLabel("https://cdn.builder.io/o/assets/terms"), "Official contract terms")
+  assert.equal(ctx.sourceLabel("https://example.com/rules.pdf"), "Official contract terms (PDF)")
+  assert.equal(ctx.sourceLabel("https://apnews.com/article/x"), "apnews.com")
 })
 
 test("Kalshi binary NO outcome omits bid/ask when YES has no quote (no bogus 0¢/0¢)", () => {

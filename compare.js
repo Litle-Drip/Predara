@@ -509,7 +509,7 @@ function addShareBar(marketUrl) {
   const shareControlsEl = document.getElementById("shareControls")
   if (shareControlsEl) shareControlsEl.style.display = "flex"
   const copyBtn = document.getElementById("copyLinkBtn")
-  if (copyBtn) copyBtn.textContent = "COPY LINK ↗"
+  if (copyBtn) copyBtn.textContent = "Copy link ↗"
 
   // Keep compare collapsed unless the user opens it explicitly.
 }

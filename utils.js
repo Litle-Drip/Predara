@@ -123,11 +123,11 @@ function tip(text, key) {
 }
 
 // ── Tag chips ─────────────────────────────────────────────────────────────────
-// Renders category/topic chips for a market header. Only the leading (primary)
-// topic and reward chips carry an accent color — the rest stay neutral so a
-// market with a dozen upstream tags doesn't turn the header into a rainbow. The
-// list is capped and the overflow collapses into a single "+N" chip.
-const TAG_CHIP_LIMIT = 5
+// Renders category/topic chips for a market header. Topic chips are neutral —
+// only the platform chip and reward chips carry color, so a market with a dozen
+// upstream tags doesn't turn the header into a rainbow. The list is capped and
+// the overflow collapses into a single "+N" chip.
+const TAG_CHIP_LIMIT = 4
 function tagChipsHtml(labels, opts) {
   if (!Array.isArray(labels)) return ""
   const earnTip = (opts && opts.earnTip) || ""
@@ -140,12 +140,9 @@ function tagChipsHtml(labels, opts) {
   const shown = topics.slice(0, TAG_CHIP_LIMIT)
   const hidden = topics.slice(TAG_CHIP_LIMIT)
 
-  const chips = shown.map((label, i) => {
-    const text = esc(label.toUpperCase())
-    if (i > 0) return `<span class="tag-cat tag-cat--muted">${text}</span>`
-    const col = categoryColor(label)
-    return `<span class="tag-cat" style="color:${col};border-color:${col};background:${col}1a">${text}</span>`
-  })
+  const chips = shown.map(label =>
+    `<span class="tag-cat tag-cat--muted">${esc(label.toUpperCase())}</span>`
+  )
 
   earn.forEach(label => {
     const col = "#c9a227"
