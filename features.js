@@ -580,29 +580,18 @@ function _savePrediction(url, title, myProb, marketProb) {
   try { localStorage.setItem("predara-predictions", JSON.stringify(preds.slice(0, 200))) } catch {}
 }
 
-function myPredictionHtml(url) {
-  if (!url) return ""
-  const existing = _getPredictions().find((p) => p.url === url)
-  const val = existing ? existing.myProb : ""
-  return `
-    <div class="mi-card my-prediction-card">
-      <div class="section-label">MY PREDICTION</div>
-      <div class="my-pred-body">
-        <div class="my-pred-row">
-          <label>I think the probability is:</label>
-          <div class="edge-input-wrap">
-            <input type="number" id="myPredInput" class="edge-prob-input" value="${val}" min="1" max="99" placeholder="—" />
-            <span class="edge-pct-sign">%</span>
-          </div>
-          <button class="copy-link-btn" onclick="saveMyPrediction()">Save</button>
-        </div>
-        ${existing ? `<div class="my-pred-saved">Saved ${_timeAgo(existing.ts)} · Market was at ${existing.marketProb}%</div>` : ""}
-      </div>
-    </div>`
+// The saved estimate for the market currently in the URL bar. Read by the
+// "What's your edge?" card, which owns the only probability input.
+function _getSavedPrediction() {
+  const url = typeof document !== "undefined"
+    ? document.getElementById("urlInput")?.value?.trim()
+    : ""
+  if (!url) return null
+  return _getPredictions().find((p) => p.url === url) || null
 }
 
 window.saveMyPrediction = function () {
-  const input = document.getElementById("myPredInput")
+  const input = document.getElementById("edgeProbInput")
   if (!input) return
   const myProb = parseInt(input.value, 10)
   if (isNaN(myProb) || myProb < 1 || myProb > 99) { _showToast("Enter a probability between 1-99%"); return }
@@ -610,7 +599,12 @@ window.saveMyPrediction = function () {
   const title = document.querySelector(".event-title")?.textContent?.trim() || ""
   const leadPct = parseInt(document.querySelector(".outcome-pct")?.textContent, 10) || 50
   _savePrediction(url, title, myProb, leadPct)
-  _showToast("Prediction saved")
+  const note = document.getElementById("edgeSavedNote")
+  if (note) {
+    note.textContent = `Last saved estimate: ${myProb}% (market was at ${leadPct}%)`
+    note.style.display = ""
+  }
+  _showToast("Estimate saved")
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -911,6 +905,9 @@ function communityConsensusHtml(url) {
     ? Math.round(relatedPreds.reduce((s, p) => s + p.myProb, 0) / relatedPreds.length)
     : null
 
+  // Nothing to say yet — don't render an empty card asking for data.
+  if (avg === null && !myVote) return ""
+
   return `
     <div class="mi-card">
       <div class="section-label">COMMUNITY PULSE</div>
@@ -936,8 +933,12 @@ function correlationMapHtml(title) {
 
   // Extract keywords from current market title
   const keywords = title.toLowerCase().split(/\s+/).filter((w) => w.length > 3)
+  const currentUrl = document.getElementById("urlInput")?.value?.trim() || ""
+  const currentTitle = title.trim().toLowerCase()
   const related = all.filter((m) => {
     if (!m.title) return false
+    // Never list the market the user is already looking at.
+    if (m.url === currentUrl || m.title.trim().toLowerCase() === currentTitle) return false
     const mLower = m.title.toLowerCase()
     return keywords.some((kw) => mLower.includes(kw))
   }).slice(0, 5)
@@ -1308,7 +1309,7 @@ function renderRewardsTab() {
 
   container.innerHTML = `
     <div class="mi-card" style="margin-bottom:20px">
-      <div class="section-label">💰 REWARD PROGRAMS ACROSS PLATFORMS</div>
+      <div class="section-label">REWARD PROGRAMS ACROSS PLATFORMS</div>
       <div class="rewards-program-desc" style="padding-top:4px">
         A reference for market makers and active traders: every maker/taker liquidity incentive currently offered
         by Kalshi, Polymarket, Gemini, and Coinbase Predictions, in one place. Program terms, eligibility, and payouts
@@ -1397,20 +1398,21 @@ function afterAnalysisHook(url) {
     setTimeout(() => drawPriceHistoryChart(url), 50)
   }
 
-  // My Prediction
-  result.insertAdjacentHTML("beforeend", myPredictionHtml(url))
-
-  // Price Alerts
-  result.insertAdjacentHTML("beforeend", priceAlertHtml(url))
-
-  // Embed Widget
-  result.insertAdjacentHTML("beforeend", embedWidgetHtml(url))
-
-  // Correlation Map
-  result.insertAdjacentHTML("beforeend", correlationMapHtml(title))
-
-  // Community Consensus
-  result.insertAdjacentHTML("beforeend", communityConsensusHtml(url))
+  // Secondary tools live behind one disclosure so the analysis itself stays
+  // the page: alerts, related markets, personal calibration, embed code.
+  const utilityCards = [
+    priceAlertHtml(url),
+    correlationMapHtml(title),
+    communityConsensusHtml(url),
+    embedWidgetHtml(url),
+  ].filter(Boolean).join("")
+  if (utilityCards) {
+    result.insertAdjacentHTML("beforeend", `
+      <details class="util-details">
+        <summary class="util-summary">Alerts, related markets &amp; embed</summary>
+        <div class="util-body">${utilityCards}</div>
+      </details>`)
+  }
 
   // Check existing alerts
   checkAlertsOnLoad()

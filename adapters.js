@@ -85,7 +85,15 @@ function sourceLabel(source, fallback = "Resolution source") {
   if (cleanName && !looksVerbose) return cleanName
   try {
     const u = new URL(url)
-    return u.hostname.replace(/^www\./, "")
+    // Contract terms are often hosted on an asset CDN or as a raw file. Showing
+    // the bare hostname ("cdn.builder.io") reads like a broken link, so label
+    // what the document actually is instead.
+    const host = u.hostname.replace(/^www\./, "")
+    const isAssetHost = /^(cdn|assets|static|files|media|storage)\./.test(host) ||
+      /(builder\.io|amazonaws\.com|cloudfront\.net|googleapis\.com|blob\.core\.windows\.net)$/.test(host)
+    const isDocument = /\.(pdf|docx?|txt)$/i.test(u.pathname)
+    if (isAssetHost || isDocument) return isDocument ? "Official contract terms (PDF)" : "Official contract terms"
+    return host
   } catch {
     return fallback
   }

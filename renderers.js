@@ -15,9 +15,11 @@ function renderMarket(norm, accent) {
     ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
     : ""
 
-  const allRows = norm.outcomes.map(o =>
+  // `rank` lets the renderer highlight only the leading outcome instead of
+  // giving every row its own color.
+  const allRows = norm.outcomes.map((o, i) =>
     outcomeRow(o.label, o.sub || "", o.pct, o.color, o.delta ?? null, {
-      bid: o.bid, ask: o.ask, isEstimate: o.isEstimate, vol: o.vol, oi: o.oi,
+      bid: o.bid, ask: o.ask, isEstimate: o.isEstimate, vol: o.vol, oi: o.oi, rank: i,
     })
   )
   const outcomesHtml = buildOutcomesHtml(allRows)

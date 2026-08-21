@@ -604,6 +604,9 @@ function edgeCalculatorHtml(outcomes) {
   // Store for callback
   window._edgeCalcAsk = askFrac
   window._edgeCalcLabel = first.label
+  // A single probability input drives both the Kelly math and the saved
+  // prediction log (there used to be a second, duplicate input further down).
+  const saved = typeof _getSavedPrediction === "function" ? _getSavedPrediction() : null
   return `
     <div class="mi-card edge-calc-card">
       <div class="section-label">WHAT'S YOUR EDGE?</div>
@@ -612,10 +615,12 @@ function edgeCalculatorHtml(outcomes) {
           <label class="edge-input-label">My probability for <strong>${esc(first.label)}</strong>:</label>
           <div class="edge-input-wrap">
             <input type="number" id="edgeProbInput" class="edge-prob-input"
-              value="${first.pct}" min="1" max="99" step="1" oninput="updateEdgeCalc()" />
+              value="${saved ? saved.myProb : first.pct}" min="1" max="99" step="1" oninput="updateEdgeCalc()" />
             <span class="edge-pct-sign">%</span>
           </div>
+          <button class="copy-link-btn" onclick="saveMyPrediction()" title="Log this estimate to track your calibration over time">Save estimate</button>
         </div>
+        ${saved ? `<div class="my-pred-saved" id="edgeSavedNote">Last saved estimate: ${saved.myProb}% (market was at ${saved.marketProb}%)</div>` : `<div class="my-pred-saved" id="edgeSavedNote" style="display:none"></div>`}
         <div id="edgeCalcResult" class="edge-calc-result"></div>
       </div>
     </div>`
@@ -794,9 +799,10 @@ function skeletonHtml(platformLabel) {
 }
 
 function statCard(label, value, sub = "") {
-  const inner = value
+  const hasValue = value && String(value).trim() && String(value).trim() !== "—"
+  const inner = hasValue
     ? `<div class="stat-value">${esc(String(value))}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ""}`
-    : `<div class="stat-dash"></div>`
+    : `<div class="stat-empty">Not reported</div>`
   return `<div class="stat-card"><div class="stat-label">${tip(label)}</div>${inner}</div>`
 }
 
@@ -808,7 +814,7 @@ function rewardsCard(rows, note) {
   if (!body && !note) return ""
   return `
     <div class="mi-card">
-      <div class="section-label">💰 LIQUIDITY &amp; TRADING REWARDS</div>
+      <div class="section-label">LIQUIDITY &amp; TRADING REWARDS</div>
       ${body}
       ${note ? `<div class="platform-footnote">${note}</div>` : ""}
     </div>`
@@ -868,11 +874,11 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
     if (mid > 0) {
       const spreadPct = spread / mid
       if (spreadPct > 0.15) {
-        deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">💀 ILLIQUID</span>`
+        deadMoneyHtml = `<span class="dead-money-tag" title="Wide spread (${Math.round(spread * 100)}¢) — low liquidity">Illiquid</span>`
       } else {
         const vol = parseInt(String(extras.vol || "0").replace(/,/g, ""), 10)
         if (spreadPct <= 0.02 && vol >= 50000) {
-          liquidBadgeHtml = `<span class="liquid-badge" title="Tight spread (${Math.round(spread * 100)}¢) + high volume — good market to trade">✓ LIQUID</span>`
+          liquidBadgeHtml = `<span class="liquid-badge" title="Tight spread (${Math.round(spread * 100)}¢) + high volume — good market to trade">Liquid</span>`
         }
       }
     }
@@ -907,12 +913,12 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
     <div class="outcome-row">
       <div class="outcome-top">
         <div class="outcome-left-col">
-          <div class="outcome-name" style="color:${color}"><span class="outcome-name-text">${esc(label)}</span>${momentumArrow}</div>
+          <div class="outcome-name"><span class="outcome-dot" style="background:${color}"></span><span class="outcome-name-text">${esc(label)}</span>${momentumArrow}</div>
           ${sub ? `<div class="outcome-sub">${esc(sub)}</div>` : ""}
           ${plainTalkHtml}
         </div>
         <div class="outcome-right">
-          <div class="odds-display" style="color:${color}">
+          <div class="odds-display"${extras.rank === 0 ? ` style="color:${color}"` : ""}>
             <span class="outcome-pct">${pct}%${estTag}</span>
             ${mlBlock}
           </div>
@@ -943,7 +949,7 @@ function showMoreOutcomes(uid) {
   row.parentNode.insertBefore(revealed, row)
   row.dataset.rows = "[]"
   const btn = row.querySelector("button")
-  btn.textContent = "SHOW LESS  ↑"
+  btn.textContent = "Show less ↑"
   btn.onclick = () => showLessOutcomes(uid, pool)
 }
 
@@ -954,7 +960,7 @@ function showLessOutcomes(uid, pool) {
   if (!row) return
   row.dataset.rows = JSON.stringify(pool)
   const btn = row.querySelector("button")
-  btn.textContent = `+ ${pool.length} MORE  ↓`
+  btn.textContent = `Show ${pool.length} more ↓`
   btn.onclick = () => showMoreOutcomes(uid)
 }
 
@@ -965,7 +971,7 @@ function buildOutcomesHtml(rows) {
   return rows.slice(0, PAGE_SIZE).join("") + `
     <div class="show-more-row" id="${uid}_smr" data-rows="${remaining}">
       <button class="show-more-btn" onclick="showMoreOutcomes('${uid}')">
-        + ${rows.length - PAGE_SIZE} MORE  ↓
+        Show ${rows.length - PAGE_SIZE} more ↓
       </button>
     </div>`
 }

@@ -175,7 +175,7 @@ function _refreshBookmarkBtn(url) {
   const btn = document.getElementById("bookmarkBtn")
   if (!btn) return
   const saved = url ? _isBookmarked(url) : false
-  btn.textContent = saved ? "★ SAVED" : "☆ SAVE"
+  btn.textContent = saved ? "★ Saved" : "☆ Save"
   btn.classList.toggle("bookmarked", saved)
   btn.onclick = () => saved ? _removeBookmark(url) : _saveBookmark(url, _currentTitle(), _currentPlatform())
 }
