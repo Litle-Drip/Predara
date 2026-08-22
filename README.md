@@ -30,7 +30,9 @@ Prediction markets bury the information traders actually need — resolution cri
 
 ## Settlement Desk
 
-After a market closes, the Settlement Desk audits how it resolved. Most settlements are confirmed straight from the platform's own API with no AI call. When the API data has no clear winner, the case goes to Claude for analysis — and you can point that at **your own Anthropic API key** instead of the shared one, from the "Use your own Anthropic API key" panel on the page. The key is stored only in your browser and is never logged or saved server-side.
+After a market closes, the Settlement Desk audits how it resolved. Most settlements are confirmed straight from the platform's own API with no AI call — those work out of the box.
+
+When the API data has no clear winner, the case goes to Claude for analysis, and that requires **your own Anthropic API key**, entered in the "Your Anthropic API key" panel on the page. Predara runs no Anthropic key of its own, so AI analysis is always billed to your account, never ours. The key is stored only in your browser (no account needed) and is never logged or saved server-side.
 
 ## Getting started
 

@@ -30,8 +30,11 @@ const CORS_HEADERS = {
 }
 
 // ── Bring-your-own Anthropic key ──
-// Callers may supply their own key via the x-anthropic-api-key header. It is used
-// for that single request only: never logged, never persisted, never echoed back.
+// The caller's own key via the x-anthropic-api-key header is the ONLY key this
+// endpoint will ever use. Predara holds no Anthropic key of its own and reads no
+// ANTHROPIC_API_KEY from the environment, so AI analysis is never billed to
+// Predara. The key is used for that single request: never logged, never
+// persisted, never echoed back.
 const USER_KEY_HEADER = "x-anthropic-api-key"
 const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
 
@@ -526,7 +529,7 @@ const server = http.createServer((req, res) => {
 
   // ── Settlement review ──
   if (parsed.pathname === "/api/settlement-review" && req.method === "POST") {
-    // Key resolution: the caller's own key wins, the server key is the fallback.
+    // The caller's key is the only key. There is no server-side fallback.
     // A missing key is only fatal on the slow path, so it is not checked here —
     // API-confirmed settlements still resolve with no key at all.
     const userKey = readUserApiKey(req)
@@ -534,8 +537,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
       return res.end(JSON.stringify({ verdict: "error", summary: userKey.error, needsKey: true }))
     }
-    const ANTHROPIC_API_KEY = userKey.key || process.env.ANTHROPIC_API_KEY || ""
-    const keySource = userKey.key ? "user" : (ANTHROPIC_API_KEY ? "server" : "none")
+    const userApiKey = userKey.key
 
     let rawBody = ""
     req.on("data", chunk => { rawBody += chunk })
@@ -713,14 +715,14 @@ const server = http.createServer((req, res) => {
       }
 
       // ── Slow path: no clear winner in API data — ask Claude ──
-      if (!ANTHROPIC_API_KEY) {
+      if (!userApiKey) {
         return sendJson({
           ticker, title, status,
           verdict: "error",
           needsKey: true,
-          summary: "This market needs AI analysis, but no Anthropic API key is available. Add your own key to continue — it stays in your browser and is used only for your reviews.",
+          summary: "This market has no clear winner in the platform's API data, so it needs AI analysis. Add your Anthropic API key to continue — it stays in your browser and is billed to your own Anthropic account.",
           keyFacts: [],
-          recommendation: "Open \u201cUse your own API key\u201d and paste a key from console.anthropic.com.",
+          recommendation: "Open \u201cYour Anthropic API key\u201d and paste a key from console.anthropic.com.",
         })
       }
 
@@ -738,7 +740,7 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
         const { status: aiStatus, body: aiBody } = await httpsPostJson(
           "api.anthropic.com",
           "/v1/messages",
-          { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+          { "x-api-key": userApiKey, "anthropic-version": "2023-06-01" },
           { model: "claude-haiku-4-5", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: `Input: ${input}\n\nEvent data:\n${JSON.stringify(trimmed, null, 2)}` }] },
           20000
         )
@@ -748,23 +750,19 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
             ticker, title, status,
             verdict: "error",
             needsKey: true,
-            summary: keySource === "user"
-              ? "Anthropic rejected your API key (HTTP " + aiStatus + ") — it may be expired, revoked, or mistyped."
-              : "Anthropic rejected the server's API key (HTTP " + aiStatus + "). Add your own key to keep working while it is fixed.",
+            summary: "Anthropic rejected your API key (HTTP " + aiStatus + ") — it may be expired, revoked, or mistyped.",
             keyFacts: [],
-            recommendation: "Check the key at console.anthropic.com, then paste a working one under \u201cUse your own API key\u201d.",
+            recommendation: "Check the key at console.anthropic.com, then paste a working one under \u201cYour Anthropic API key\u201d.",
           })
         }
         if (aiStatus === 429) {
           return sendJson({
             ticker, title, status,
             verdict: "error",
-            needsKey: keySource !== "user",
-            summary: keySource === "user"
-              ? "Your Anthropic account is rate limited or out of credit (HTTP 429). Try again shortly."
-              : "The shared Anthropic key is rate limited (HTTP 429). Add your own key to review without waiting.",
+            needsKey: false,
+            summary: "Your Anthropic account is rate limited or out of credit (HTTP 429). Check your plan and billing at console.anthropic.com, then try again.",
             keyFacts: [],
-            recommendation: keySource === "user" ? "Wait a moment and re-submit." : "Paste your own key under \u201cUse your own API key\u201d, or retry later.",
+            recommendation: "Wait a moment and re-submit, or top up credit on your Anthropic account.",
           })
         }
         if (aiStatus !== 200) return sendError(`AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}`)
@@ -793,7 +791,6 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
       if (!Array.isArray(verdict.keyFacts)) verdict.keyFacts = []
       if (!verdict.summary) verdict.summary = "No summary provided."
       if (!verdict.recommendation) verdict.recommendation = "Review manually."
-      verdict.keySource = keySource
 
       sendJson(verdict)
     })
@@ -824,9 +821,6 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running at http://0.0.0.0:${PORT}`)
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn("Warning: ANTHROPIC_API_KEY not set — settlement reviews that need AI will ask the user for their own key")
-  }
 })
 
 server.on("error", (err) => {

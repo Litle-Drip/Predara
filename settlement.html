@@ -500,7 +500,7 @@
 
   <div class="intake">
     <div class="intake-label">Settlement Desk</div>
-    <div class="intake-desc">After a market closes, paste a ticker or URL from Gemini, Kalshi, Polymarket, or Coinbase — settlement is confirmed directly from the platform's API data with no AI cost for clean results.</div>
+    <div class="intake-desc">After a market closes, paste a ticker or URL from Gemini, Kalshi, Polymarket, or Coinbase — settlement is confirmed directly from the platform's API data, with no AI call at all for clean results.</div>
     <div class="intake-row">
       <input
         id="tickerInput"
@@ -518,14 +518,15 @@
     <div class="key-panel" id="keyPanel">
       <button class="key-toggle" id="keyToggle" onclick="toggleKeyPanel()" aria-expanded="false" aria-controls="keyBody">
         <span class="caret">▾</span>
-        <span>Use your own Anthropic API key</span>
-        <span class="key-status" id="keyStatus">Shared key</span>
+        <span>Your Anthropic API key</span>
+        <span class="key-status" id="keyStatus">Not set</span>
       </button>
       <div class="key-body" id="keyBody">
         <div class="key-desc">
-          Reviews that the platform APIs can settle on their own never touch AI. When a market
-          <em>does</em> need AI analysis, Predara can call Anthropic with your key instead of the shared one —
-          useful if the shared key is expired or rate limited. Get a key at
+          Most settlements are confirmed straight from the platform's own API and never touch AI —
+          those work with no key at all. When a market <em>does</em> need AI analysis, Predara calls
+          Anthropic with your key, billed to your own Anthropic account. Predara has no key of its own.
+          Get one at
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
         </div>
         <div class="key-row">
@@ -541,7 +542,7 @@
           <button class="btn-key primary" onclick="saveApiKey()">Save</button>
           <button class="btn-key" id="keyClearBtn" onclick="clearApiKey()">Clear</button>
         </div>
-        <div class="key-note" id="keyNote">Stored only in this browser (localStorage) and sent with your review requests. Predara never logs or saves it server-side.</div>
+        <div class="key-note" id="keyNote">Stored only in this browser (localStorage) — no account needed. Sent with your review requests and used for that one call; Predara never logs or saves it server-side.</div>
       </div>
     </div>
   </div>
@@ -597,7 +598,7 @@
       document.getElementById("keyInput").placeholder = maskKey(key)
       clearBtn.style.display = ""
     } else {
-      status.textContent = "Shared key"
+      status.textContent = "Not set"
       status.classList.remove("active")
       document.getElementById("keyInput").placeholder = "sk-ant-…"
       clearBtn.style.display = "none"
@@ -621,7 +622,7 @@
     const input = document.getElementById("keyInput")
     const key = input.value.trim()
     if (!key) {
-      setKeyNote("Paste a key first, or press Clear to go back to the shared key.", true)
+      setKeyNote("Paste a key first.", true)
       return
     }
     if (!ANTHROPIC_KEY_RE.test(key)) {
@@ -643,7 +644,7 @@
     try { localStorage.removeItem(API_KEY_STORAGE) } catch {}
     document.getElementById("keyInput").value = ""
     renderKeyState()
-    setKeyNote("Key removed. Reviews fall back to the shared server key.", false)
+    setKeyNote("Key removed. API-confirmed settlements still work; reviews needing AI will ask for a key.", false)
   }
 
   /* ── Storage ── */
@@ -800,12 +801,12 @@
         signal: controller.signal,
       })
       const data = await res.json()
-      // The server asks for a key when the shared one is missing, expired, or throttled.
+      // The server asks for a key when none was sent or Anthropic rejected the one that was.
       if (data.needsKey) {
         openKeyPanel()
         setKeyNote(userKey
           ? "Your key was not accepted for that review — check it at console.anthropic.com."
-          : "This review needs an API key. Paste yours below to continue.", true)
+          : "That market needs AI analysis. Paste your Anthropic API key below to continue.", true)
       }
       resolveCase({
         ticker:         data.ticker || input,
