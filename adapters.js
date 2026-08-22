@@ -709,10 +709,26 @@ function normalizeGemini(event, inputUrl = "") {
     <strong>Market Maker Program</strong> for consistent two-sided quoting.
     Eligibility and payouts vary by market and program.
     <a href="https://developer.gemini.com/prediction-markets/liquidity-rewards-program" target="_blank" rel="noopener" style="color:var(--orange)">View current programs ↗</a>
+    <div id="gemEventRewards"></div>
   `) : ""
+
+  // Public market-data streams key off each contract's instrumentSymbol, so the
+  // live order book only exists for open markets that expose one.
+  const geminiLiveContracts = isOpen
+    ? contracts
+        .map((c, i) => ({
+          label: geminiExtractName(c, `Outcome ${i + 1}`),
+          symbol: c.instrumentSymbol || c.instrument_symbol || "",
+        }))
+        .filter(c => c.symbol)
+    : []
+  const geminiLive = geminiLiveContracts.length
+    ? { ticker: geminiTicker, category: event.category || "", contracts: geminiLiveContracts }
+    : null
 
   return {
     platform: "gemini",
+    geminiLive,
     title: event.title || "Gemini Prediction Market",
     subtitle: "",
     statusDot, statusText,

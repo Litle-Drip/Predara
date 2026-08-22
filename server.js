@@ -4,6 +4,7 @@ const crypto = require("crypto")
 const fs = require("fs")
 const path = require("path")
 const url = require("url")
+const { getGeminiPublic, geminiEventsToDiscoverCards } = require("./lib/gemini-public")
 
 const PORT = process.env.PORT || 5000
 const STATIC_ROOT = __dirname
@@ -416,6 +417,21 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Gemini public prediction-market data (search, volume, rewards, strike) ──
+  if (parsed.pathname === "/api/gemini-markets") {
+    const { resource, ...query } = parsed.query
+    getGeminiPublic(resource, query)
+      .then(({ status, json }) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(json))
+      })
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
+    return
+  }
+
   // ── Kalshi live incentive programs (Rewards tab) ──
   // Lists all currently active liquidity/volume incentive programs, across every
   // market — not tied to a single ticker lookup like /api/kalshi above.
@@ -523,24 +539,9 @@ const server = http.createServer((req, res) => {
 
     async function fetchGeminiTrending() {
       try {
-        const { status, body } = await httpsGetWithTimeout(
-          "https://api.gemini.com/v1/prediction-markets/events",
-          REQUEST_TIMEOUT_MS,
-        )
+        const { status, json } = await getGeminiPublic("events", { status: "active", limit: "24" })
         if (status !== 200) return []
-        const data = JSON.parse(body)
-        const events = Array.isArray(data) ? data : (data.events || [])
-        return events.slice(0, 8).map((e) => {
-          const contracts = e.contracts || []
-          const top = contracts[0] || {}
-          return {
-            title: e.title || e.ticker || "Untitled",
-            url: `https://www.gemini.com/predictions/${e.ticker || ""}`,
-            volume: "",
-            topOutcome: top.title || top.ticker || "",
-            topPct: top.last_price ? Math.round(parseFloat(top.last_price) * 100) : "",
-          }
-        })
+        return geminiEventsToDiscoverCards(json, 8)
       } catch { return [] }
     }
 

@@ -9,6 +9,10 @@ function renderMarket(norm, accent) {
   // (the Calendar tab groups tracked markets by their close date).
   if (typeof window !== "undefined") window._lastCloseIso = norm.closeIso || ""
 
+  // Gemini streams its public order book per contract instrumentSymbol; the
+  // feed is opened by initGeminiLive() after this HTML is in the DOM.
+  if (typeof window !== "undefined") window._geminiLive = norm.geminiLive || null
+
   const staleHtml   = staleWarningHtml(norm.staleIso)
   const timeLeft    = fmtTimeRemaining(norm.closeIso)
   const urgencyHtml = timeLeft
@@ -113,6 +117,8 @@ function renderMarket(norm, accent) {
       <div class="section-label">CURRENT ODDS</div>
       ${outcomesHtml}
     </div>
+
+    ${norm.geminiLive && typeof geminiLiveCardHtml === "function" ? geminiLiveCardHtml(norm.geminiLive) : ""}
 
     ${volDistHtml}
 

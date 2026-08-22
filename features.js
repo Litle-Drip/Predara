@@ -461,7 +461,10 @@ function renderCalendar() {
     .filter((m, i, arr) => arr.findIndex((x) => x.url === m.url) === i)
 
   if (!allMarkets.length) {
-    container.innerHTML = `<div class="empty-state">No markets tracked yet. Analyze and save markets to see them in the calendar.</div>`
+    container.innerHTML = `
+      <div class="empty-state">No markets tracked yet. Analyze and save markets to see them in the calendar.</div>
+      <div id="gemUpcomingSlot"></div>`
+    renderGeminiUpcoming()
     return
   }
 
@@ -520,7 +523,9 @@ function renderCalendar() {
   container.innerHTML = `
     <div class="calendar-grid">${daysHtml}</div>
     ${laterHtml}
-    <div class="cal-note">Grouped by each market's close date from the platform's own data. Markets saved before their close date was recorded show up under “date unknown” — re-analyze them to place them on the calendar.</div>`
+    <div class="cal-note">Grouped by each market's close date from the platform's own data. Markets saved before their close date was recorded show up under “date unknown” — re-analyze them to place them on the calendar.</div>
+    <div id="gemUpcomingSlot"></div>`
+  renderGeminiUpcoming()
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -786,7 +791,8 @@ function _renderDiscoveryResults(container, data) {
         ${marketsHtml || `<div class="cal-empty">No markets available</div>`}
       </div>`
   }).join("")
-  container.innerHTML = html
+  container.innerHTML = geminiBrowseHtml() + html
+  geminiBrowseInit()
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1196,6 +1202,7 @@ function renderToolsTab() {
     ${parlayCalculatorHtml()}
     ${renderAccuracyDashboard()}
     ${notificationSettingsHtml()}
+    ${geminiVolumeCardHtml()}
     <div class="mi-card">
       <div class="section-label">DATA EXPORT</div>
       <div class="consensus-body" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1205,6 +1212,8 @@ function renderToolsTab() {
     </div>`
   // Initialize P&L calculator
   setTimeout(() => { if (typeof updatePnl === "function") updatePnl() }, 50)
+  loadGeminiVolume()
+  loadGeminiCombos()
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1290,7 +1299,11 @@ function renderRewardsTab() {
     ),
   ].join("")
   const geminiExtra = `
-    <div class="rewards-note-box">You can't be in a contracted Market Maker Program and the Taker Rewards Program at the same time — but Maker Rebates and Taker Rewards can be combined.</div>`
+    <div class="rewards-note-box">You can't be in a contracted Market Maker Program and the Taker Rewards Program at the same time — but Maker Rebates and Taker Rewards can be combined.</div>
+    <div class="rewards-program-name" style="margin-top:16px">Live maker-rebate rates</div>
+    <div id="gemMakerRebates" class="rewards-note-box">Loading live rebate rates…</div>
+    <div class="rewards-program-name" style="margin-top:16px">Events earning liquidity rewards now</div>
+    <div id="gemLiquidityPools" class="rewards-note-box">Loading live reward pools…</div>`
 
   const coinbasePrograms = [
     _rewardsProgramItem(
@@ -1322,6 +1335,7 @@ function renderRewardsTab() {
     ${_rewardsPlatformCard("coinbase", "Inherits rewards from the underlying venue", coinbasePrograms, coinbaseExtra)}
   `
   _loadKalshiLiveIncentives()
+  loadGeminiLiveRewards()
 }
 
 async function _loadKalshiLiveIncentives() {
@@ -1390,6 +1404,9 @@ function afterAnalysisHook(url) {
   if (!result) return
 
   const title = document.querySelector(".event-title")?.textContent?.trim() || ""
+
+  // Gemini markets stream their public order book, strike and reward pool
+  initGeminiLive()
 
   // Price history chart
   const chartHtml = priceHistoryChartHtml(url)
