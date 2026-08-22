@@ -232,6 +232,19 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
   ].join("")
   const hasTimeline = !!(eventOpenTime || first.close_time || first.expected_expiration_time)
 
+  // Identifiers for the real price-history chart. Kalshi candlesticks are keyed
+  // by (series_ticker, market ticker); series_ticker is not always present on
+  // the event, so fall back to the markets that carry it.
+  const historySeries = first.series_ticker || ev.series_ticker
+    || (allMarkets.find(m => m.series_ticker) || {}).series_ticker || ""
+  const historyRef = historySeries ? {
+    platform: "kalshi",
+    series: historySeries,
+    entries: sorted.slice(0, 4)
+      .filter(m => m.ticker)
+      .map(m => ({ label: m.yes_sub_title || m.title || "YES", ticker: m.ticker })),
+  } : null
+
   // Analytics source
   const analyticsSource = (isMultiOutcome ? sorted.slice(0, 3) : markets.length === 2 ? sorted.slice(0, 2) : sorted.slice(0, 1)).map((m, i) => {
     const lp  = parseFloat(m.last_price_dollars || 0)
@@ -423,6 +436,7 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
       fmtMarketAge(eventOpenTime) ? { label: "MARKET AGE", value: fmtMarketAge(eventOpenTime) } : null,
     ],
     analyticsSource,
+    historyRef,
     leadPct,
     betExplainerText,
     ruleSentences,
@@ -752,6 +766,9 @@ function normalizeGemini(event, inputUrl = "") {
       } : null,
     ],
     analyticsSource,
+    // Gemini publishes no public price-history endpoint, so the chart falls
+    // back to saying so rather than inventing a series.
+    historyRef: null,
     leadPct,
     betExplainerText,
     ruleSentences,
@@ -896,6 +913,21 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
   if (!outcomes.length) return null
 
   const first = markets[0] || {}
+
+  // Identifiers for the real price-history chart. Polymarket's CLOB
+  // /prices-history is keyed by clobTokenId, and the token ids arrive as a
+  // JSON-encoded string on each market. Index 0 is always the YES token.
+  const historyEntries = markets.slice(0, 4).map((m) => {
+    let ids = m.clobTokenIds
+    if (typeof ids === "string") { try { ids = JSON.parse(ids) } catch { ids = null } }
+    const token = Array.isArray(ids) ? ids[0] : null
+    if (!token) return null
+    return { label: m.groupItemTitle || m.question || "YES", token: String(token) }
+  }).filter(Boolean)
+  const historyRef = historyEntries.length
+    ? { platform: platformKey === "coinbase" ? "coinbase" : "polymarket", entries: historyEntries }
+    : null
+
   const totalVol    = fmtNum(parseFloat(event.volume || 0))
   const totalLiq    = fmtNum(parseFloat(event.liquidity || first.liquidity || 0))
   const totalVol24  = fmtNum(parseFloat(event.volume24hr || first.volume24hr || 0))
@@ -1152,6 +1184,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
       fmtMarketAge(event.startDate) ? { label: "MARKET AGE", value: fmtMarketAge(event.startDate) } : null,
     ],
     analyticsSource,
+    historyRef,
     leadPct,
     betExplainerText,
     ruleSentences: limitedRules,

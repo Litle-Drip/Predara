@@ -1,13 +1,8 @@
 const https = require("https")
 const crypto = require("crypto")
+const { applyGuard } = require("../lib/guard")
 
 const REQUEST_TIMEOUT_MS = 10000
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-}
 
 function normalizePem(raw) {
   let pem = raw.replace(/\\n/g, "\n").trim()
@@ -66,12 +61,11 @@ function kalshiRequest(hostname, apiPath, keyId, normalizedKey) {
 // every market — powers the Rewards tab's live table. Unlike api/kalshi.js this
 // isn't tied to a single ticker lookup.
 module.exports = async (req, res) => {
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, CORS_HEADERS)
-    return res.end()
-  }
+  // Origin allowlist + rate limit: this route is signed with Predara's own
+  // Kalshi API key, so it must never serve as a free public API. See
+  // lib/guard.js.
+  if (!applyGuard(req, res)) return
 
-  res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Content-Type", "application/json")
 
   const keyId = process.env.KALSHI_API_KEY_ID

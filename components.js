@@ -403,70 +403,72 @@ function formatCount(n) {
   return n.toFixed(2)
 }
 
-function computeBetResult(bet, prob, platform, side) {
+// `market` is a normalized outcome ({ pct, bid, ask }); a bare probability
+// fraction is still accepted for callers that have no order book to hand.
+function computeBetResult(bet, market, platform, side) {
+  const outcome = typeof market === "number" ? { pct: market * 100 } : (market || {})
   const isNo = side === "no"
-  const effectiveProb = isNo ? (1 - prob) : prob
-  if (effectiveProb <= 0 || effectiveProb >= 1) {
-    return { winPayout: 0, profit: 0, lossBet: bet, note: "Invalid probability.", count: null }
+  // Price off the book you would actually hit, not the midpoint. See
+  // executionPrice() in utils.js for why the NO side is (1 - bid).
+  const { price, isEstimate } = executionPrice(outcome, isNo ? "no" : "yes")
+  if (!Number.isFinite(price) || price <= 0 || price >= 1) {
+    return { winPayout: 0, profit: 0, lossBet: bet, note: "Invalid probability.", count: null, fee: null }
   }
-  if (platform === "kalshi") {
-    const pricePerContract = effectiveProb
-    const numContracts = bet / pricePerContract
-    const winPayout = numContracts * 1.00
-    const profit = winPayout - bet
-    const fee = profit * 0.02
-    const sideLabel = isNo ? "NO" : "YES"
-    const note = `Kalshi $1-contract model: betting ${sideLabel} — ~${numContracts.toFixed(1)} contracts at ${Math.round(effectiveProb * 100)}¢ each → $1 payout per contract if correct.`
-    return { winPayout, profit, lossBet: bet, note, count: numContracts, countUnit: "contracts", priceEach: Math.round(effectiveProb * 100) + "¢", fee }
-  }
-  if (platform === "polymarket" || platform === "coinbase") {
-    const shares = bet / effectiveProb
-    const winPayout = shares * 1.00
-    const profit = winPayout - bet
-    const fee = bet * 0.005
-    const platformName = platform === "coinbase" ? "Coinbase" : "Polymarket"
-    const sideLabel = isNo ? "NO" : "YES"
-    const note = `${platformName} USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct.`
-    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee }
-  }
-  if (platform === "gemini") {
-    const shares = bet / effectiveProb
-    const winPayout = shares * 1.00
-    const profit = winPayout - bet
-    const sideLabel = isNo ? "NO" : "YES"
-    const note = `Gemini USDC/share model: betting ${sideLabel} — ~${shares.toFixed(2)} shares at ${effectiveProb.toFixed(2)} USDC each → $1 USDC payout per share if correct. Excludes fees &amp; spread.`
-    return { winPayout, profit, lossBet: bet, note, count: shares, countUnit: "shares", priceEach: effectiveProb.toFixed(2) + " USDC", fee: null }
-  }
-  const winPayout = bet / effectiveProb
+  const sideLabel = isNo ? "NO" : "YES"
+  const isContracts = platform === "kalshi"
+  const countUnit = isContracts ? "contracts" : "shares"
+  const count = bet / price
+  const winPayout = count * 1.00
   const profit = winPayout - bet
-  const note = `Estimate only — excludes platform fees and bid/ask spread.`
-  return { winPayout, profit, lossBet: bet, note, count: null, fee: null }
+  const fee = feeFor(platform, { contracts: count, price })
+
+  const priceEach = isContracts
+    ? Math.round(price * 100) + "\u00a2"
+    : price.toFixed(2) + " USDC"
+  const venue = { kalshi: "Kalshi", polymarket: "Polymarket", coinbase: "Coinbase", gemini: "Gemini" }[platform]
+  const model = isContracts ? "$1-contract" : "USDC/share ($1 per share)"
+  const priceSource = isEstimate
+    ? "estimated from the last price \u2014 no live order book, so your real fill may differ"
+    : `the live ${isNo ? "NO" : "YES"} ask`
+  const note = venue
+    ? `${venue} ${model} model: betting ${sideLabel} at ${priceSource}.`
+    : `Estimate only \u2014 no fee or order-book data for this venue.`
+
+  return {
+    winPayout, profit, lossBet: bet, note, count, countUnit, priceEach,
+    price, isEstimate, fee, sideLabel,
+  }
 }
 
-function betSimResultHtml(bet, prob, platform, side) {
-  const { winPayout, profit, lossBet, note, count, countUnit, priceEach, fee } = computeBetResult(bet, prob, platform, side)
-  const sign = profit >= 0 ? "+" : ""
-  const effectiveProb = (side === "no") ? (1 - prob) : prob
-  const countLine = count != null
-    ? `<div class="bet-sim-count">You buy <strong>~${formatCount(count)} ${countUnit}</strong> at <strong>${priceEach}</strong> each</div>`
-    : ""
-  const sensTable = (count != null && bet > 0 && effectiveProb > 0 && effectiveProb < 1)
-    ? oddsSensTableHtml(bet, effectiveProb, countUnit)
-    : ""
-  const sideLabel = side === "no" ? "NO" : "YES"
+function betSimResultHtml(bet, market, platform, side) {
+  const r = computeBetResult(bet, market, platform, side)
+  const { winPayout, profit, lossBet, note, count, countUnit, priceEach, price, isEstimate, fee } = r
+  if (count == null) return `<div class="bet-sim-win" style="color:var(--muted)">${esc(note)}</div>`
+  const sideLabel = r.sideLabel
+  const estFlag = isEstimate ? ` <span class="bet-sim-est">(est.)</span>` : ""
+  const countLine = `<div class="bet-sim-count">You buy <strong>~${formatCount(count)} ${countUnit}</strong> at <strong>${priceEach}</strong> each${estFlag}</div>`
+  const sensTable = (bet > 0 && price > 0 && price < 1) ? oddsSensTableHtml(bet, price, countUnit) : ""
+
+  // The fee is charged when the trade fills, so it comes out of a win AND is
+  // added to a loss. Showing it only against profit (as this used to) makes
+  // every trade look cheaper than it is.
+  const feeAmt = fee && fee.known ? fee.amount : 0
+  const netWin = profit - feeAmt
+  const netLoss = lossBet + feeAmt
   let feeLine = ""
-  if (fee != null && fee > 0 && profit > 0) {
-    const netProfit = profit - fee
-    const feeDesc = platform === "kalshi"
-      ? "After Kalshi fee (2% of profit)"
-      : `After taker fee (~0.5%)`
-    feeLine = `<div class="bet-sim-fee">${feeDesc}: net <strong class="val-green">+$${Math.max(0, netProfit).toFixed(2)}</strong> <span class="bet-sim-fee-detail">−$${fee.toFixed(2)} fee</span></div>`
+  if (fee && fee.known && feeAmt > 0) {
+    feeLine = `<div class="bet-sim-fee">${esc(fee.label)}: <strong>\u2212$${feeAmt.toFixed(2)}</strong> <span class="bet-sim-fee-detail">${esc(fee.note)}</span></div>`
+  } else if (fee && fee.known) {
+    feeLine = `<div class="bet-sim-fee">${esc(fee.label)}: <strong>$0.00</strong> <span class="bet-sim-fee-detail">${esc(fee.note)}</span></div>`
+  } else if (fee) {
+    feeLine = `<div class="bet-sim-fee bet-sim-fee-unknown">${esc(fee.label)} not included \u2014 <span class="bet-sim-fee-detail">${esc(fee.note)}</span></div>`
   }
+
   return `
     ${countLine}
-    <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(${sign}$${profit.toFixed(2)} profit)</span></div>
+    <div class="bet-sim-win">If <strong>${sideLabel}</strong> wins: collect <strong>$${winPayout.toFixed(2)}</strong> <span class="val-green">(+$${netWin.toFixed(2)} net)</span></div>
+    <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: you are out <strong>$${netLoss.toFixed(2)}</strong></div>
     ${feeLine}
-    <div class="bet-sim-lose">If <strong>${sideLabel}</strong> loses: lose your <strong>$${lossBet.toFixed(2)}</strong></div>
     <div class="bet-sim-note">${note}</div>
     ${sensTable}`
 }
@@ -506,7 +508,9 @@ function betSimulatorHtml(outcomes) {
   const first = capped[0]
   const defaultBet = window._simMarket ? window._simMarket.amount : 10
   const platform = window._simMarket ? window._simMarket.platform : ""
-  const prob = first.pct / 100
+  // The selected outcome is carried whole (pct + bid + ask) so the calculator
+  // can price off the real book rather than the midpoint.
+  if (window._simMarket) window._simMarket.outcome = { pct: first.pct, bid: first.bid, ask: first.ask, label: first.label }
   const isBinary = capped.length <= 2
   const tabsHtml = !isBinary && capped.length > 1
     ? `<div class="bet-sim-tabs">${capped.map((o, i) => {
@@ -514,6 +518,7 @@ function betSimulatorHtml(outcomes) {
         const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
         return `<button class="bet-sim-tab${active ? " active" : ""}" style="${s}"
           data-pct="${o.pct}" data-label="${esc(o.label)}" data-color="${esc(o.color)}"
+          data-bid="${Number.isFinite(o.bid) ? o.bid : ""}" data-ask="${Number.isFinite(o.ask) ? o.ask : ""}"
           onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
       }).join("")}</div>`
     : ""
@@ -540,7 +545,7 @@ function betSimulatorHtml(outcomes) {
             oninput="updateBetSim()" />
         </div>
         <div class="bet-sim-results" id="betSimResults">
-          ${betSimResultHtml(defaultBet, prob, platform, window._simMarket ? window._simMarket.side : "yes")}
+          ${betSimResultHtml(defaultBet, first, platform, window._simMarket ? window._simMarket.side : "yes")}
         </div>
       </div>
     </div>`
@@ -550,7 +555,15 @@ window._simMarket = { amount: 10, pct: 0, platform: "", side: "yes" }
 window.selectBetSimOutcome = function(btn) {
   const pct = parseFloat(btn.dataset.pct)
   const color = btn.dataset.color
+  const bid = parseFloat(btn.dataset.bid)
+  const ask = parseFloat(btn.dataset.ask)
   window._simMarket.pct = pct
+  window._simMarket.outcome = {
+    pct,
+    label: btn.dataset.label || "",
+    ...(Number.isFinite(bid) ? { bid } : {}),
+    ...(Number.isFinite(ask) ? { ask } : {}),
+  }
   document.querySelectorAll(".bet-sim-tab").forEach(t => {
     t.classList.remove("active")
     t.style.borderColor = ""
@@ -586,13 +599,13 @@ function updateBetSim() {
   if (!input || !results) return
   const bet = Math.max(0, parseFloat(input.value) || 0)
   window._simMarket.amount = bet
-  const prob = window._simMarket.pct / 100
+  const outcome = window._simMarket.outcome || { pct: window._simMarket.pct }
   const side = window._simMarket.side || "yes"
-  if (prob <= 0 || prob >= 1 || bet <= 0) {
+  if (!(outcome.pct > 0 && outcome.pct < 100) || bet <= 0) {
     results.innerHTML = `<div class="bet-sim-win" style="color:var(--muted)">Enter a bet amount above</div>`
     return
   }
-  results.innerHTML = betSimResultHtml(bet, prob, window._simMarket.platform || "", side)
+  results.innerHTML = betSimResultHtml(bet, outcome, window._simMarket.platform || "", side)
 }
 
 // ── "What's your edge?" personal Kelly calculator ─────────────────────────────
@@ -600,7 +613,7 @@ function edgeCalculatorHtml(outcomes) {
   const valid = outcomes.filter(o => o.pct > 0 && o.pct < 100)
   if (!valid.length) return ""
   const first = valid[0]
-  const askFrac = Number.isFinite(first.ask) && first.ask > 0 ? first.ask : first.pct / 100
+  const askFrac = executionPrice(first, "yes").price
   // Store for callback
   window._edgeCalcAsk = askFrac
   window._edgeCalcLabel = first.label
@@ -615,7 +628,7 @@ function edgeCalculatorHtml(outcomes) {
           <label class="edge-input-label">My probability for <strong>${esc(first.label)}</strong>:</label>
           <div class="edge-input-wrap">
             <input type="number" id="edgeProbInput" class="edge-prob-input"
-              value="${saved ? saved.myProb : first.pct}" min="1" max="99" step="1" oninput="updateEdgeCalc()" />
+              value="${saved ? saved.myProb : ""}" placeholder="?" min="1" max="99" step="1" oninput="updateEdgeCalc()" />
             <span class="edge-pct-sign">%</span>
           </div>
           <button class="copy-link-btn" onclick="saveMyPrediction()" title="Log this estimate to track your calibration over time">Save estimate</button>
@@ -626,60 +639,146 @@ function edgeCalculatorHtml(outcomes) {
     </div>`
 }
 
+// Called once after the market renders: seeds EV/Kelly from a saved estimate,
+// or leaves them explicitly undefined until the user states one.
+window.initEdgeCalc = function() {
+  const input = document.getElementById("edgeProbInput")
+  const platform = window._simMarket ? window._simMarket.platform : ""
+  const seeded = input && input.value !== "" ? parseFloat(input.value) : NaN
+  if (Number.isFinite(seeded)) { window.updateEdgeCalc(); return }
+  window._userProb = null
+  renderAnalyticsEdge(NaN, platform, window._edgeCalcLabel)
+}
+
 window.updateEdgeCalc = function() {
   const input = document.getElementById("edgeProbInput")
   const resultEl = document.getElementById("edgeCalcResult")
-  if (!input || !resultEl) return
+  const platform = window._simMarket ? window._simMarket.platform : ""
+  if (!input) return
   const myProb = Math.max(1, Math.min(99, parseFloat(input.value) || 50)) / 100
-  const ask = window._edgeCalcAsk || myProb
-  const b = (1 - ask) / ask
-  if (b <= 0) { resultEl.innerHTML = ""; return }
-  const kelly = (myProb * b - (1 - myProb)) / b
-  const kellyPct = Math.round(kelly * 100 * 10) / 10
+  // One estimate drives the whole page: the analytics card's EV and Kelly are
+  // the same numbers as this card's, computed from the same price and fees.
+  window._userProb = myProb
+  renderAnalyticsEdge(myProb, platform, window._edgeCalcLabel)
+  if (!resultEl) return
+
+  const ask = window._edgeCalcAsk
+  if (!Number.isFinite(ask) || ask <= 0 || ask >= 1) { resultEl.innerHTML = ""; return }
+  const k = kellyFractionAfterFees(myProb, ask, platform)
+  const cost = k.effectivePrice
   const marketPct = Math.round(ask * 100)
+  const costPct = Math.round(cost * 100)
   const myPct = Math.round(myProb * 100)
-  if (kelly <= 0) {
-    const msg = myPct < marketPct
-      ? `Market is more bullish (${marketPct}%) than you (${myPct}%) — no edge betting YES.`
-      : `Edge too thin at these odds to justify a bet.`
-    resultEl.innerHTML = `<div class="edge-result-row val-red"><strong>No edge</strong> — ${esc(msg)}</div>`
+  const feeLine = k.feeKnown
+    ? (k.fee.amount > 0
+        ? `Includes ${esc(k.fee.label.toLowerCase())} \u2014 your true break-even is <strong>${costPct}%</strong>, not ${marketPct}%.`
+        : `${esc(k.fee.label)}: none on this venue, so your break-even is the ask (<strong>${marketPct}%</strong>).`)
+    : `${esc(k.fee.label)} are not modeled, so this is <strong>before fees</strong>.`
+
+  if (!Number.isFinite(k.fraction) || k.fraction <= 0) {
+    const msg = myPct < costPct
+      ? `You are less bullish (${myPct}%) than the price you would pay (${costPct}%) \u2014 no edge betting YES.`
+      : `Edge too thin at these odds to cover the cost of entry.`
+    resultEl.innerHTML = `
+      <div class="edge-result-row val-red"><strong>No edge</strong> \u2014 ${esc(msg)}</div>
+      <div class="bet-sim-note">${feeLine}</div>`
     return
   }
+  const kellyPct = Math.round(k.fraction * 100 * 10) / 10
   const half = Math.round(kellyPct / 2 * 10) / 10
   const quarter = Math.round(kellyPct / 4 * 10) / 10
-  const platform = window._simMarket ? window._simMarket.platform : ""
-  let edgeNote = "Kelly sizing assumes a binary $1-payout contract model. Excludes fees and spread."
-  if (platform === "kalshi") edgeNote = "Kelly sizing assumes Kalshi $1-contract payouts. Excludes fees."
-  else if (platform === "polymarket") edgeNote = "Kelly sizing assumes Polymarket USDC/share payouts ($1 per share). Excludes fees &amp; spread."
-  else if (platform === "coinbase") edgeNote = "Kelly sizing assumes Coinbase USDC/share payouts ($1 per share). Excludes fees &amp; spread."
-  else if (platform === "gemini") edgeNote = "Kelly sizing assumes Gemini USDC/share payouts ($1 per share). Excludes fees &amp; spread."
+  const evPct = Math.round((myProb - cost) / cost * 1000) / 10
   resultEl.innerHTML = `
     <div class="edge-result-row val-green">
-      You have a <strong>+${myPct - marketPct}pt edge</strong> (you: ${myPct}% vs market: ${marketPct}%)
+      You have a <strong>+${myPct - costPct}pt edge</strong> after cost of entry (you: ${myPct}% vs your break-even: ${costPct}%)
     </div>
+    <div class="edge-result-row">Expected value: <strong class="val-green">+${evPct}%</strong> per dollar staked</div>
     <div class="edge-kelly-rows">
       <div class="edge-kelly-row"><span class="edge-kelly-label">Full Kelly:</span> <span class="val-amber">${kellyPct}% of bankroll</span> <span class="edge-kelly-hint">(aggressive)</span></div>
       <div class="edge-kelly-row"><span class="edge-kelly-label">Half Kelly:</span> <span class="val-green">${half}%</span> <span class="edge-kelly-hint">(recommended)</span></div>
       <div class="edge-kelly-row"><span class="edge-kelly-label">Quarter Kelly:</span> <span class="val-green">${quarter}%</span> <span class="edge-kelly-hint">(conservative)</span></div>
     </div>
-    <div class="bet-sim-note">${edgeNote}</div>`
+    <div class="bet-sim-note">${feeLine} Kelly assumes a $1 settlement per share and that your estimate is well calibrated.</div>`
 }
 
 function calcAnalyticsRow(label, prob, ask, bid, color) {
   if (!Number.isFinite(prob) || prob <= 0 || prob >= 1) return null
   if (!Number.isFinite(ask) || ask <= 0 || ask >= 1) return null
   const round1 = n => Math.round(n * 10) / 10
+  // Break-even and spread are properties of the market itself, so they are
+  // computed here. Expected value and Kelly are NOT: both are defined against
+  // YOUR probability, and measuring them against the market's own midpoint
+  // (which is what this function used to do) makes EV always equal minus half
+  // the spread and Kelly always zero, on every market. They are filled in by
+  // renderAnalyticsEdge() once the user states an estimate.
   const breakEven = round1(ask * 100)
-  const ev = round1((prob - ask) / ask * 100)
   const mid = Number.isFinite(bid) ? (bid + ask) / 2 : ask
   const spread = mid > 0 && Number.isFinite(bid) ? round1((ask - bid) / mid * 100) : null
-  let kelly = null
-  const b = (1 - ask) / ask
-  if (b > 0) {
-    const k = (prob * b - (1 - prob)) / b
-    kelly = Math.min(Math.max(round1(k * 100), 0), 25)
+  return { label, breakEven, spread, ask, marketPct: Math.round(prob * 100), color: color || "" }
+}
+
+// Fills the EV / Kelly slots in the analytics card from the user's own
+// probability. Called on render (with whatever estimate is saved) and again on
+// every keystroke in the "What's your edge?" input.
+function renderAnalyticsEdge(myProb, platform, forLabel) {
+  if (typeof document === "undefined") return
+  const slots = document.querySelectorAll(".analytics-edge-slot")
+  slots.forEach((slot) => {
+    const ask = parseFloat(slot.dataset.ask)
+    if (!Number.isFinite(ask) || ask <= 0 || ask >= 1) { slot.innerHTML = ""; return }
+    // An estimate is about one outcome. On a multi-outcome market, applying the
+    // same number to every row would be nonsense, so only the row the estimate
+    // was made for gets EV and Kelly.
+    const isTarget = !forLabel || !slot.dataset.label || slot.dataset.label === forLabel
+    if (!isTarget) {
+      slot.innerHTML = `<div class="info-row analytics-edge-prompt"><span class="info-key">YOUR EDGE</span><span class="info-val val-muted">estimate applies to \u201c${esc(forLabel)}\u201d</span></div>`
+      return
+    }
+    if (!Number.isFinite(myProb) || myProb <= 0 || myProb >= 1) {
+      slot.innerHTML = `<div class="info-row analytics-edge-prompt"><span class="info-key">YOUR EDGE</span><span class="info-val val-muted">needs your probability \u2014 see \u201cWhat\u2019s your edge?\u201d below</span></div>`
+      return
+    }
+    slot.innerHTML = analyticsEdgeRowsHtml(myProb, ask, platform)
+  })
+}
+
+// EV and Kelly for one outcome, net of entry fees where the venue publishes
+// them. Both are expressed per dollar staked at the price you would actually
+// pay, so they line up with the bet calculator above.
+function analyticsEdgeRowsHtml(myProb, ask, platform) {
+  const round1 = n => Math.round(n * 10) / 10
+  const k = kellyFractionAfterFees(myProb, ask, platform)
+  const cost = k.effectivePrice
+  const ev = round1((myProb * 1.0 - cost) / cost * 100)
+  const evClass = ev > 0 ? "val-green" : ev < 0 ? "val-red" : "val-muted"
+  const feeNote = k.feeKnown ? "" : ` <span class="analytics-fee-caveat">(before fees)</span>`
+  const parts = [
+    `<div class="info-row"><span class="info-key">${tip("EXPECTED VALUE")}</span><span class="info-val ${evClass}">${ev > 0 ? "+" : ""}${ev}%${feeNote}</span></div>`,
+  ]
+  const raw = k.fraction
+  if (Number.isFinite(raw)) {
+    const rawPct = round1(raw * 100)
+    const CAP = 25
+    const capped = Math.min(Math.max(rawPct, 0), CAP)
+    const barW = Math.round(capped / CAP * 100)
+    const kellyClass = capped <= 0 ? "val-muted" : capped < 5 ? "val-green" : capped < 15 ? "val-amber" : "val-red"
+    // The bar is capped at 25% of bankroll, but say so rather than silently
+    // clipping a 60% Kelly down to 25% and letting it read as the real answer.
+    const capNote = rawPct > CAP
+      ? ` <span class="kelly-cap-note" title="Full Kelly here is ${rawPct}% of bankroll; the bar is capped at ${CAP}%">full Kelly ${rawPct}% \u2014 bar capped at ${CAP}%</span>`
+      : ""
+    parts.push(`
+      <div class="info-row info-row-kelly">
+        <span class="info-key">${tip("KELLY CRITERION")}</span>
+        <span class="info-val kelly-val-wrap">
+          <span class="kelly-visual" title="Kelly suggests ${rawPct}% of bankroll">
+            <span class="kelly-fill" style="width:${barW}%"></span>
+          </span>
+          <span class="${kellyClass}">${rawPct <= 0 ? "no bet" : rawPct + "%"}</span>${capNote}
+        </span>
+      </div>`)
   }
-  return { label, breakEven, ev, spread, kelly, color: color || "" }
+  return parts.join("")
 }
 
 // Feature 3 & 6: analyticsCard now accepts optional overround for prominent display
@@ -688,24 +787,9 @@ function analyticsCard(rows, timeLeft, overround) {
   const lines = rows.map((r, idx) => {
     const parts = []
     parts.push(`<div class="info-row"><span class="info-key">${tip("BREAK-EVEN")}</span><span class="info-val val-muted">${r.breakEven}%</span></div>`)
-    const evClass = r.ev > 0 ? "val-green" : r.ev < 0 ? "val-red" : "val-muted"
-    parts.push(`<div class="info-row"><span class="info-key">${tip("EXPECTED VALUE")}</span><span class="info-val ${evClass}">${r.ev > 0 ? "+" : ""}${r.ev}%</span></div>`)
-    if (r.kelly !== null) {
-      // Feature 6: Kelly Criterion visual bar instead of just a number
-      const kellyCapped = Math.min(r.kelly, 25)
-      const kellyBarW = Math.round(kellyCapped / 25 * 100)
-      const kellyClass = r.kelly <= 0 ? "val-muted" : r.kelly < 5 ? "val-green" : r.kelly < 15 ? "val-amber" : "val-red"
-      parts.push(`
-        <div class="info-row info-row-kelly">
-          <span class="info-key">${tip("KELLY CRITERION")}</span>
-          <span class="info-val kelly-val-wrap">
-            <span class="kelly-visual" title="Kelly suggests ${r.kelly}% of bankroll">
-              <span class="kelly-fill" style="width:${kellyBarW}%"></span>
-            </span>
-            <span class="${kellyClass}">${r.kelly}%</span>
-          </span>
-        </div>`)
-    }
+    // EV and Kelly land here, filled by renderAnalyticsEdge() from the user's
+    // own probability -- they are undefined until someone states one.
+    parts.push(`<div class="analytics-edge-slot" data-ask="${r.ask}" data-label="${esc(r.label)}"></div>`)
     if (r.spread !== null) {
       const spClass = r.spread < 3 ? "val-green" : r.spread < 8 ? "val-amber" : "val-red"
       parts.push(`<div class="info-row"><span class="info-key">${tip("SPREAD QUALITY")}</span><span class="info-val ${spClass}">${r.spread}%</span></div>`)
@@ -973,5 +1057,22 @@ function buildOutcomesHtml(rows) {
       <button class="show-more-btn" onclick="showMoreOutcomes('${uid}')">
         Show ${rows.length - PAGE_SIZE} more ↓
       </button>
+    </div>`
+}
+
+
+// ── "Go place the bet" ────────────────────────────────────────────────────────
+// The analysis ends in a decision, so the page has to offer somewhere to act on
+// it. Without this the user is walked to a conclusion and then abandoned.
+// Suppressed on resolved markets, where there is nothing left to trade.
+function tradeCtaHtml(sourceUrl, platform, isResolved) {
+  if (!sourceUrl || isResolved) return ""
+  const venue = (PLATFORMS[platform] || {}).label || (platform || "").toUpperCase() || "the platform"
+  return `
+    <div class="mi-card trade-cta-card">
+      <a class="trade-cta-btn" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">
+        Trade this market on ${esc(venue)} \u2197
+      </a>
+      <div class="trade-cta-note">Opens the original market. Predara does not take orders or hold funds.</div>
     </div>`
 }

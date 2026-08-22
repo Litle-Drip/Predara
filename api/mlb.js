@@ -1,4 +1,5 @@
 const https = require("https")
+const { applyGuard } = require("../lib/guard")
 
 const REQUEST_TIMEOUT_MS = 10000
 
@@ -7,14 +8,10 @@ function isSafeDate(str) {
 }
 
 module.exports = (req, res) => {
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*")
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type")
-    return res.status(204).end()
-  }
-
-  res.setHeader("Access-Control-Allow-Origin", "*")
+  // Origin allowlist + rate limit: this route proxies an upstream that costs
+  // Predara its share of a shared rate limit, so it must not serve as a free
+  // public API. See lib/guard.js.
+  if (!applyGuard(req, res)) return
   res.setHeader("Content-Type", "application/json")
 
   const date = req.query.date

@@ -6,6 +6,10 @@ const path = require("path")
 const url = require("url")
 const gemini = require("./lib/gemini")
 const { getGeminiPublic, geminiEventsToDiscoverCards } = require("./lib/gemini-public")
+const { fetchPolymarketSeries, fetchKalshiSeries, normalizeWindow } = require("./lib/history")
+const { makeSignedGet } = require("./lib/kalshi-auth")
+const guard = require("./lib/guard")
+const { relay: relayNotification } = require("./lib/notify")
 
 const PORT = process.env.PORT || 5000
 const STATIC_ROOT = __dirname
@@ -24,10 +28,14 @@ const MIME = {
   ".webp": "image/webp",
 }
 
+// Fallback for the few places that build headers outside a request scope. Every
+// request handler shadows this with guard.corsHeadersFor(origin), which echoes
+// only allowlisted origins -- see lib/guard.js for why "*" was a liability.
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://predara.org",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, x-anthropic-api-key",
+  "Vary": "Origin",
 }
 
 // ── Bring-your-own Anthropic key ──
@@ -112,11 +120,86 @@ function httpsGetWithTimeout(targetUrl, timeoutMs) {
 
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url, true)
+  const origin = req.headers && req.headers.origin
+
+  // Per-request CORS: echo the caller's origin only if it is allowlisted.
+  // Shadows the module-level constant so every route below inherits it.
+  const CORS_HEADERS = {
+    ...guard.corsHeadersFor(origin),
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, x-anthropic-api-key",
+  }
 
   // Handle CORS preflight for all API routes
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS_HEADERS)
     return res.end()
+  }
+
+  // The /api routes proxy upstreams that cost Predara money or rate limit --
+  // the Kalshi ones are signed with Predara's own key. Gate them on origin and
+  // throttle per client so they cannot be used as a free public backend.
+  if (parsed.pathname.startsWith("/api/")) {
+    if (!guard.isAllowedOrigin(origin)) {
+      res.writeHead(403, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Origin not allowed" }))
+    }
+    const limit = guard.rateLimit(req)
+    if (!limit.allowed) {
+      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": String(limit.retryAfter), ...CORS_HEADERS })
+      return res.end(JSON.stringify({ error: "Rate limit exceeded. Try again shortly." }))
+    }
+  }
+
+  // ── Webhook relay ──
+  // Same code path as api/notify.js in production. Destinations are supplied
+  // per request and never stored; lib/notify.js pins the allowed hosts.
+  if (parsed.pathname === "/api/notify") {
+    const send = (status, payload) => {
+      res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+      res.end(JSON.stringify(payload))
+    }
+    if (req.method !== "POST") return send(405, { error: "Method not allowed. Use POST." })
+    let raw = ""
+    req.on("data", (c) => {
+      raw += c
+      if (raw.length > 16000) { req.destroy(); send(413, { error: "Payload too large" }) }
+    })
+    req.on("end", () => {
+      let body
+      try { body = JSON.parse(raw || "{}") } catch { return send(400, { error: "Invalid JSON body" }) }
+      relayNotification(body.targets, body.message)
+        .then((result) => send(200, result))
+        .catch((err) => send(err.status || 502, { error: err.message }))
+    })
+    return
+  }
+
+  // ── Price history ──
+  // Same code path as api/history.js in production.
+  if (parsed.pathname === "/api/history") {
+    const q = parsed.query || {}
+    const windowKey = normalizeWindow(q.window)
+    const platform = String(q.platform || "")
+    const key = ["hist", platform, q.token, q.series, q.ticker, windowKey].join("|")
+    const send = (status, payload) => {
+      res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+      res.end(JSON.stringify(payload))
+    }
+    guard.cached(key, 60000, async () => {
+      if (platform === "polymarket" || platform === "coinbase") {
+        return { source: "Polymarket CLOB", window: windowKey, points: await fetchPolymarketSeries(q.token, windowKey) }
+      }
+      if (platform === "kalshi") {
+        const signedGet = makeSignedGet()
+        if (!signedGet) { const e = new Error("Kalshi credentials not configured"); e.status = 503; throw e }
+        return { source: "Kalshi candlesticks", window: windowKey, points: await fetchKalshiSeries(signedGet, { seriesTicker: q.series, ticker: q.ticker, window: windowKey }) }
+      }
+      const e = new Error(`No public price history for platform "${platform}"`); e.status = 400; throw e
+    })
+      .then(({ value }) => send(200, value))
+      .catch((err) => send(err.status || 502, { error: err.message }))
+    return
   }
 
   // ── Polymarket proxy ──
