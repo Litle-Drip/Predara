@@ -8,6 +8,22 @@ function isSafeParam(str) {
   return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
 }
 
+// ── Bring-your-own Anthropic key ──
+// Callers may supply their own key via the x-anthropic-api-key header. It is used
+// for that single request only: never logged, never persisted, never echoed back.
+const USER_KEY_HEADER = "x-anthropic-api-key"
+const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+
+function readUserApiKey(req) {
+  const raw = req.headers ? req.headers[USER_KEY_HEADER] : ""
+  const key = typeof raw === "string" ? raw.trim() : ""
+  if (!key) return { key: "" }
+  if (!ANTHROPIC_KEY_RE.test(key)) {
+    return { key: "", error: 'That does not look like an Anthropic API key. Keys start with "sk-ant-".' }
+  }
+  return { key }
+}
+
 function normalizePem(raw) {
   let pem = raw.replace(/\\n/g, "\n").trim()
   const headerMatch = pem.match(/-----BEGIN ([^-]+)-----/)
@@ -87,7 +103,7 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*")
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, " + USER_KEY_HEADER)
     return res.status(204).end()
   }
 
@@ -98,10 +114,15 @@ module.exports = async (req, res) => {
     return res.status(405).json({ verdict: "error", summary: "Method not allowed. Use POST." })
   }
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(503).json({ verdict: "error", summary: "Settlement review is not configured. ANTHROPIC_API_KEY is missing." })
+  // Key resolution: the caller's own key wins, the server key is the fallback.
+  // A missing key is only fatal on the slow path, so it is not checked here —
+  // API-confirmed settlements still resolve with no key at all.
+  const userKey = readUserApiKey(req)
+  if (userKey.error) {
+    return res.status(400).json({ verdict: "error", summary: userKey.error, needsKey: true })
   }
+  const ANTHROPIC_API_KEY = userKey.key || process.env.ANTHROPIC_API_KEY || ""
+  const keySource = userKey.key ? "user" : (ANTHROPIC_API_KEY ? "server" : "none")
 
   const body = req.body || {}
   const input = (typeof body.input === "string" ? body.input : "").trim()
@@ -241,6 +262,17 @@ module.exports = async (req, res) => {
   }
 
   // ── Slow path: no clear winner in API data — ask Claude ──
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(200).json({
+      ticker, title, status,
+      verdict: "error",
+      needsKey: true,
+      summary: "This market needs AI analysis, but no Anthropic API key is available. Add your own key to continue — it stays in your browser and is used only for your reviews.",
+      keyFacts: [],
+      recommendation: "Open \u201cUse your own API key\u201d and paste a key from console.anthropic.com.",
+    })
+  }
+
   const trimmed = { ticker, title, status, resolvedAt, platform: platformName, winners, losers, totalContracts: contracts }
 
   let claudeText
@@ -257,6 +289,30 @@ module.exports = async (req, res) => {
       }
     )
     const aiJson = JSON.parse(aiBody)
+    if (aiStatus === 401 || aiStatus === 403) {
+      return res.status(200).json({
+        ticker, title, status,
+        verdict: "error",
+        needsKey: true,
+        summary: keySource === "user"
+          ? "Anthropic rejected your API key (HTTP " + aiStatus + ") — it may be expired, revoked, or mistyped."
+          : "Anthropic rejected the server's API key (HTTP " + aiStatus + "). Add your own key to keep working while it is fixed.",
+        keyFacts: [],
+        recommendation: "Check the key at console.anthropic.com, then paste a working one under \u201cUse your own API key\u201d.",
+      })
+    }
+    if (aiStatus === 429) {
+      return res.status(200).json({
+        ticker, title, status,
+        verdict: "error",
+        needsKey: keySource !== "user",
+        summary: keySource === "user"
+          ? "Your Anthropic account is rate limited or out of credit (HTTP 429). Try again shortly."
+          : "The shared Anthropic key is rate limited (HTTP 429). Add your own key to review without waiting.",
+        keyFacts: [],
+        recommendation: keySource === "user" ? "Wait a moment and re-submit." : "Paste your own key under \u201cUse your own API key\u201d, or retry later.",
+      })
+    }
     if (aiStatus !== 200) {
       return res.status(200).json({ verdict: "error", summary: `AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}` })
     }
@@ -286,6 +342,7 @@ module.exports = async (req, res) => {
   if (!Array.isArray(verdict.keyFacts)) verdict.keyFacts = []
   if (!verdict.summary) verdict.summary = "No summary provided."
   if (!verdict.recommendation) verdict.recommendation = "Review manually."
+  verdict.keySource = keySource
 
   return res.status(200).json(verdict)
 }

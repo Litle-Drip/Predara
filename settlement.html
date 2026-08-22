@@ -223,6 +223,85 @@
 
     .shortcut-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
 
+    /* ── Bring-your-own API key ── */
+    .key-panel { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+
+    .key-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .key-toggle:hover { color: var(--text-mid); }
+    .key-toggle .caret { transition: transform 0.15s ease; display: inline-block; }
+    .key-panel.open .key-toggle .caret { transform: rotate(180deg); }
+
+    .key-status {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--bar-bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .key-status.active { background: var(--orange-dim); color: var(--orange); border-color: transparent; }
+
+    .key-body { display: none; margin-top: 12px; }
+    .key-panel.open .key-body { display: block; }
+
+    .key-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+    .key-desc a { color: var(--orange); text-decoration: none; }
+    .key-desc a:hover { text-decoration: underline; }
+
+    .key-row { display: flex; gap: 8px; }
+
+    .key-row input {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text-bright);
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .key-row input::placeholder { color: var(--muted); font-family: 'Inter', sans-serif; }
+    .key-row input:focus { border-color: var(--border-hi); }
+
+    .btn-key {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text-mid);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-key:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .btn-key.primary { background: var(--orange); border-color: transparent; color: #fff; }
+    .btn-key.primary:hover { opacity: 0.88; }
+
+    .key-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+    .key-note.err { color: var(--orange); }
+
     /* ── Empty state ── */
     .empty-state { text-align: center; padding: 56px 0; color: var(--muted); font-size: 14px; }
     .empty-state-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
@@ -435,6 +514,36 @@
       <button class="btn-review" id="reviewBtn" onclick="submitReview()">Review ↗</button>
     </div>
     <div class="shortcut-hint">Press Enter to submit</div>
+
+    <div class="key-panel" id="keyPanel">
+      <button class="key-toggle" id="keyToggle" onclick="toggleKeyPanel()" aria-expanded="false" aria-controls="keyBody">
+        <span class="caret">▾</span>
+        <span>Use your own Anthropic API key</span>
+        <span class="key-status" id="keyStatus">Shared key</span>
+      </button>
+      <div class="key-body" id="keyBody">
+        <div class="key-desc">
+          Reviews that the platform APIs can settle on their own never touch AI. When a market
+          <em>does</em> need AI analysis, Predara can call Anthropic with your key instead of the shared one —
+          useful if the shared key is expired or rate limited. Get a key at
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
+        </div>
+        <div class="key-row">
+          <input
+            id="keyInput"
+            type="password"
+            placeholder="sk-ant-…"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            onkeydown="if(event.key==='Enter')saveApiKey()"
+          />
+          <button class="btn-key primary" onclick="saveApiKey()">Save</button>
+          <button class="btn-key" id="keyClearBtn" onclick="clearApiKey()">Clear</button>
+        </div>
+        <div class="key-note" id="keyNote">Stored only in this browser (localStorage) and sent with your review requests. Predara never logs or saves it server-side.</div>
+      </div>
+    </div>
   </div>
 
   <div id="caseList" class="case-list"></div>
@@ -458,6 +567,84 @@
   }
 
   const STORAGE_KEY = "predara-settlement-cases"
+  const API_KEY_STORAGE = "predara-anthropic-key"
+  const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+
+  /* ── Bring-your-own API key ──
+     The key lives only in this browser. It is sent as a request header on each
+     review and is never written into case history. */
+  function loadApiKey() {
+    try { return localStorage.getItem(API_KEY_STORAGE) || "" } catch { return "" }
+  }
+
+  function maskKey(key) {
+    return key.length > 12 ? key.slice(0, 10) + "…" + key.slice(-4) : "…" + key.slice(-4)
+  }
+
+  function setKeyNote(text, isError) {
+    const note = document.getElementById("keyNote")
+    note.textContent = text
+    note.classList.toggle("err", !!isError)
+  }
+
+  function renderKeyState() {
+    const key = loadApiKey()
+    const status = document.getElementById("keyStatus")
+    const clearBtn = document.getElementById("keyClearBtn")
+    if (key) {
+      status.textContent = "Your key"
+      status.classList.add("active")
+      document.getElementById("keyInput").placeholder = maskKey(key)
+      clearBtn.style.display = ""
+    } else {
+      status.textContent = "Shared key"
+      status.classList.remove("active")
+      document.getElementById("keyInput").placeholder = "sk-ant-…"
+      clearBtn.style.display = "none"
+    }
+  }
+
+  function openKeyPanel() {
+    const panel = document.getElementById("keyPanel")
+    panel.classList.add("open")
+    document.getElementById("keyToggle").setAttribute("aria-expanded", "true")
+  }
+
+  function toggleKeyPanel() {
+    const panel = document.getElementById("keyPanel")
+    const open = panel.classList.toggle("open")
+    document.getElementById("keyToggle").setAttribute("aria-expanded", open ? "true" : "false")
+    if (open) document.getElementById("keyInput").focus()
+  }
+
+  function saveApiKey() {
+    const input = document.getElementById("keyInput")
+    const key = input.value.trim()
+    if (!key) {
+      setKeyNote("Paste a key first, or press Clear to go back to the shared key.", true)
+      return
+    }
+    if (!ANTHROPIC_KEY_RE.test(key)) {
+      setKeyNote('That does not look like an Anthropic API key — keys start with "sk-ant-".', true)
+      return
+    }
+    try {
+      localStorage.setItem(API_KEY_STORAGE, key)
+    } catch {
+      setKeyNote("Could not save the key — this browser is blocking local storage.", true)
+      return
+    }
+    input.value = ""
+    renderKeyState()
+    setKeyNote("Saved. Reviews that need AI will now use your key.", false)
+  }
+
+  function clearApiKey() {
+    try { localStorage.removeItem(API_KEY_STORAGE) } catch {}
+    document.getElementById("keyInput").value = ""
+    renderKeyState()
+    setKeyNote("Key removed. Reviews fall back to the shared server key.", false)
+  }
 
   /* ── Storage ── */
   function loadCases() {
@@ -602,13 +789,24 @@
     }
 
     try {
+      const headers = { "Content-Type": "application/json" }
+      const userKey = loadApiKey()
+      if (userKey) headers["x-anthropic-api-key"] = userKey
+
       const res = await fetch("/api/settlement-review", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ input }),
         signal: controller.signal,
       })
       const data = await res.json()
+      // The server asks for a key when the shared one is missing, expired, or throttled.
+      if (data.needsKey) {
+        openKeyPanel()
+        setKeyNote(userKey
+          ? "Your key was not accepted for that review — check it at console.anthropic.com."
+          : "This review needs an API key. Paste yours below to continue.", true)
+      }
       resolveCase({
         ticker:         data.ticker || input,
         title:          data.title || "",
@@ -653,6 +851,7 @@
   }
 
   sweepStalePending()
+  renderKeyState()
   renderAll()
 </script>
 </body>

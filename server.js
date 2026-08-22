@@ -26,7 +26,23 @@ const MIME = {
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, x-anthropic-api-key",
+}
+
+// ── Bring-your-own Anthropic key ──
+// Callers may supply their own key via the x-anthropic-api-key header. It is used
+// for that single request only: never logged, never persisted, never echoed back.
+const USER_KEY_HEADER = "x-anthropic-api-key"
+const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+
+function readUserApiKey(req) {
+  const raw = req.headers ? req.headers[USER_KEY_HEADER] : ""
+  const key = typeof raw === "string" ? raw.trim() : ""
+  if (!key) return { key: "" }
+  if (!ANTHROPIC_KEY_RE.test(key)) {
+    return { key: "", error: 'That does not look like an Anthropic API key. Keys start with "sk-ant-".' }
+  }
+  return { key }
 }
 
 function normalizePem(raw) {
@@ -510,11 +526,16 @@ const server = http.createServer((req, res) => {
 
   // ── Settlement review ──
   if (parsed.pathname === "/api/settlement-review" && req.method === "POST") {
-    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-    if (!ANTHROPIC_API_KEY) {
-      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
-      return res.end(JSON.stringify({ verdict: "error", summary: "Settlement review is not configured. Set the ANTHROPIC_API_KEY environment variable." }))
+    // Key resolution: the caller's own key wins, the server key is the fallback.
+    // A missing key is only fatal on the slow path, so it is not checked here —
+    // API-confirmed settlements still resolve with no key at all.
+    const userKey = readUserApiKey(req)
+    if (userKey.error) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ verdict: "error", summary: userKey.error, needsKey: true }))
     }
+    const ANTHROPIC_API_KEY = userKey.key || process.env.ANTHROPIC_API_KEY || ""
+    const keySource = userKey.key ? "user" : (ANTHROPIC_API_KEY ? "server" : "none")
 
     let rawBody = ""
     req.on("data", chunk => { rawBody += chunk })
@@ -692,6 +713,17 @@ const server = http.createServer((req, res) => {
       }
 
       // ── Slow path: no clear winner in API data — ask Claude ──
+      if (!ANTHROPIC_API_KEY) {
+        return sendJson({
+          ticker, title, status,
+          verdict: "error",
+          needsKey: true,
+          summary: "This market needs AI analysis, but no Anthropic API key is available. Add your own key to continue — it stays in your browser and is used only for your reviews.",
+          keyFacts: [],
+          recommendation: "Open \u201cUse your own API key\u201d and paste a key from console.anthropic.com.",
+        })
+      }
+
       const trimmed = { ticker, title, status, resolvedAt, platform: platformName, winners, losers, totalContracts: contracts }
 
       const systemPrompt = `You are a settlement auditor for prediction markets (Gemini, Kalshi, Polymarket, Coinbase). The API data contains no clear winner signal. Analyze the available data and use your knowledge of the real-world event to determine whether settlement appears correct.
@@ -711,6 +743,30 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
           20000
         )
         const aiJson = JSON.parse(aiBody)
+        if (aiStatus === 401 || aiStatus === 403) {
+          return sendJson({
+            ticker, title, status,
+            verdict: "error",
+            needsKey: true,
+            summary: keySource === "user"
+              ? "Anthropic rejected your API key (HTTP " + aiStatus + ") — it may be expired, revoked, or mistyped."
+              : "Anthropic rejected the server's API key (HTTP " + aiStatus + "). Add your own key to keep working while it is fixed.",
+            keyFacts: [],
+            recommendation: "Check the key at console.anthropic.com, then paste a working one under \u201cUse your own API key\u201d.",
+          })
+        }
+        if (aiStatus === 429) {
+          return sendJson({
+            ticker, title, status,
+            verdict: "error",
+            needsKey: keySource !== "user",
+            summary: keySource === "user"
+              ? "Your Anthropic account is rate limited or out of credit (HTTP 429). Try again shortly."
+              : "The shared Anthropic key is rate limited (HTTP 429). Add your own key to review without waiting.",
+            keyFacts: [],
+            recommendation: keySource === "user" ? "Wait a moment and re-submit." : "Paste your own key under \u201cUse your own API key\u201d, or retry later.",
+          })
+        }
         if (aiStatus !== 200) return sendError(`AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}`)
         claudeText = aiJson?.content?.[0]?.text || ""
       } catch (err) {
@@ -737,6 +793,7 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
       if (!Array.isArray(verdict.keyFacts)) verdict.keyFacts = []
       if (!verdict.summary) verdict.summary = "No summary provided."
       if (!verdict.recommendation) verdict.recommendation = "Review manually."
+      verdict.keySource = keySource
 
       sendJson(verdict)
     })
@@ -768,7 +825,7 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running at http://0.0.0.0:${PORT}`)
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn("Warning: ANTHROPIC_API_KEY not set — /api/settlement-review will return errors until configured")
+    console.warn("Warning: ANTHROPIC_API_KEY not set — settlement reviews that need AI will ask the user for their own key")
   }
 })
 
