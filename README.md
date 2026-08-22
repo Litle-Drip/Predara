@@ -28,6 +28,10 @@ Prediction markets bury the information traders actually need — resolution cri
 | Gemini | Direct public Prediction Markets API (`api.gemini.com/v1/prediction-markets`) |
 | Coinbase | Routed through Polymarket or Kalshi, depending on market type |
 
+## Settlement Desk
+
+After a market closes, the Settlement Desk audits how it resolved. Most settlements are confirmed straight from the platform's own API with no AI call. When the API data has no clear winner, the case goes to Claude for analysis — and you can point that at **your own Anthropic API key** instead of the shared one, from the "Use your own Anthropic API key" panel on the page. The key is stored only in your browser and is never logged or saved server-side.
+
 ## Getting started
 
 ```bash
