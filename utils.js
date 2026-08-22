@@ -436,3 +436,95 @@ function plainEnglishRules(rulesText) {
       return arr.findIndex(t => normalize(t) === key) === i
     })
 }
+
+// ── Platform fee + execution-price model ──────────────────────────────────────
+// One source of truth for what a trade actually costs. The bet calculator, the
+// edge calculator and the analytics card all read from here, so they can never
+// quote the user three different numbers for the same trade.
+//
+// A platform is only marked `known: true` when it publishes a fee formula we can
+// reproduce exactly. Where it does not, we say so rather than inventing a rate —
+// a made-up fee is worse than an absent one, because it looks authoritative.
+
+const FEE_MODEL = {
+  kalshi: {
+    known: true,
+    label: "Kalshi trading fee",
+    // Kalshi's published formula: fee = roundup(0.07 x C x P x (1 - P)), charged
+    // when the trade fills, win or lose. It peaks at 1.75c per contract at 50c
+    // and falls toward zero at the extremes -- so it is emphatically not a flat
+    // percentage of profit.
+    charged: "entry",
+    // The 1e-9 guard keeps binary float error from rounding an exact cent up to
+    // the next one (0.07 x 100 x 0.25 lands on 1.7500000000000002, not 1.75).
+    fee: ({ contracts, price }) => Math.ceil(0.07 * contracts * price * (1 - price) * 100 - 1e-9) / 100,
+    note: "Charged when the trade fills, win or lose. Settlement is free.",
+  },
+  polymarket: {
+    known: true,
+    label: "Polymarket trading fee",
+    charged: "entry",
+    // Polymarket trades fee-free on standard markets and covers gas on its own
+    // relayer. A few newer markets do carry a taker fee, but the market feed
+    // does not expose it, so we do not guess a rate here.
+    fee: () => 0,
+    note: "Standard markets trade fee-free. A few newer markets charge a taker fee that the public feed does not expose.",
+  },
+  gemini: {
+    known: false,
+    label: "Gemini fees",
+    note: "Gemini does not publish prediction-market taker fees in its public API, so they are not modeled here.",
+  },
+  coinbase: {
+    known: false,
+    label: "Coinbase fees",
+    note: "Coinbase does not publish prediction-market fees in its public API, so they are not modeled here.",
+  },
+}
+
+// Returns { known, amount, label, note } for one fill of `contracts` at `price`.
+function feeFor(platform, { contracts, price }) {
+  const m = FEE_MODEL[platform]
+  if (!m) return { known: false, amount: 0, label: "Platform fees", note: "Platform fees are not modeled for this venue." }
+  if (!m.known) return { known: false, amount: 0, label: m.label, note: m.note }
+  const amount = Number.isFinite(contracts) && Number.isFinite(price) ? m.fee({ contracts, price }) : 0
+  return { known: true, amount, label: m.label, note: m.note, charged: m.charged }
+}
+
+// What you actually pay for one share of `side`, from the top of the book.
+//
+// Buying YES lifts the YES ask. Buying NO lifts the NO ask, which in YES space
+// is (1 - yesBid) -- NOT (1 - mid). Pricing either side off the midpoint
+// understates the real cost by half the spread, which on a thin market is the
+// whole edge. `isEstimate` is true when we had to fall back to the midpoint
+// because no book was published.
+function executionPrice(o, side) {
+  const pct = o && Number.isFinite(o.pct) ? o.pct / 100 : NaN
+  const bid = o && Number.isFinite(o.bid) ? o.bid : null
+  const ask = o && Number.isFinite(o.ask) ? o.ask : null
+  if (side === "no") {
+    if (bid !== null && bid > 0 && bid < 1) return { price: 1 - bid, isEstimate: false }
+    return { price: Number.isFinite(pct) ? 1 - pct : NaN, isEstimate: true }
+  }
+  if (ask !== null && ask > 0 && ask < 1) return { price: ask, isEstimate: false }
+  return { price: pct, isEstimate: true }
+}
+
+// Kelly stake fraction for buying at `price` when you believe the true
+// probability is `myProb`. Returns the raw fraction (may exceed 1 or go
+// negative); callers decide how to clamp and must say when they do.
+function kellyFraction(myProb, price) {
+  if (!Number.isFinite(myProb) || !Number.isFinite(price)) return NaN
+  if (price <= 0 || price >= 1) return NaN
+  const b = (1 - price) / price
+  return (myProb * b - (1 - myProb)) / b
+}
+
+// Kelly net of entry fees: the fee raises your effective cost per share, which
+// lowers both the payoff odds and the break-even. Ignoring it overstates every
+// recommended stake.
+function kellyFractionAfterFees(myProb, price, platform) {
+  const fee = feeFor(platform, { contracts: 1, price })
+  const effective = fee.known ? price + fee.amount : price
+  return { fraction: kellyFraction(myProb, effective), effectivePrice: effective, feeKnown: fee.known, fee }
+}

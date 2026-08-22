@@ -13,10 +13,13 @@ Prediction markets bury the information traders actually need — resolution cri
 ## What it does
 
 - **"What's the bet?"** — a one-line, plain-English summary of the wager, generated from the market's own rules text
-- **Bet calculator** — enter a dollar amount and see exactly what you win or lose
+- **Bet calculator** — enter a dollar amount and see exactly what you win or lose, net of fees and the spread you cross
 - **How it resolves** — contract language rewritten in plain English, with legal boilerplate stripped out
-- **Trader analytics** — expected value, Kelly criterion, breakeven odds, and spread quality, computed per outcome
+- **Trader analytics** — breakeven odds and spread quality per outcome; expected value and Kelly sizing appear once you state your own probability, because both are only defined against your estimate, not against the market's own price
+- **Real fees** — the calculator prices off the ask you would actually hit (and `1 − bid` on the NO side), and applies each venue's published fee formula on entry, win or lose. Where a venue publishes no formula, Predara says so rather than inventing a rate
 - **Market context** — volume, liquidity, open interest, bid/ask spread, and a close-date urgency indicator
+- **Price history** — the platform's own time series (Kalshi candlesticks, Polymarket CLOB), over 24h / 1w / 1m
+- **Price alerts** — checked every 3 minutes across every alerted market for as long as Predara is open in a tab, with optional relay to Discord, Slack or Telegram
 - **Glossary tooltips** — hover any stat to see what it means, no prior market experience required
 
 ## Supported platforms
@@ -53,6 +56,9 @@ Plain JavaScript, no framework — a single-page client (`app.js`, `index.html`)
 server.js       Local dev server — routes /api/* to the same lib/ code as production
 api/            Vercel serverless functions (production — predara.org)
 lib/            Shared platform logic imported by both api/ and server.js
+lib/guard.js    Origin allowlist, response cache and rate limiting for /api/*
+lib/history.js  Real price-history fetching (Kalshi candlesticks, Polymarket CLOB)
+lib/notify.js   Webhook relay with a pinned destination allowlist
 app.js          Client-side rendering and market detection
 components.js   Reusable UI building blocks
 features.js     Feature-specific rendering (analytics, timeline, glossary)

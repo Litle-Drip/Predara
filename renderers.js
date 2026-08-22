@@ -13,6 +13,11 @@ function renderMarket(norm, accent) {
   // feed is opened by initGeminiLive() after this HTML is in the DOM.
   if (typeof window !== "undefined") window._geminiLive = norm.geminiLive || null
 
+  // Identifiers the PRICE HISTORY chart uses to pull the platform's own time
+  // series. Null on venues that publish none -- the chart then says so rather
+  // than drawing the reader's own page-view snapshots as if they were data.
+  if (typeof window !== "undefined") window._historyRef = norm.historyRef || null
+
   const staleHtml   = staleWarningHtml(norm.staleIso)
   const timeLeft    = fmtTimeRemaining(norm.closeIso)
 
@@ -85,6 +90,7 @@ function renderMarket(norm, accent) {
   const edgeCalcHtml      = edgeCalculatorHtml(norm.outcomes)
   const findSimilarHtml   = norm.resolvedInfo ? findSimilarMarketsCard(norm.platform, norm.title) : ""
   const resConfidenceHtml = resolutionConfidenceHtml(norm.rawRulesText || "")
+  const tradeCtaHtmlStr   = tradeCtaHtml(norm.sourceUrl, norm.platform, !!norm.resolvedInfo)
 
   return `
     <div class="mi-card">
@@ -161,6 +167,8 @@ function renderMarket(norm, accent) {
     ${edgeCalcHtml}
 
     ${analyticsHtml}
+
+    ${tradeCtaHtmlStr}
 
     ${norm.rewardsHtml || ""}
 

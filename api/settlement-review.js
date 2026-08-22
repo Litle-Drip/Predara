@@ -1,5 +1,6 @@
 const https = require("https")
 const crypto = require("crypto")
+const { applyGuard } = require("../lib/guard")
 
 const REQUEST_TIMEOUT_MS = 12000
 const AI_TIMEOUT_MS = 25000
@@ -103,14 +104,9 @@ const VALID_VERDICTS = new Set(["confirmed", "discrepancy", "needs_review"])
 let _normalizedKey = null
 
 module.exports = async (req, res) => {
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*")
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, " + USER_KEY_HEADER)
-    return res.status(204).end()
-  }
-
-  res.setHeader("Access-Control-Allow-Origin", "*")
+  // Origin allowlist + rate limit. The Anthropic key is the caller's own, but
+  // the route is still ours to protect from being driven by other sites.
+  if (!applyGuard(req, res, { methods: "POST, OPTIONS" })) return
   res.setHeader("Content-Type", "application/json")
 
   if (req.method !== "POST") {

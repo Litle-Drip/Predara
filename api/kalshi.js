@@ -1,13 +1,9 @@
 const https = require("https")
 const crypto = require("crypto")
+const { applyGuard, cacheGet, cacheSet } = require("../lib/guard")
 
 const REQUEST_TIMEOUT_MS = 10000
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-}
+const MARKET_CACHE_TTL_MS = 15000
 
 function normalizePem(raw) {
   let pem = raw.replace(/\\n/g, "\n").trim()
@@ -82,13 +78,10 @@ async function kalshiLookup(ticker, keyId, normalizedKey) {
 }
 
 module.exports = async (req, res) => {
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, CORS_HEADERS)
-    return res.end()
-  }
+  // Origin allowlist + rate limit: this route is signed with Predara's own
+  // Kalshi key, so it must not serve as a free public API. See lib/guard.js.
+  if (!applyGuard(req, res)) return
 
-  res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Content-Type", "application/json")
 
   const keyId = process.env.KALSHI_API_KEY_ID
@@ -103,6 +96,13 @@ module.exports = async (req, res) => {
   }
 
   const normalizedKey = normalizePem(privateKey)
+
+  // A market lookup fans out to four signed upstream calls. Prices move on the
+  // order of seconds, so a short cache is invisible to the reader and cuts a
+  // burst on a trending market down to one round trip.
+  const cacheKey = "kalshi:" + ticker
+  const hit = cacheGet(cacheKey)
+  if (hit) return res.status(200).json(hit)
 
   try {
     const found = await kalshiLookup(ticker, keyId, normalizedKey)
@@ -198,6 +198,7 @@ module.exports = async (req, res) => {
       } catch (_) { /* series fetch is best-effort */ }
     }
 
+    cacheSet(cacheKey, data, MARKET_CACHE_TTL_MS)
     return res.status(200).json(data)
   } catch (err) {
     return res.status(502).json({ error: err.message })

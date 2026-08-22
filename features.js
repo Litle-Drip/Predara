@@ -173,24 +173,112 @@ function _appendTimeSeries(url) {
   } catch {}
 }
 
+// The chart draws the PLATFORM's own time series. The localStorage snapshots
+// below are only a fallback for venues that publish none -- they are a record of
+// when the reader happened to open the page, not of the market, and are labeled
+// as such so they are never mistaken for real history.
+const HISTORY_WINDOWS = [
+  { key: "1d", label: "24h" },
+  { key: "1w", label: "1w" },
+  { key: "1m", label: "1m" },
+]
+
 function priceHistoryChartHtml(url) {
-  const ts = _getTimeSeries(url)
-  if (ts.length < 2) return ""
+  const ref = typeof window !== "undefined" ? window._historyRef : null
+  const hasFallback = _getTimeSeries(url).length >= 2
+  if (!ref && !hasFallback) return ""
+  const tabs = ref
+    ? `<div class="hist-window-tabs">${HISTORY_WINDOWS.map((w) =>
+        `<button class="hist-window-btn${w.key === "1w" ? " active" : ""}" data-window="${w.key}"
+          onclick="setHistoryWindow('${w.key}')">${w.label}</button>`).join("")}</div>`
+    : ""
   return `
     <div class="mi-card">
       <div class="section-label">PRICE HISTORY</div>
+      ${tabs}
       <div class="price-chart-wrap">
         <canvas id="priceHistoryCanvas" width="700" height="180"></canvas>
         <div class="price-chart-legend" id="priceChartLegend"></div>
+        <div class="price-chart-source" id="priceChartSource"></div>
       </div>
     </div>`
+}
+
+window._historyWindow = "1w"
+window.setHistoryWindow = function (key) {
+  window._historyWindow = key
+  document.querySelectorAll(".hist-window-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.window === key))
+  drawPriceHistoryChart(document.getElementById("urlInput")?.value?.trim() || "")
+}
+
+// Pulls one outcome's series from the platform. Returns [] on any failure so a
+// missing series degrades to "no history" rather than an error state.
+async function _fetchHistorySeries(entry, ref, windowKey) {
+  const params = new URLSearchParams({ platform: ref.platform, window: windowKey })
+  if (entry.token) params.set("token", entry.token)
+  if (entry.ticker) { params.set("ticker", entry.ticker); params.set("series", ref.series || "") }
+  try {
+    const res = await fetch(`/api/history?${params.toString()}`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data.points) ? data.points : []
+  } catch { return [] }
+}
+
+// Reshapes per-outcome series into the { t, outcomes: [{name, pct}] } frames the
+// canvas renderer already understands, aligning them on a shared time axis.
+function _mergeHistorySeries(named) {
+  const byTime = new Map()
+  named.forEach(({ name, points }) => {
+    points.forEach((p) => {
+      if (!byTime.has(p.t)) byTime.set(p.t, [])
+      byTime.get(p.t).push({ name, pct: p.pct })
+    })
+  })
+  return [...byTime.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([t, outcomes]) => ({ t, outcomes }))
+}
+
+// Loads real history for the current market, falling back to local snapshots.
+async function loadPriceHistory(url) {
+  const ref = typeof window !== "undefined" ? window._historyRef : null
+  const windowKey = window._historyWindow || "1w"
+  if (ref && Array.isArray(ref.entries) && ref.entries.length) {
+    const named = await Promise.all(ref.entries.map(async (e) => ({
+      name: e.label,
+      points: await _fetchHistorySeries(e, ref, windowKey),
+    })))
+    const withData = named.filter((n) => n.points.length > 1)
+    if (withData.length) {
+      const label = ref.platform === "kalshi" ? "Kalshi candlesticks" : "Polymarket CLOB"
+      return { series: _mergeHistorySeries(withData), source: label, real: true }
+    }
+  }
+  const ts = _getTimeSeries(url)
+  if (ts.length >= 2) return { series: ts, source: "your own page views", real: false }
+  return { series: [], source: "", real: false }
 }
 
 function drawPriceHistoryChart(url) {
   const canvas = document.getElementById("priceHistoryCanvas")
   if (!canvas) return
-  const ts = _getTimeSeries(url)
-  if (ts.length < 2) return
+  loadPriceHistory(url).then(({ series, source, real }) => {
+    const srcEl = document.getElementById("priceChartSource")
+    if (srcEl) {
+      srcEl.innerHTML = !series.length
+        ? `No published price history for this market.`
+        : real
+          ? `Source: ${esc(source)}`
+          : `<strong>Not market history.</strong> This venue publishes none, so these points are ${esc(source)} \u2014 treat them as a personal log, not data.`
+      srcEl.classList.toggle("price-chart-source-warn", !real && series.length > 0)
+    }
+    if (series.length >= 2) _paintPriceHistory(canvas, series)
+  })
+}
+
+function _paintPriceHistory(canvas, ts) {
 
   const ctx = canvas.getContext("2d")
   const W = canvas.width
@@ -265,7 +353,14 @@ function drawPriceHistoryChart(url) {
       else ctx.lineTo(x, y)
     })
     ctx.stroke()
-    const lastPct = ts[ts.length - 1].outcomes.find((o) => o.name === name)?.pct
+    // Merged series can have a final frame that is missing this outcome (the
+    // venues do not always sample every contract at the same instant), so walk
+    // back to the most recent frame that actually carries it.
+    let lastPct = null
+    for (let i = ts.length - 1; i >= 0 && lastPct == null; i--) {
+      const found = ts[i].outcomes.find((o) => o.name === name)
+      if (found) lastPct = found.pct
+    }
     legendParts.push(`<span class="chart-legend-item"><span style="color:${color}">●</span> ${esc(name)}${lastPct != null ? ": " + lastPct + "%" : ""}</span>`)
   })
   if (legendEl) legendEl.innerHTML = legendParts.join("")
@@ -661,7 +756,11 @@ function priceAlertHtml(url) {
           <button class="copy-link-btn" onclick="addPriceAlert()">Set alert</button>
         </div>
         ${existingHtml}
-        <div class="alert-note">Alerts check prices when you visit Predara. Enable browser notifications for background alerts.</div>
+        <div class="alert-note">
+          Checked every 3 minutes while Predara is open in a tab, on every alerted market \u2014 not just
+          the one on screen. Close every tab and checking stops; there is no server-side push.
+          Enable browser notifications to be told when one fires.
+        </div>
       </div>
     </div>`
 }
@@ -711,9 +810,9 @@ window.removeAlert = function (id) {
   }
 }
 
-function checkAlertsOnLoad() {
-  const alerts = _getAlerts()
-  if (!alerts.length) return
+// Reads the outcome list off the rendered page. Only valid for the market the
+// user is currently looking at -- the poller below uses the API instead.
+function _renderedOutcomes() {
   const outcomes = []
   document.querySelectorAll(".outcome-row").forEach((row) => {
     const name = (row.querySelector(".outcome-name-text") || row.querySelector(".outcome-name"))?.textContent?.replace(/[↑↓▲▼]/g, "").trim()
@@ -721,21 +820,123 @@ function checkAlertsOnLoad() {
     const pct = parseInt(pctText, 10)
     if (name && !isNaN(pct)) outcomes.push({ name, pct })
   })
+  return outcomes
+}
+
+function checkAlertsOnLoad() {
   const url = document.getElementById("urlInput")?.value?.trim()
-  const matching = alerts.filter((a) => a.marketUrl === url)
-  matching.forEach((alert) => {
-    const o = outcomes.find((o) => o.name.toLowerCase() === alert.outcomeName.toLowerCase())
+  if (!url) return
+  _evaluateAlerts(url, _renderedOutcomes())
+}
+
+// ── Background alert polling ──────────────────────────────────────────────────
+// An alert that only fires when you open the market it is about is not an
+// alert. This re-fetches every alerted market on an interval and notifies on
+// the transition into a triggered state.
+//
+// This runs in the page, so it only covers the time Predara is open in a tab.
+// The UI says so rather than implying push delivery it cannot make.
+const ALERT_POLL_MS = 180000
+let _alertPollTimer = null
+
+// Fetches one market headlessly and returns [{ name, pct }]. Reuses the same
+// API routes and the same pure normalizers the main view uses, so a poll and a
+// page load can never read the market differently.
+async function _pollMarketOutcomes(url) {
+  const lower = String(url).toLowerCase()
+  const clean = String(url).split("?")[0].split("#")[0].replace(/\/$/, "")
+  try {
+    if (lower.includes("polymarket") || (lower.includes("coinbase") && clean.split("/").pop() === clean.split("/").pop().toLowerCase())) {
+      const slug = (clean.split("/event/")[1] || clean.split("/").pop() || "").split("/")[0]
+      if (!slug) return []
+      const r = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
+      if (!r.ok) return []
+      const events = await r.json()
+      const ev = Array.isArray(events) ? events[0] : events
+      if (!ev) return []
+      const norm = normalizePolymarket(ev, ev.markets || [], lower.includes("coinbase") ? "coinbase" : "polymarket", url)
+      return norm ? norm.outcomes.map((o) => ({ name: o.label, pct: o.pct })) : []
+    }
+    if (lower.includes("kalshi") || lower.includes("coinbase")) {
+      const ticker = clean.split("/").pop()
+      if (!ticker) return []
+      const r = await fetch(`/api/kalshi?ticker=${encodeURIComponent(ticker)}`)
+      if (!r.ok) return []
+      const d = await r.json()
+      const ev = d.event || (d.market ? { markets: [d.market] } : null)
+      if (!ev) return []
+      const norm = normalizeKalshi(ev, ev.markets || [], lower.includes("coinbase") ? "coinbase" : "kalshi", url)
+      return norm ? norm.outcomes.map((o) => ({ name: o.label, pct: o.pct })) : []
+    }
+    if (lower.includes("gemini")) {
+      const ticker = clean.split("/").pop()
+      if (!ticker) return []
+      const r = await fetch(`/api/gemini?ticker=${encodeURIComponent(ticker)}`)
+      if (!r.ok) return []
+      const d = await r.json()
+      const norm = normalizeGemini(d.event || d, url)
+      return norm ? norm.outcomes.map((o) => ({ name: o.label, pct: o.pct })) : []
+    }
+  } catch { /* a poll failure is not worth surfacing; the next tick retries */ }
+  return []
+}
+
+// Fires on the transition into a triggered state only, so a market that sits
+// past the threshold does not renotify every three minutes.
+function _evaluateAlerts(url, outcomes) {
+  if (!outcomes.length) return
+  const alerts = _getAlerts()
+  let changed = false
+  alerts.forEach((alert) => {
+    if (alert.marketUrl !== url) return
+    const o = outcomes.find((x) => x.name.toLowerCase() === alert.outcomeName.toLowerCase())
     if (!o) return
     const triggered =
       (alert.direction === "above" && o.pct >= alert.threshold) ||
       (alert.direction === "below" && o.pct <= alert.threshold)
-    if (triggered && Notification.permission === "granted") {
-      new Notification("Predara Price Alert", {
-        body: `${alert.marketTitle}: "${alert.outcomeName}" is now at ${o.pct}% (threshold: ${alert.direction} ${alert.threshold}%)`,
-        icon: "/og-image.png",
-      })
+    if (triggered && !alert.firing) {
+      alert.firing = true
+      alert.lastFiredAt = Date.now()
+      changed = true
+      _deliverAlert(alert, o.pct)
+    } else if (!triggered && alert.firing) {
+      alert.firing = false
+      changed = true
     }
   })
+  if (changed) _saveAlerts(alerts)
+}
+
+function _deliverAlert(alert, pct) {
+  const title = "Predara Price Alert"
+  const body = `${alert.marketTitle || alert.marketUrl}: "${alert.outcomeName}" is now at ${pct}% (threshold: ${alert.direction} ${alert.threshold}%)`
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/og-image.png" })
+    }
+  } catch { /* notifications are best-effort */ }
+  _showToast(`${alert.outcomeName} hit ${pct}%`)
+  sendAlertWebhooks(`${title}\n${body}\n${alert.marketUrl}`)
+}
+
+async function _pollAllAlerts() {
+  const alerts = _getAlerts()
+  if (!alerts.length) return
+  const urls = [...new Set(alerts.map((a) => a.marketUrl).filter(Boolean))]
+  for (const url of urls) {
+    const outcomes = await _pollMarketOutcomes(url)
+    _evaluateAlerts(url, outcomes)
+  }
+}
+
+function startAlertPoller() {
+  if (_alertPollTimer) return
+  _alertPollTimer = setInterval(_pollAllAlerts, ALERT_POLL_MS)
+  // Catch up immediately when the tab comes back into focus.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) _pollAllAlerts()
+  })
+  _pollAllAlerts()
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1018,7 +1219,7 @@ function renderAccuracyDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// FEATURE 15: Notification Integrations (webhook stubs)
+// FEATURE 15: Notification Integrations
 // ════════════════════════════════════════════════════════════════════════════════
 function _getWebhookConfig() {
   try { return JSON.parse(localStorage.getItem("predara-webhooks") || "{}") } catch { return {} }
@@ -1048,7 +1249,12 @@ function notificationSettingsHtml() {
           <input type="url" id="webhookSlack" class="compare-url-input" placeholder="https://hooks.slack.com/services/..." value="${esc(config.slack || "")}" />
         </div>
         <button class="copy-link-btn" onclick="saveWebhookConfig()" style="margin-top:8px">Save settings</button>
-        <div class="alert-note" style="margin-top:8px">Webhooks fire when price alerts are triggered. Configured locally in your browser.</div>
+        <button class="copy-link-btn" onclick="testWebhooks()" style="margin-top:8px">Send test</button>
+        <div class="alert-note" style="margin-top:8px">
+          Fires when a price alert triggers. Settings stay in your browser; Predara relays each
+          message to the service you name and keeps no copy of the URL or token.
+          Alerts are checked while Predara is open in a tab \u2014 close every tab and checking stops.
+        </div>
       </div>
     </div>`
 }
@@ -1061,6 +1267,46 @@ window.saveWebhookConfig = function () {
   }
   _saveWebhookConfig(config)
   _showToast("Webhook settings saved")
+}
+
+// Turns the saved config into the target list /api/notify expects.
+function _webhookTargets() {
+  const c = _getWebhookConfig()
+  const targets = []
+  if (c.discord) targets.push({ kind: "discord", url: c.discord })
+  if (c.slack) targets.push({ kind: "slack", url: c.slack })
+  if (c.telegram) targets.push({ kind: "telegram", token: c.telegram })
+  return targets
+}
+
+// Delivery goes through Predara's relay because Slack's incoming webhooks
+// reject cross-origin browser requests. The relay stores nothing: the
+// destination travels with the request and is used for one POST.
+async function sendAlertWebhooks(message) {
+  const targets = _webhookTargets()
+  if (!targets.length) return { delivered: 0, results: [] }
+  try {
+    const res = await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targets, message }),
+    })
+    return await res.json()
+  } catch {
+    return { delivered: 0, results: [{ ok: false, error: "Relay unreachable" }] }
+  }
+}
+
+// Lets the user prove the wiring works instead of finding out at 3am that it
+// never did.
+window.testWebhooks = async function () {
+  if (!_webhookTargets().length) { _showToast("Add a webhook URL first"); return }
+  _showToast("Sending test\u2026")
+  const r = await sendAlertWebhooks("Predara test notification \u2014 your alerts are wired up correctly.")
+  const failed = (r.results || []).filter((x) => !x.ok)
+  if (r.delivered && !failed.length) _showToast(`Test delivered to ${r.delivered} destination${r.delivered > 1 ? "s" : ""}`)
+  else if (r.delivered) _showToast(`Delivered to ${r.delivered}; failed: ${failed.map((f) => f.kind).join(", ")}`)
+  else _showToast(`Delivery failed: ${(failed[0] && (failed[0].error || "status " + failed[0].status)) || "unknown error"}`)
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1408,6 +1654,10 @@ function afterAnalysisHook(url) {
   // Gemini markets stream their public order book, strike and reward pool
   initGeminiLive()
 
+  // EV and Kelly stay blank until the user states a probability; this seeds
+  // them from a saved estimate if one exists for this market.
+  if (typeof window.initEdgeCalc === "function") window.initEdgeCalc()
+
   // Price history chart
   const chartHtml = priceHistoryChartHtml(url)
   if (chartHtml) {
@@ -1444,6 +1694,9 @@ function afterAnalysisHook(url) {
 document.addEventListener("DOMContentLoaded", function () {
   initSmartPaste()
   initExtendedKeyboardShortcuts()
+  // Price alerts poll in the background for as long as this tab is open, so
+  // they fire on markets the user is not currently looking at.
+  startAlertPoller()
   // Set default tab
   switchTab("analyze")
 })

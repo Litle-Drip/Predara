@@ -1,5 +1,7 @@
-// Predara Service Worker — PWA offline shell + price alert polling
-const CACHE_NAME = "predara-v1"
+// Predara Service Worker — PWA offline shell
+// Bumped so returning users get the corrected betting math rather than a
+// cached bundle that still prices off the midpoint.
+const CACHE_NAME = "predara-v2"
 const SHELL_URLS = [
   "/",
   "/index.html",
@@ -50,60 +52,13 @@ self.addEventListener("fetch", (e) => {
   )
 })
 
-// Price alert polling — triggered by periodic sync or message from client
-self.addEventListener("message", async (e) => {
-  if (e.data && e.data.type === "CHECK_ALERTS") {
-    const alerts = e.data.alerts || []
-    for (const alert of alerts) {
-      try {
-        const res = await fetch(alert.fetchUrl)
-        if (!res.ok) continue
-        const data = await res.json()
-        const currentPct = extractPctFromData(data, alert.platform, alert.outcomeName)
-        if (currentPct === null) continue
-        const triggered =
-          (alert.direction === "above" && currentPct >= alert.threshold) ||
-          (alert.direction === "below" && currentPct <= alert.threshold)
-        if (triggered) {
-          self.registration.showNotification("Predara Price Alert", {
-            body: `${alert.marketTitle}: "${alert.outcomeName}" is now at ${currentPct}% (threshold: ${alert.direction} ${alert.threshold}%)`,
-            icon: "/og-image.png",
-            tag: alert.id,
-            data: { url: alert.marketUrl },
-          })
-        }
-      } catch {}
-    }
-  }
-})
+// Alert checking lives in the page (startAlertPoller in features.js), not here.
+// A CHECK_ALERTS message handler used to sit at this spot, but nothing ever
+// posted that message and no periodic sync was ever registered, so it was dead
+// code that made background alerts look implemented when they were not.
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close()
   const url = e.notification.data?.url || "/"
   e.waitUntil(clients.openWindow(url))
 })
-
-function extractPctFromData(data, platform, outcomeName) {
-  try {
-    if (platform === "polymarket") {
-      const event = Array.isArray(data) ? data[0] : data
-      if (!event) return null
-      for (const m of event.markets || []) {
-        const outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : m.outcomes
-        const prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : m.outcomePrices
-        if (!outcomes || !prices) continue
-        const idx = outcomes.findIndex((o) => o.toLowerCase() === outcomeName.toLowerCase())
-        if (idx >= 0) return Math.round(parseFloat(prices[idx]) * 100)
-      }
-    }
-    if (platform === "kalshi") {
-      const markets = data.event?.markets || (data.market ? [data.market] : [])
-      for (const m of markets) {
-        if ((m.yes_sub_title || "").toLowerCase() === outcomeName.toLowerCase()) {
-          return Math.round(parseFloat(m.last_price_dollars || 0) * 100)
-        }
-      }
-    }
-  } catch {}
-  return null
-}

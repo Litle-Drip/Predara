@@ -4,7 +4,7 @@
 Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase prediction markets. Users paste a market URL and get a full breakdown of what they're betting on, resolution rules in plain English, a bet calculator, odds, volume, liquidity, and trader analytics. Gemini URLs route through Gemini's own public Prediction Markets REST API (`api.gemini.com/v1/prediction-markets`). Coinbase has two product surfaces: `predict.coinbase.com/markets/<slug>` (lowercase slugs) routes through the Polymarket gamma API, while `www.coinbase.com/predictions/event/<TICKER>` (uppercase tickers) routes through the Kalshi API.
 
 ## Architecture
-- **lib/** — Shared platform logic, imported by both `api/` and `server.js` so the two entrypoints cannot drift. `lib/gemini.js` is the single source of truth for the Gemini Prediction Markets API; `lib/serverless.js` is the CORS/JSON shell for the read-only Vercel functions.
+- **lib/** — Shared platform logic, imported by both `api/` and `server.js` so the two entrypoints cannot drift. `lib/guard.js` gates every `/api/*` route; `lib/history.js` fetches real price history; `lib/notify.js` relays alert webhooks; `lib/kalshi-auth.js` is the shared Kalshi request signer. `lib/gemini.js` is the single source of truth for the Gemini Prediction Markets API; `lib/serverless.js` is the CORS/JSON shell for the read-only Vercel functions.
 - **server.js** — Local dev HTTP server on port 5000 / 0.0.0.0. Proxies API calls to Kalshi (authenticated via RSA-signed JWT), Polymarket (public gamma API) and Gemini (public, unauthenticated). Serves static files.
 - **app.js** — Client-side rendering. Detects platform from URL, fetches data via `/api/kalshi` or `/api/polymarket`, renders: "WHAT'S THE BET?" explainer, outcomes, bet simulator, resolution rules, timeline, trader analytics, glossary tooltips, and volume stats.
 - **index.html** — Single-page app shell with all CSS inline.
@@ -47,6 +47,84 @@ Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase predictio
 - `infoRow(key, val)` auto-adds glossary tooltips when the key matches a GLOSSARY entry
 - Probability `(est.)` tag: shown on Kalshi outcomes when `last_price_dollars` is absent and the probability is derived from bid/ask midpoint
 - Stats display: missing values show "—" instead of "$0" or empty
+
+## Betting math — one source of truth
+
+`utils.js` holds the fee and execution-price model that every calculator on the
+page reads from, so the bet calculator, the edge calculator and the analytics
+card can never quote three different numbers for the same trade.
+
+- **Price off the book you would hit, never the midpoint.** `executionPrice()`
+  returns the ask for YES and `1 - bid` for NO. The midpoint understates the cost
+  of both sides by half the spread, which on a thin market is the whole edge.
+  When no book is published it falls back to the midpoint and sets `isEstimate`,
+  which the UI must surface.
+- **Fees are charged on entry, win or lose.** `feeFor()` implements Kalshi's
+  published `roundup(0.07 x C x P x (1-P))`, which peaks at 1.75c per contract at
+  50c — it is emphatically not a flat percentage of profit. A win pays out minus
+  the fee AND a loss costs the stake plus the fee.
+- **A fee we cannot reproduce is reported as unknown.** `FEE_MODEL` entries carry
+  `known: false` for venues that publish no formula, and the UI says "not
+  included" rather than showing an invented rate. Do not fill these in with a
+  guessed percentage; a made-up fee is worse than an absent one because it looks
+  authoritative.
+- **EV and Kelly require the USER's probability.** They are undefined against the
+  market's own price: EV measured that way is always minus half the spread and
+  Kelly is always ~0, on every market. `calcAnalyticsRow()` therefore returns
+  break-even and spread only, and `renderAnalyticsEdge()` fills EV and Kelly from
+  the estimate the reader types into "What's your edge?". Do not reintroduce an
+  EV computed from `prob` — that was the original bug.
+- **An estimate belongs to one outcome.** On a multi-outcome market only the row
+  the estimate was made for gets EV and Kelly.
+- **Say when a number is clamped.** The Kelly bar caps at 25% of bankroll and
+  prints the uncapped figure alongside it.
+
+Covered by `tests/betting-math.test.js`. These are the functions that hand a
+reader a number they may act on, so changes here need tests.
+
+## Price history
+
+`PRICE HISTORY` draws the **platform's own** time series — Kalshi candlesticks
+(`/series/{s}/markets/{t}/candlesticks`) and the Polymarket CLOB
+(`/prices-history`) — via `/api/history`, which both entrypoints serve from
+`lib/history.js`. The identifiers travel on `normalized.historyRef`.
+
+Gemini publishes no public history endpoint, so its `historyRef` is `null`. The
+localStorage snapshot series (`predara-ts:*`) survives only as a fallback for
+that case, and the chart labels it as the reader's own page views rather than
+letting it pass as market data.
+
+## /api/* is not a public API
+
+Every `/api/*` route proxies an upstream that costs Predara something — the
+Kalshi routes are signed with Predara's own RSA key, and all of them consume a
+shared rate limit. `lib/guard.js` enforces three things on all of them:
+
+- **Origin allowlist.** CORS echoes the caller's origin only when it is
+  allowlisted, and never `*`. A wildcard let any site use predara.org as its
+  backend. An absent `Origin` is allowed, because browsers omit it on
+  same-origin GETs and send it in exactly the cross-site case being blocked.
+- **Response cache.** Market payloads are cached for ~15s (history for ~60s), so
+  a burst of readers on a trending market is one upstream call, not hundreds.
+  Errors are never cached.
+- **Rate limit.** Fixed window per forwarded IP. Process-local, so on Vercel it
+  is a cost dampener per instance rather than a distributed quota.
+
+Do not add an `/api` route that bypasses `applyGuard()`.
+
+## Alerts and webhook relay
+
+Price alerts are checked by `startAlertPoller()` in the page, every 3 minutes,
+across every alerted market — not only the one on screen. This covers the time a
+Predara tab is open and nothing more, and the UI says exactly that. There is no
+server-side push and no service-worker polling: a `CHECK_ALERTS` handler used to
+sit in `sw.js` but nothing ever posted that message, so it was removed.
+
+Delivery goes through `/api/notify` rather than a fetch from the page because
+Slack's incoming webhooks reject cross-origin browser requests. `lib/notify.js`
+pins the reachable hosts to Discord, Slack and Telegram — without that allowlist
+the relay is an SSRF hole and an open spam cannon. Destinations arrive with each
+request, are used for one POST, and are never logged or stored.
 
 ## Secrets
 - `KALSHI_API_KEY_ID` — Kalshi API key member ID
