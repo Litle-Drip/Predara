@@ -5,6 +5,7 @@ const fs = require("fs")
 const path = require("path")
 const url = require("url")
 const gemini = require("./lib/gemini")
+const { getGeminiPublic, geminiEventsToDiscoverCards } = require("./lib/gemini-public")
 
 const PORT = process.env.PORT || 5000
 const STATIC_ROOT = __dirname
@@ -156,6 +157,10 @@ const server = http.createServer((req, res) => {
     "/api/gemini-events": (q) => gemini.listEvents(q),
     "/api/gemini-strike": (q) => gemini.getEventStrike(q.ticker),
     "/api/gemini-combos": (q) => q.symbol ? gemini.getCombo(q.symbol) : gemini.listCombos(q),
+    // One browsable entrypoint for the resources the UI picks by name (event
+    // feeds, categories, volume, reward programs), cached in lib/gemini-public.
+    "/api/gemini-markets": ({ resource, ...query }) =>
+      getGeminiPublic(resource, query).then(({ status, json }) => ({ status, data: json })),
   }
 
   if (geminiRoutes[parsed.pathname]) {
@@ -446,24 +451,9 @@ const server = http.createServer((req, res) => {
 
     async function fetchGeminiTrending() {
       try {
-        const { status, body } = await httpsGetWithTimeout(
-          "https://api.gemini.com/v1/prediction-markets/events",
-          REQUEST_TIMEOUT_MS,
-        )
+        const { status, json } = await getGeminiPublic("events", { status: "active", limit: "24" })
         if (status !== 200) return []
-        const data = JSON.parse(body)
-        const events = Array.isArray(data) ? data : (data.events || [])
-        return events.slice(0, 8).map((e) => {
-          const contracts = e.contracts || []
-          const top = contracts[0] || {}
-          return {
-            title: e.title || e.ticker || "Untitled",
-            url: `https://www.gemini.com/predictions/${e.ticker || ""}`,
-            volume: "",
-            topOutcome: top.title || top.ticker || "",
-            topPct: top.last_price ? Math.round(parseFloat(top.last_price) * 100) : "",
-          }
-        })
+        return geminiEventsToDiscoverCards(json, 8)
       } catch { return [] }
     }
 

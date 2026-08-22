@@ -2063,6 +2063,58 @@
     .rewards-live-table tr:hover td { background: var(--card); }
     .rewards-badge-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--green); color: #fff; font-weight: 600; }
 
+    /* Gemini public data — browse, live book, volume */
+    .gem-browse-card { margin-bottom: 20px; }
+    .gem-browse-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+    .gem-search-input, .gem-select {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+    }
+    .gem-search-input { flex: 1 1 220px; }
+    .gem-search-input:focus, .gem-select:focus { outline: none; border-color: var(--orange); }
+    .gem-feed-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .gem-feed-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    .gem-feed-btn:hover { color: var(--text-bright); border-color: var(--orange); }
+    .gem-feed-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .gem-more-btn { margin-top: 6px; }
+    .gem-live-pill {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.2px; padding: 2px 8px;
+      border-radius: 10px; background: var(--border); color: var(--muted); margin-left: 8px;
+    }
+    .gem-live-pill.gem-live-on { background: var(--green); color: #fff; }
+    .gem-live-pill.gem-live-off { background: var(--border); color: var(--muted); }
+    .gem-strike-row { font-size: 12px; color: var(--text); margin: 4px 0 10px; line-height: 1.6; }
+    .gem-book-wrap { overflow-x: auto; }
+    .gem-book-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .gem-book-table th, .gem-book-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .gem-book-table th:first-child, .gem-book-table td:first-child { text-align: left; }
+    .gem-book-table th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; }
+    .gem-book-table tr:last-child td { border-bottom: none; }
+    .gem-book-name { color: var(--text-bright); }
+    .gem-book-table .gem-bid { color: var(--green); }
+    .gem-book-table .gem-ask { color: var(--red); }
+    .gem-depth-wrap { margin-top: 12px; }
+    .gem-depth-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--muted); margin-bottom: 6px; }
+    .gem-depth-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .gem-depth-head { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .gem-depth-lvl { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; }
+    .gem-depth-bid .gem-depth-px { color: var(--green); }
+    .gem-depth-ask .gem-depth-px { color: var(--red); }
+    .gem-depth-qty { color: var(--muted); }
+    .gem-live-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+    .gem-vol-controls { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
+    .gem-vol-date { font-size: 12px; color: var(--muted); }
+    .gem-vol-total { font-size: 13px; color: var(--text-bright); margin-bottom: 10px; }
+    .gem-vol-row { display: grid; grid-template-columns: 120px 1fr 70px; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
+    .gem-vol-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gem-vol-bar { background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+    .gem-vol-bar > span { display: block; height: 100%; background: var(--orange); }
+    .gem-vol-val { text-align: right; color: var(--muted); }
+    .gem-vol-chart { width: 100%; margin-top: 14px; display: block; }
+
     @media (max-width: 640px) {
       .tab-btn { font-size: 11px; padding: 8px 12px; }
       .watchlist-grid { grid-template-columns: 1fr; }
@@ -2204,13 +2256,14 @@
 
 </div>
 
-<script src="utils.js?v=19"></script>
-<script src="components.js?v=19"></script>
-<script src="adapters.js?v=19"></script>
-<script src="renderers.js?v=19"></script>
-<script src="compare.js?v=19"></script>
-<script src="app.js?v=19"></script>
-<script src="features.js?v=19"></script>
+<script src="utils.js?v=20"></script>
+<script src="components.js?v=20"></script>
+<script src="adapters.js?v=20"></script>
+<script src="renderers.js?v=20"></script>
+<script src="compare.js?v=20"></script>
+<script src="gemini-live.js?v=20"></script>
+<script src="app.js?v=20"></script>
+<script src="features.js?v=20"></script>
 <script>
   (function () {
     // Theme

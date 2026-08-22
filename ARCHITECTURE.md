@@ -87,8 +87,13 @@ this identically — change them together.
 
 ## Gemini Prediction Markets
 
-Predara is a **read-only** consumer of Gemini's Prediction Markets API. All of it
-lives in `lib/gemini.js`; `api/gemini*.js` and `server.js` are only HTTP shells.
+Predara is a **read-only** consumer of Gemini's Prediction Markets API. Transport,
+validation and the event/strike/combo calls live in `lib/gemini.js`;
+`lib/gemini-public.js` adds the by-name resource router (event feeds, categories,
+volume, reward programs) with a short-lived response cache, delegating strike and
+combo lookups back to `lib/gemini.js`. `api/gemini*.js` and `server.js` are only
+HTTP shells. Live quotes are the one thing the browser fetches directly, over the
+public market-data WebSocket (`gemini-live.js`).
 
 ### Implemented (public, no API key)
 
@@ -98,13 +103,18 @@ lives in `lib/gemini.js`; `api/gemini*.js` and `server.js` are only HTTP shells.
 | `/api/gemini-events?status=&category=&search=&limit=&offset=` | `GET /events` | Paginated event discovery. |
 | `/api/gemini-strike?ticker=` | `GET /events/{ticker}/strike` | Strike / threshold info. |
 | `/api/gemini-combos[?symbol=]` | `GET /combos`, `GET /combos/{symbol}` | Combo contracts and their legs. |
+| `/api/gemini-markets?resource=…` | `GET /events/{newly-listed,upcoming,recently-settled}`, `/categories`, `/volume/{date}[/hourly]`, `/maker-rebate/rates`, `/liquidity-rewards/{config,events}`, `/terms`, and the delegated `strike`/`combos` | Resources the UI browses by name: Discover feeds and filters, the volume dashboard, and live reward-program data. |
+
+Plus the public market-data WebSocket (`wss://ws.gemini.com/`), subscribed from
+the browser for `{instrumentSymbol}@bookTicker`, `@depth5` and `@trade`. It is
+unauthenticated, so it stays client-side rather than being proxied.
 
 ### Deliberately NOT implemented
 
 Order entry (`order.place`, `order.cancel`, `order.cancel_session`), positions,
 order history, `terms/status` and `terms/accept`, combo creation, subaccounts,
-and the entire WebSocket surface (`wss://ws.gemini.com`). These all require
-account-scoped API keys and would make Predara an execution venue rather than an
+and the account-scoped WebSocket streams (order and position updates). These all
+require account-scoped API keys and would make Predara an execution venue rather than an
 analyzer. Do not add them without an explicit product decision — they carry key
 custody, blast-radius, and compliance obligations that nothing in the current
 architecture is built for.
@@ -128,6 +138,11 @@ architecture is built for.
 - **A null strike is not an error.** For crypto Up/Down contracts the strike is
   only captured at `availableAt` (~5 min before expiry on 5M contracts). The
   proxy marks this with `_pending`.
+- **Volume lands late.** `GET /volume/{date}` only covers completed UTC days, and
+  the most recent one can still 404 hours later — the dashboard walks back a day
+  at a time rather than reporting an error.
+- **Category volume rows nest.** A row's `categoryPath` is a path, so deeper rows
+  are sub-totals already counted in their parent; only sum `length === 1` rows.
 - **Strict vs inclusive thresholds decide ties.** `over` (`>`) and `over_or_equal`
   (`>=`) settle an exact tie to opposite sides. `describeStrikeType()` spells this
   out rather than glossing both as "above".
