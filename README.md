@@ -25,8 +25,14 @@ Prediction markets bury the information traders actually need — resolution cri
 |---|---|
 | Kalshi | Direct API (RSA-signed JWT) |
 | Polymarket | Public Gamma API |
-| Gemini | Routed through Kalshi's infrastructure |
+| Gemini | Direct public Prediction Markets API (`api.gemini.com/v1/prediction-markets`) |
 | Coinbase | Routed through Polymarket or Kalshi, depending on market type |
+
+## Settlement Desk
+
+After a market closes, the Settlement Desk audits how it resolved. Most settlements are confirmed straight from the platform's own API with no AI call — those work out of the box.
+
+When the API data has no clear winner, the case goes to Claude for analysis, and that requires **your own Anthropic API key**, entered in the "Your Anthropic API key" panel on the page. Predara runs no Anthropic key of its own, so AI analysis is always billed to your account, never ours. The key is stored only in your browser (no account needed) and is never logged or saved server-side.
 
 ## Getting started
 
@@ -39,13 +45,14 @@ The server runs on port 5000. Paste any supported market URL into the app to see
 
 ## Tech stack
 
-Plain JavaScript, no framework — a single-page client (`app.js`, `index.html`) backed by a lightweight Node HTTP server (`server.js`) that proxies and normalizes data from each platform's API. Production runs on Vercel via serverless functions in `api/`; local/staging runs on Replit.
+Plain JavaScript, no framework — a single-page client (`app.js`, `index.html`) backed by a lightweight Node HTTP server (`server.js`) that proxies and normalizes data from each platform's API. Production runs on Vercel via serverless functions in `api/`; `server.js` is the local development server. Both entrypoints share the same platform logic from `lib/`.
 
 ## Project structure
 
 ```
-server.js       Local/Replit server — proxies Kalshi & Polymarket APIs
+server.js       Local dev server — routes /api/* to the same lib/ code as production
 api/            Vercel serverless functions (production — predara.org)
+lib/            Shared platform logic imported by both api/ and server.js
 app.js          Client-side rendering and market detection
 components.js   Reusable UI building blocks
 features.js     Feature-specific rendering (analytics, timeline, glossary)
@@ -55,7 +62,7 @@ utils.js        Shared helpers
 tests/          Test suite (node --test)
 ```
 
-See [replit.md](replit.md) for detailed architecture notes and conventions for contributors.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture notes and conventions for contributors.
 
 ## Testing
 

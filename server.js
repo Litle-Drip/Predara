@@ -4,6 +4,7 @@ const crypto = require("crypto")
 const fs = require("fs")
 const path = require("path")
 const url = require("url")
+const gemini = require("./lib/gemini")
 const { getGeminiPublic, geminiEventsToDiscoverCards } = require("./lib/gemini-public")
 
 const PORT = process.env.PORT || 5000
@@ -26,7 +27,26 @@ const MIME = {
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, x-anthropic-api-key",
+}
+
+// ── Bring-your-own Anthropic key ──
+// The caller's own key via the x-anthropic-api-key header is the ONLY key this
+// endpoint will ever use. Predara holds no Anthropic key of its own and reads no
+// ANTHROPIC_API_KEY from the environment, so AI analysis is never billed to
+// Predara. The key is used for that single request: never logged, never
+// persisted, never echoed back.
+const USER_KEY_HEADER = "x-anthropic-api-key"
+const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+
+function readUserApiKey(req) {
+  const raw = req.headers ? req.headers[USER_KEY_HEADER] : ""
+  const key = typeof raw === "string" ? raw.trim() : ""
+  if (!key) return { key: "" }
+  if (!ANTHROPIC_KEY_RE.test(key)) {
+    return { key: "", error: 'That does not look like an Anthropic API key. Keys start with "sk-ant-".' }
+  }
+  return { key }
 }
 
 function normalizePem(raw) {
@@ -130,117 +150,24 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // ── Gemini proxy ──
-  if (parsed.pathname === "/api/gemini") {
-    const ticker  = parsed.query.ticker
-    const pageUrl = parsed.query.pageUrl
+  // ── Gemini proxies (read-only) ──
+  // Shared with the Vercel functions via lib/gemini.js — see api/gemini*.js.
+  const geminiRoutes = {
+    "/api/gemini":        (q) => gemini.getEvent(q.ticker, q.pageUrl),
+    "/api/gemini-events": (q) => gemini.listEvents(q),
+    "/api/gemini-strike": (q) => gemini.getEventStrike(q.ticker),
+    "/api/gemini-combos": (q) => q.symbol ? gemini.getCombo(q.symbol) : gemini.listCombos(q),
+    // One browsable entrypoint for the resources the UI picks by name (event
+    // feeds, categories, volume, reward programs), cached in lib/gemini-public.
+    "/api/gemini-markets": ({ resource, ...query }) =>
+      getGeminiPublic(resource, query).then(({ status, json }) => ({ status, data: json })),
+  }
 
-    if (!ticker || !isSafeParam(ticker)) {
-      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
-      return res.end(JSON.stringify({ error: "Missing or invalid ticker" }))
-    }
-
-    // Validate optional pageUrl (must be a gemini.com HTTPS URL)
-    if (pageUrl) {
-      try {
-        const u = new URL(pageUrl)
-        if (!((u.protocol === "https:" || u.protocol === "http:") && u.hostname.endsWith("gemini.com"))) {
-          res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
-          return res.end(JSON.stringify({ error: "Invalid pageUrl" }))
-        }
-      } catch {
-        res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
-        return res.end(JSON.stringify({ error: "Invalid pageUrl" }))
-      }
-    }
-
-    const BUILDER_API_KEY = "1b77ce3a269a43e985e77f3d65f715ba"
-    const target = `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(ticker)}`
-
-    // Helper: walk Builder.io JSON tree and collect CDN asset URLs
-    function collectBuilderAssets(node, results = []) {
-      if (!node || typeof node !== "object") return results
-      for (const [key, val] of Object.entries(node)) {
-        if (typeof val === "string") {
-          if ((key === "href" || key === "url" || key === "src") && val.includes("cdn.builder.io")) results.push(val)
-          const embedded = val.match(/https:\/\/cdn\.builder\.io\/assets[^\s"'<>)\\]+/g)
-          if (embedded) results.push(...embedded)
-        } else if (Array.isArray(val)) {
-          val.forEach(v => collectBuilderAssets(v, results))
-        } else if (val && typeof val === "object") {
-          collectBuilderAssets(val, results)
-        }
-      }
-      return results
-    }
-
-    // Fetch Builder.io page content to find contract terms URL
-    function fetchBuilderContractUrl(pUrl) {
-      return new Promise((resolve) => {
-        try {
-          const parsedPage = new URL(pUrl)
-          const apiUrl = `https://cdn.builder.io/api/v3/content/page?apiKey=${BUILDER_API_KEY}&url=${encodeURIComponent(parsedPage.pathname)}&limit=1&fields=data`
-          httpsGetWithTimeout(apiUrl, REQUEST_TIMEOUT_MS)
-            .then(({ status, body }) => {
-              if (status !== 200) return resolve(null)
-              try {
-                const json = JSON.parse(body)
-                const assets = collectBuilderAssets(json)
-                resolve(assets.length ? assets[0] : null)
-              } catch { resolve(null) }
-            })
-            .catch(() => resolve(null))
-        } catch { resolve(null) }
-      })
-    }
-
-    Promise.all([
-      httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS),
-      pageUrl ? fetchBuilderContractUrl(pageUrl) : Promise.resolve(null),
-    ])
-      .then(([{ status, body }, contractUrl]) => {
-        if (status !== 200) {
-          if (status === 404) {
-            res.writeHead(404, { "Content-Type": "application/json", ...CORS_HEADERS })
-            return res.end(JSON.stringify({ error: `Ticker "${ticker}" not found on Gemini.` }))
-          }
-          res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
-          return res.end(JSON.stringify({ error: `Gemini API returned ${status}` }))
-        }
-        let data
-        try { data = JSON.parse(body) } catch {
-          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-          return res.end(JSON.stringify({ error: "Invalid response from Gemini API" }))
-        }
-        if (!data || typeof data !== "object" ||
-            (!(Array.isArray(data.contracts) && data.contracts.length > 0) && !data.ticker && !data.title)) {
-          res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-          return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
-        }
-        // Enrich with contract terms URL (same logic as api/gemini.js)
-        function richTextToPlain(node) {
-          if (!node) return ""
-          if (typeof node === "string") return node
-          if (node.value) return node.value
-          if (Array.isArray(node.content)) return node.content.map(richTextToPlain).join("")
-          return ""
-        }
-        function mdUrl(text) {
-          const m = text && text.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/)
-          return m ? m[2] : null
-        }
-        const contracts = Array.isArray(data && data.contracts) ? data.contracts : []
-        const firstContract = contracts[0] || {}
-        const descText = richTextToPlain(firstContract.description)
-        const directTerms = (data && data.termsLink)
-          || (firstContract.termsAndConditionsUrl || "")
-          || mdUrl(descText)
-          || null
-        if (directTerms) data._contract_url = directTerms
-        else if (contractUrl) data._contract_url = contractUrl
-
-        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(JSON.stringify(data))
+  if (geminiRoutes[parsed.pathname]) {
+    geminiRoutes[parsed.pathname](parsed.query)
+      .then(({ status, data, error }) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(error ? { error } : data))
       })
       .catch((err) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
@@ -414,21 +341,6 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: err.message }))
       })
 
-    return
-  }
-
-  // ── Gemini public prediction-market data (search, volume, rewards, strike) ──
-  if (parsed.pathname === "/api/gemini-markets") {
-    const { resource, ...query } = parsed.query
-    getGeminiPublic(resource, query)
-      .then(({ status, json }) => {
-        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(JSON.stringify(json))
-      })
-      .catch((err) => {
-        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(JSON.stringify({ error: err.message }))
-      })
     return
   }
 
@@ -607,11 +519,15 @@ const server = http.createServer((req, res) => {
 
   // ── Settlement review ──
   if (parsed.pathname === "/api/settlement-review" && req.method === "POST") {
-    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-    if (!ANTHROPIC_API_KEY) {
-      res.writeHead(503, { "Content-Type": "application/json", ...CORS_HEADERS })
-      return res.end(JSON.stringify({ verdict: "error", summary: "Settlement review is not configured. Set the ANTHROPIC_API_KEY environment variable." }))
+    // The caller's key is the only key. There is no server-side fallback.
+    // A missing key is only fatal on the slow path, so it is not checked here —
+    // API-confirmed settlements still resolve with no key at all.
+    const userKey = readUserApiKey(req)
+    if (userKey.error) {
+      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
+      return res.end(JSON.stringify({ verdict: "error", summary: userKey.error, needsKey: true }))
     }
+    const userApiKey = userKey.key
 
     let rawBody = ""
     req.on("data", chunk => { rawBody += chunk })
@@ -789,6 +705,17 @@ const server = http.createServer((req, res) => {
       }
 
       // ── Slow path: no clear winner in API data — ask Claude ──
+      if (!userApiKey) {
+        return sendJson({
+          ticker, title, status,
+          verdict: "error",
+          needsKey: true,
+          summary: "This market has no clear winner in the platform's API data, so it needs AI analysis. Add your Anthropic API key to continue — it stays in your browser and is billed to your own Anthropic account.",
+          keyFacts: [],
+          recommendation: "Open \u201cYour Anthropic API key\u201d and paste a key from console.anthropic.com.",
+        })
+      }
+
       const trimmed = { ticker, title, status, resolvedAt, platform: platformName, winners, losers, totalContracts: contracts }
 
       const systemPrompt = `You are a settlement auditor for prediction markets (Gemini, Kalshi, Polymarket, Coinbase). The API data contains no clear winner signal. Analyze the available data and use your knowledge of the real-world event to determine whether settlement appears correct.
@@ -803,11 +730,31 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
         const { status: aiStatus, body: aiBody } = await httpsPostJson(
           "api.anthropic.com",
           "/v1/messages",
-          { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+          { "x-api-key": userApiKey, "anthropic-version": "2023-06-01" },
           { model: "claude-haiku-4-5", max_tokens: 512, system: systemPrompt, messages: [{ role: "user", content: `Input: ${input}\n\nEvent data:\n${JSON.stringify(trimmed, null, 2)}` }] },
           20000
         )
         const aiJson = JSON.parse(aiBody)
+        if (aiStatus === 401 || aiStatus === 403) {
+          return sendJson({
+            ticker, title, status,
+            verdict: "error",
+            needsKey: true,
+            summary: "Anthropic rejected your API key (HTTP " + aiStatus + ") — it may be expired, revoked, or mistyped.",
+            keyFacts: [],
+            recommendation: "Check the key at console.anthropic.com, then paste a working one under \u201cYour Anthropic API key\u201d.",
+          })
+        }
+        if (aiStatus === 429) {
+          return sendJson({
+            ticker, title, status,
+            verdict: "error",
+            needsKey: false,
+            summary: "Your Anthropic account is rate limited or out of credit (HTTP 429). Check your plan and billing at console.anthropic.com, then try again.",
+            keyFacts: [],
+            recommendation: "Wait a moment and re-submit, or top up credit on your Anthropic account.",
+          })
+        }
         if (aiStatus !== 200) return sendError(`AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}`)
         claudeText = aiJson?.content?.[0]?.text || ""
       } catch (err) {
@@ -864,9 +811,6 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running at http://0.0.0.0:${PORT}`)
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn("Warning: ANTHROPIC_API_KEY not set — /api/settlement-review will return errors until configured")
-  }
 })
 
 server.on("error", (err) => {

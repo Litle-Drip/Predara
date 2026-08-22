@@ -8,6 +8,25 @@ function isSafeParam(str) {
   return typeof str === "string" && /^[A-Za-z0-9_\-\.]+$/.test(str)
 }
 
+// ── Bring-your-own Anthropic key ──
+// The caller's own key via the x-anthropic-api-key header is the ONLY key this
+// endpoint will ever use. Predara holds no Anthropic key of its own and reads no
+// ANTHROPIC_API_KEY from the environment, so AI analysis is never billed to
+// Predara. The key is used for that single request: never logged, never
+// persisted, never echoed back.
+const USER_KEY_HEADER = "x-anthropic-api-key"
+const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+
+function readUserApiKey(req) {
+  const raw = req.headers ? req.headers[USER_KEY_HEADER] : ""
+  const key = typeof raw === "string" ? raw.trim() : ""
+  if (!key) return { key: "" }
+  if (!ANTHROPIC_KEY_RE.test(key)) {
+    return { key: "", error: 'That does not look like an Anthropic API key. Keys start with "sk-ant-".' }
+  }
+  return { key }
+}
+
 function normalizePem(raw) {
   let pem = raw.replace(/\\n/g, "\n").trim()
   const headerMatch = pem.match(/-----BEGIN ([^-]+)-----/)
@@ -87,7 +106,7 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*")
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, " + USER_KEY_HEADER)
     return res.status(204).end()
   }
 
@@ -98,10 +117,14 @@ module.exports = async (req, res) => {
     return res.status(405).json({ verdict: "error", summary: "Method not allowed. Use POST." })
   }
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(503).json({ verdict: "error", summary: "Settlement review is not configured. ANTHROPIC_API_KEY is missing." })
+  // The caller's key is the only key. There is no server-side fallback.
+  // A missing key is only fatal on the slow path, so it is not checked here —
+  // API-confirmed settlements still resolve with no key at all.
+  const userKey = readUserApiKey(req)
+  if (userKey.error) {
+    return res.status(400).json({ verdict: "error", summary: userKey.error, needsKey: true })
   }
+  const userApiKey = userKey.key
 
   const body = req.body || {}
   const input = (typeof body.input === "string" ? body.input : "").trim()
@@ -241,6 +264,17 @@ module.exports = async (req, res) => {
   }
 
   // ── Slow path: no clear winner in API data — ask Claude ──
+  if (!userApiKey) {
+    return res.status(200).json({
+      ticker, title, status,
+      verdict: "error",
+      needsKey: true,
+      summary: "This market has no clear winner in the platform's API data, so it needs AI analysis. Add your Anthropic API key to continue — it stays in your browser and is billed to your own Anthropic account.",
+      keyFacts: [],
+      recommendation: "Open \u201cYour Anthropic API key\u201d and paste a key from console.anthropic.com.",
+    })
+  }
+
   const trimmed = { ticker, title, status, resolvedAt, platform: platformName, winners, losers, totalContracts: contracts }
 
   let claudeText
@@ -248,7 +282,7 @@ module.exports = async (req, res) => {
     const { status: aiStatus, body: aiBody } = await postJson(
       "api.anthropic.com",
       "/v1/messages",
-      { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      { "x-api-key": userApiKey, "anthropic-version": "2023-06-01" },
       {
         model: "claude-haiku-4-5",
         max_tokens: 512,
@@ -257,6 +291,26 @@ module.exports = async (req, res) => {
       }
     )
     const aiJson = JSON.parse(aiBody)
+    if (aiStatus === 401 || aiStatus === 403) {
+      return res.status(200).json({
+        ticker, title, status,
+        verdict: "error",
+        needsKey: true,
+        summary: "Anthropic rejected your API key (HTTP " + aiStatus + ") — it may be expired, revoked, or mistyped.",
+        keyFacts: [],
+        recommendation: "Check the key at console.anthropic.com, then paste a working one under \u201cYour Anthropic API key\u201d.",
+      })
+    }
+    if (aiStatus === 429) {
+      return res.status(200).json({
+        ticker, title, status,
+        verdict: "error",
+        needsKey: false,
+        summary: "Your Anthropic account is rate limited or out of credit (HTTP 429). Check your plan and billing at console.anthropic.com, then try again.",
+        keyFacts: [],
+        recommendation: "Wait a moment and re-submit, or top up credit on your Anthropic account.",
+      })
+    }
     if (aiStatus !== 200) {
       return res.status(200).json({ verdict: "error", summary: `AI analysis failed: ${aiJson?.error?.message || "Anthropic API returned " + aiStatus}` })
     }

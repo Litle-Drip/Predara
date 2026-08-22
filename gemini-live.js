@@ -107,7 +107,8 @@ const GEM_FEEDS = {
   settled: { resource: "recently-settled", label: "Recently settled" },
 }
 
-const _gemBrowse = { mode: "search", search: "", category: "", offset: 0, loaded: false }
+const _gemBrowse = { mode: "search", search: "", category: "", offset: 0 }
+let _gemCategories = null
 
 function geminiBrowseHtml() {
   const tabs = Object.entries(GEM_FEEDS).map(([key, f]) =>
@@ -132,18 +133,23 @@ function geminiBrowseHtml() {
     </div>`
 }
 
+// Discover re-renders its whole container, so this runs against fresh empty
+// controls every visit and has to restore the search state as well as reload.
 async function geminiBrowseInit() {
-  if (_gemBrowse.loaded) return
-  _gemBrowse.loaded = true
+  const input = document.getElementById("gemSearchInput")
+  if (input) input.value = _gemBrowse.search
   _gemBrowseLoad()
-  try {
-    const data = await geminiPublic("categories", { status: "active" })
-    const sel = document.getElementById("gemCategorySelect")
-    const cats = (data && data.categories) || []
-    if (!sel || !cats.length) return
-    sel.insertAdjacentHTML("beforeend", cats.map((c) =>
-      `<option value="${_gemEsc(c)}">${_gemEsc(c)}</option>`).join(""))
-  } catch { /* category filter stays as "All categories" */ }
+
+  if (!_gemCategories) {
+    try {
+      const data = await geminiPublic("categories", { status: "active" })
+      _gemCategories = (data && data.categories) || []
+    } catch { _gemCategories = [] }  // filter stays as "All categories"
+  }
+  const sel = document.getElementById("gemCategorySelect")
+  if (!sel || !_gemCategories.length) return
+  sel.insertAdjacentHTML("beforeend", _gemCategories.map((c) =>
+    `<option value="${_gemEsc(c)}"${c === _gemBrowse.category ? " selected" : ""}>${_gemEsc(c)}</option>`).join(""))
 }
 
 function geminiBrowseSetFeed(mode) {
@@ -404,8 +410,10 @@ async function _gemLoadStrike(live) {
   const value = parseFloat(data.value)
   const at = _gemDateTime(data.availableAt)
   if (!isFinite(value) && !at) return
+  // `_comparison` spells out strict vs inclusive thresholds, which decide ties.
+  const reading = data._comparison && data._comparison.text ? ` — ${_gemEsc(data._comparison.text)}` : ""
   row.innerHTML = isFinite(value)
-    ? `<strong>Strike ${_gemMoney(value)}</strong> — outcome is measured against this reference price${at ? `, captured ${_gemEsc(at)}` : ""}.`
+    ? `<strong>Strike ${_gemMoney(value)}</strong>${reading || " — outcome is measured against this reference price"}${at ? `, captured ${_gemEsc(at)}` : ""}.`
     : `Strike price is captured at ${_gemEsc(at)} — not published yet.`
   row.style.display = ""
 }
