@@ -51,26 +51,32 @@ Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase predictio
 ## Secrets
 - `KALSHI_API_KEY_ID` — Kalshi API key member ID
 - `KALSHI_PRIVATE_KEY` — RSA private key for JWT signing
-- `ANTHROPIC_API_KEY` — shared key for Settlement Desk AI analysis. Optional: when it
-  is missing or rejected, users can supply their own key instead (see below).
 
-## Settlement Desk — bring-your-own API key
+There is deliberately **no** `ANTHROPIC_API_KEY`. See below.
 
-`/api/settlement-review` accepts an optional `x-anthropic-api-key` request header.
-The caller's key takes precedence; `process.env.ANTHROPIC_API_KEY` is the fallback.
+## Settlement Desk — user-supplied API key only
+
+AI analysis is billed to the user, never to Predara. Predara holds no Anthropic
+key: `/api/settlement-review` reads the caller's key from the
+`x-anthropic-api-key` request header and **nothing else**. There is no
+environment-variable fallback, and neither entrypoint reads
+`process.env.ANTHROPIC_API_KEY`. Do not reintroduce one — it would put every
+user's AI usage on Predara's bill.
+
 The key is used for one upstream call and is never logged, persisted, or echoed
 back in a response.
 
 - Key format is validated (`sk-ant-...`) before use; a malformed key is a 400.
 - A missing key is **not** fatal at request entry — only on the slow path. Settlements
   the platform APIs confirm on their own (the fast path) still resolve with no key
-  configured at all.
+  at all, which is most of them.
 - Responses that need the user to act on a key carry `needsKey: true` — sent when no
-  key is available, when Anthropic returns 401/403, and when the *shared* key hits a
-  429. The client opens its key panel in response.
-- Slow-path successes carry `keySource: "user" | "server"`.
+  key was supplied and when Anthropic returns 401/403. A 429 (rate limit / out of
+  credit) is the user's own account, so it reports the problem without asking for a
+  new key. The client opens its key panel whenever `needsKey` is set.
 - Client side (`settlement.html`): the key is stored in `localStorage` under
-  `predara-anthropic-key`, never written into case history, and shown masked.
+  `predara-anthropic-key` — per browser, no account required — never written into
+  case history, and shown masked.
 
 Both `api/settlement-review.js` (production) and `server.js` (local dev) implement
 this identically — change them together.
