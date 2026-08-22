@@ -182,9 +182,7 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 6px 8px;
-      margin-bottom: 16px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
       font-size: 11px;
     }
     .tag-platform {
@@ -220,7 +218,19 @@
       font-size: 10.5px;
       letter-spacing: 0.3px;
     }
-    .tag-status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .tag-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 9px;
+    }
     .dot-green { color: var(--green); }
     .dot-red   { color: var(--red); }
     .dot-muted { color: var(--muted); }
@@ -229,12 +239,40 @@
       font-weight: 600;
       color: var(--text-bright);
       margin-top: 2px;
-      margin-bottom: 14px;
+      margin-bottom: 0;
       letter-spacing: -0.4px;
       line-height: 1.35;
       overflow-wrap: break-word;
       word-break: break-word;
     }
+    /* Key facts strip under the market title — front-runner, close time, volume */
+    .event-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 30px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .event-meta-item  { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .event-meta-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .event-meta-value {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-bright);
+      min-width: 0;
+    }
+    .event-meta-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .event-meta-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
     .resolution-rule {
       font-size: 13px;
       color: var(--text-mid);
@@ -631,17 +669,6 @@
       line-height: 1.6;
       color: var(--text);
     }
-    .urgency-banner {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-    .urgency-low  { color: var(--muted); }
-    .urgency-med  { color: #d49010; }
-    .urgency-high { color: var(--red); }
     .urgency-text-low  { color: var(--muted); }
     .urgency-text-med  { color: #d49010; }
     .urgency-text-high { color: var(--red); font-weight: 600; }
@@ -683,6 +710,8 @@
     }
 
     /* ── Stale data warning ── */
+    .event-meta + .last-updated,
+    .event-meta + .stale-warning { margin: 14px 0 0; }
     .last-updated {
       display: inline-flex;
       align-items: center;
@@ -706,17 +735,30 @@
       margin-bottom: 12px;
     }
 
-    /* ── Share bar ── */
-    .share-bar {
+    /* ── Market toolbar (compare / recent / saved / share actions) ── */
+    .market-toolbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 10px 14px;
+      margin: 6px 0 16px;
       font-size: 12px;
       color: var(--muted);
       flex-wrap: wrap;
     }
+    .toolbar-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .toolbar-menu  { position: relative; }
+    .toolbar-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+    .market-toolbar .panel-btn,
+    .market-toolbar .copy-link-btn,
+    .market-toolbar .compare-toggle-btn {
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+    .market-toolbar .compare-toggle-btn { font-weight: 600; color: var(--text-mid); }
     .copy-link-btn {
       background: none;
       border: 1px solid var(--border);
@@ -732,14 +774,6 @@
     }
     .copy-link-btn:hover { border-color: var(--orange); color: var(--orange); }
 
-    /* ── Compare toggle row ── */
-    .compare-toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin: 4px 0 14px;
-    }
     .compare-toggle-btn {
       background: transparent;
       border: 1px solid var(--border);
@@ -1583,6 +1617,8 @@
 
       .event-head { padding: 20px 18px 22px; }
       .event-title { font-size: 19px; }
+      .event-meta { gap: 12px 22px; margin-top: 16px; padding-top: 14px; }
+      .event-meta-name { max-width: 150px; }
 
       .section-label { padding: 13px 18px 11px; }
 
@@ -1632,7 +1668,7 @@
         padding: 16px 18px;
       }
       .compare-col:last-child { border-right: none; }
-      .share-bar { font-size: 11px; }
+      .market-toolbar { font-size: 11px; }
 
       .resolved-header { padding: 13px 18px 11px; }
       .resolved-body   { padding: 16px 18px 20px; }
@@ -2166,9 +2202,31 @@
   </div>
 
   <div id="inputHint" class="input-hint"></div>
-  <div class="compare-toggle-row">
-    <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()">+ Compare markets</button>
-    <span class="shortcut-hint">Press <kbd>?</kbd> for keyboard shortcuts</span>
+
+  <div class="market-toolbar">
+    <div class="toolbar-group">
+      <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()">+ Compare markets</button>
+      <span class="toolbar-divider"></span>
+      <div class="toolbar-menu">
+        <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recently analyzed markets">⟳ Recent ▾</button>
+        <div id="historyPanel" class="history-panel"></div>
+      </div>
+      <div class="toolbar-menu">
+        <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ Saved ▾</button>
+        <div id="bookmarksPanel" class="bookmarks-panel"></div>
+      </div>
+    </div>
+    <div class="toolbar-group">
+      <span id="fetchedAt" class="fetched-at" style="display:none"></span>
+      <div id="shareControls" class="toolbar-group" style="display:none">
+        <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ Refresh</button>
+        <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link ↗</button>
+        <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">Share card ↓</button>
+        <button class="panel-btn" id="bookmarkBtn">☆ Save</button>
+        <span class="toolbar-divider"></span>
+      </div>
+      <span class="shortcut-hint">Press <kbd>?</kbd> for shortcuts</span>
+    </div>
   </div>
 
   <div id="compareSection" class="compare-section" style="display:none">
@@ -2181,22 +2239,6 @@
       <input id="urlInput3" class="compare-url-input" placeholder="Third market URL (optional)…" />
     </div>
     <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">Compare ↗</button>
-  </div>
-
-  <div id="shareBar" class="share-bar">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;position:relative">
-      <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recent markets">⟳ History</button>
-      <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ Saved</button>
-      <span id="fetchedAt" class="fetched-at" style="display:none"></span>
-      <div id="historyPanel" class="history-panel"></div>
-      <div id="bookmarksPanel" class="bookmarks-panel"></div>
-    </div>
-    <div id="shareControls" style="display:none;gap:6px;flex-wrap:wrap">
-      <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ Refresh</button>
-      <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link ↗</button>
-      <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">Share card ↓</button>
-      <button class="panel-btn" id="bookmarkBtn">☆ Save</button>
-    </div>
   </div>
 
   <div id="result">
@@ -2256,14 +2298,14 @@
 
 </div>
 
-<script src="utils.js?v=20"></script>
-<script src="components.js?v=20"></script>
-<script src="adapters.js?v=20"></script>
-<script src="renderers.js?v=20"></script>
-<script src="compare.js?v=20"></script>
-<script src="gemini-live.js?v=20"></script>
-<script src="app.js?v=20"></script>
-<script src="features.js?v=20"></script>
+<script src="utils.js?v=21"></script>
+<script src="components.js?v=21"></script>
+<script src="adapters.js?v=21"></script>
+<script src="renderers.js?v=21"></script>
+<script src="compare.js?v=21"></script>
+<script src="gemini-live.js?v=21"></script>
+<script src="app.js?v=21"></script>
+<script src="features.js?v=21"></script>
 <script>
   (function () {
     // Theme

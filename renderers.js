@@ -15,9 +15,6 @@ function renderMarket(norm, accent) {
 
   const staleHtml   = staleWarningHtml(norm.staleIso)
   const timeLeft    = fmtTimeRemaining(norm.closeIso)
-  const urgencyHtml = timeLeft
-    ? `<div class="urgency-banner urgency-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</div>`
-    : ""
 
   // `rank` lets the renderer highlight only the leading outcome instead of
   // giving every row its own color.
@@ -46,6 +43,33 @@ function renderMarket(norm, accent) {
 
   const statsHtml = norm.stats.filter(Boolean).map(s => statCard(s.label, s.value || "—", s.sub || "")).join("")
 
+  // Key facts strip in the header: the market's own headline numbers, so the top
+  // of the page answers "who's winning, when does it close, is anyone trading it".
+  const leader  = norm.outcomes[0]
+  const volStat = norm.stats.find(s => s && s.label === "VOLUME TRADED" && s.value && s.value !== "—")
+  const headMeta = [
+    leader ? {
+      label: norm.outcomes.length > 2 ? "Front-runner" : "Market price",
+      value: `<span class="event-meta-dot" style="background:${esc(leader.color)}"></span>
+              <span class="event-meta-name">${esc(leader.label)}</span>
+              <strong>${leader.pct}%</strong>`,
+    } : null,
+    timeLeft ? {
+      label: timeLeft.text === "CLOSED" ? "Status" : "Closes",
+      value: `<span class="urgency-text-${timeLeft.urgency}">${esc(
+        timeLeft.text === "CLOSED" ? "Trading closed" : timeLeft.text.replace(/^CLOSES IN /, "in ")
+      )}</span>`,
+    } : null,
+    volStat ? { label: "Volume traded", value: esc(volStat.value) } : null,
+  ].filter(Boolean)
+  const headMetaHtml = headMeta.length
+    ? `<div class="event-meta">${headMeta.map(m => `
+        <div class="event-meta-item">
+          <span class="event-meta-label">${esc(m.label)}</span>
+          <span class="event-meta-value">${m.value}</span>
+        </div>`).join("")}</div>`
+    : ""
+
   const platformLabel = (PLATFORMS[norm.platform] || {}).label || norm.platform.toUpperCase()
   const hasRules = norm.ruleSentences.length > 0
   const hasTimeline = norm.hasTimeline
@@ -72,7 +96,7 @@ function renderMarket(norm, accent) {
           <span class="tag-status"><span class="${norm.statusDot}">●</span> ${esc(norm.statusText)}</span>
         </div>
         <div class="event-title">${esc(norm.title)}${norm.subtitle ? " — " + esc(norm.subtitle) : ""}</div>
-        ${urgencyHtml}
+        ${headMetaHtml}
         ${staleHtml}
       </div>
     </div>
