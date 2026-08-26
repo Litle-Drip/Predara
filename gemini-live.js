@@ -80,6 +80,7 @@ function _gemEventCardHtml(event, { showClose = false, showSettled = false } = {
     ? contracts.find((c) => (c.resolutionSide || "").toLowerCase() === "yes")
     : null
   const meta = [
+    ticker ? `<span class="discover-market-ticker">${_gemEsc(ticker)}</span>` : "",
     event.category ? `<span>${_gemEsc(event.category)}</span>` : "",
     top && topPrice >= 0 && !showSettled
       ? `<span>${_gemEsc(top.abbreviatedName || top.label || top.ticker || "Top")}: ${Math.round(topPrice * 100)}%</span>`
@@ -91,10 +92,10 @@ function _gemEventCardHtml(event, { showClose = false, showSettled = false } = {
     contracts.length > 2 ? `<span>${contracts.length} outcomes</span>` : "",
   ].filter(Boolean).join("")
   return `
-    <div class="discover-market" data-url="${_gemEsc(url)}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
+    <button type="button" class="discover-market" data-url="${_gemEsc(url)}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
       <div class="discover-market-title">${_gemEsc(event.title || ticker || "Untitled")}</div>
       <div class="discover-market-meta">${meta}</div>
-    </div>`
+    </button>`
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -722,20 +723,21 @@ async function renderGeminiRecentlySettled(containerId = "gemSettledSlot", onPic
     const winner = contracts.find((c) => (c.resolutionSide || "").toLowerCase() === "yes")
     const target = onPick ? e.ticker : GEMINI_EVENT_URL(e.ticker)
     return `
-      <div class="discover-market" data-target="${_gemEsc(target)}"
+      <button type="button" class="discover-market" data-target="${_gemEsc(target)}"
         onclick="${onPick ? `${onPick}(this.dataset.target)` : "_loadAndAnalyze(this.dataset.target);switchTab('analyze')"}">
         <div class="discover-market-title">${_gemEsc(e.title || e.ticker)}</div>
         <div class="discover-market-meta">
-          ${winner ? `<span>Settled: ${_gemEsc(winner.abbreviatedName || winner.label || winner.ticker)}</span>` : ""}
+          ${e.ticker ? `<span class="discover-market-ticker">${_gemEsc(e.ticker)}</span>` : ""}
+          ${winner ? `<span class="discover-market-result">Result: ${_gemEsc(winner.abbreviatedName || winner.label || winner.ticker)}</span>` : `<span>Result unavailable</span>`}
           ${e.category ? `<span>${_gemEsc(e.category)}</span>` : ""}
           ${e.resolvedAt ? `<span>${_gemEsc(_gemDateTime(e.resolvedAt))}</span>` : ""}
         </div>
-      </div>`
+      </button>`
   }).join("")
   slot.innerHTML = `
     <div class="mi-card">
-      <div class="section-label">JUST SETTLED ON GEMINI</div>
+      <div class="section-label">RECENT GEMINI SETTLEMENTS</div>
       ${items}
-      <div class="cal-note">Gemini's most recently settled events${onPick ? " — click one to audit its settlement." : "."}</div>
+      <div class="cal-note">Public settlement results from Gemini${onPick ? " — select one to open an independent audit." : "."}</div>
     </div>`
 }

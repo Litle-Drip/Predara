@@ -2,20 +2,20 @@
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Predara</title>
-  <meta name="description" content="Prediction market analyzer for Kalshi, Polymarket, Gemini, and Coinbase. Predara.org">
+  <title>Predara — Prediction Market Intelligence</title>
+  <meta name="description" content="Independent prediction market analysis for Kalshi, Polymarket, Gemini, and Coinbase: contract rules, executable price, fees, edge, and settlement.">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Predara">
-  <meta property="og:description" content="Prediction market analyzer for Kalshi, Polymarket, Gemini, and Coinbase. Predara.org">
+  <meta property="og:title" content="Predara — Prediction Market Intelligence">
+  <meta property="og:description" content="Understand the contract, executable price, fees, and settlement before trading a prediction market.">
   <meta property="og:image" content="https://predara.org/og-image.png">
   <meta property="og:url" content="https://predara.org">
   <meta property="og:type" content="website">
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Predara">
-  <meta name="twitter:description" content="Prediction market analyzer for Kalshi, Polymarket, Gemini, and Coinbase. Predara.org">
+  <meta name="twitter:title" content="Predara — Prediction Market Intelligence">
+  <meta name="twitter:description" content="Understand the contract, executable price, fees, and settlement before trading a prediction market.">
   <meta name="twitter:image" content="https://predara.org/og-image.png">
 
   <link rel="icon" href="/og-image.png">
@@ -90,7 +90,7 @@
       display: flex;
       align-items: center;
       gap: 14px;
-      margin-bottom: 44px;
+      margin-bottom: 32px;
     }
     .app-logo {
       width: 40px;
@@ -115,7 +115,7 @@
       letter-spacing: -0.4px;
     }
     .app-subtitle {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 400;
       color: var(--muted);
       letter-spacing: 0.2px;
@@ -1110,22 +1110,33 @@
     /* ── First-run state ── */
     .start-card {
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       background: var(--card);
-      padding: 32px 30px;
+      padding: 38px 36px 30px;
+      box-shadow: var(--shadow-sm);
+    }
+    .start-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 10px;
     }
     .start-title {
-      font-size: 19px;
+      font-size: clamp(24px, 3vw, 32px);
       font-weight: 700;
-      letter-spacing: -0.01em;
+      letter-spacing: -0.035em;
+      line-height: 1.18;
       color: var(--text-bright);
+      max-width: 24ch;
     }
     .start-sub {
-      margin-top: 6px;
-      font-size: 14px;
-      line-height: 1.6;
+      margin-top: 12px;
+      font-size: 15px;
+      line-height: 1.65;
       color: var(--muted);
-      max-width: 62ch;
+      max-width: 68ch;
     }
     .start-features {
       display: grid;
@@ -1136,7 +1147,7 @@
     .start-feature {
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 14px 16px;
+      padding: 17px 18px;
       background: var(--rule-bg);
     }
     .start-feature-title {
@@ -1148,9 +1159,37 @@
     }
     .start-feature-body {
       margin-top: 6px;
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: 13.5px;
+      line-height: 1.6;
       color: var(--muted);
+    }
+    .start-proof {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 22px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--border);
+    }
+    .start-proof-item {
+      background: var(--card);
+      padding: 13px 16px;
+    }
+    .start-proof-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    .start-proof-value {
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--text-mid);
     }
     .start-examples-label {
       margin-top: 26px;
@@ -1189,6 +1228,7 @@
     @media (max-width: 700px) {
       .start-card { padding: 24px 18px; }
       .start-features { grid-template-columns: 1fr; gap: 10px; }
+      .start-proof { grid-template-columns: 1fr; }
     }
 
     /* ── Feature 10: ML label above moneyline ── */
@@ -1730,7 +1770,7 @@
       color: var(--muted);
       cursor: pointer;
       font-family: inherit;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
       letter-spacing: 0.3px;
       padding: 10px 16px;
@@ -2080,14 +2120,23 @@
 
     /* Discovery */
     .discover-platform { margin-bottom: 20px; }
+    .discover-platform-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
     .discover-platform-label {
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.3px;
       text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 0;
     }
+    .discover-platform-count { font-size: 11px; color: var(--muted); }
     .discover-market {
+      display: block;
+      width: 100%;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -2096,10 +2145,78 @@
       cursor: pointer;
       transition: border-color 0.15s;
       box-shadow: var(--shadow-sm);
+      font-family: inherit;
+      text-align: left;
     }
-    .discover-market:hover { border-color: var(--orange); }
+    .discover-market:hover,
+    .discover-market:focus-visible { border-color: var(--orange); outline: none; }
     .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
+    .discover-market-meta strong { color: var(--text); font-weight: 600; }
+    .discover-market-ticker {
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-size: 10.5px;
+      color: var(--orange);
+      background: rgba(217,79,32,0.08);
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+    .discover-market-result { color: var(--text-mid); font-weight: 600; }
+    .section-intro {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin: 6px 0 22px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--orange);
+      margin-bottom: 8px;
+    }
+    .section-intro-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-bright);
+    }
+    .section-intro-copy {
+      margin-top: 7px;
+      max-width: 68ch;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .section-intro-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .section-updated { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .discovery-status-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+    }
+    .discovery-status-title { font-size: 14px; font-weight: 600; color: var(--text-bright); }
+    .discovery-status-copy { font-size: 12.5px; line-height: 1.55; color: var(--muted); margin-top: 4px; }
+    @media (max-width: 640px) {
+      .section-intro { align-items: flex-start; flex-direction: column; gap: 14px; }
+      .section-intro-actions { width: 100%; justify-content: space-between; }
+      .discovery-status-card { align-items: flex-start; flex-direction: column; }
+      .discover-market-meta { flex-direction: column; gap: 3px; }
+    }
 
     /* Rewards tab */
     .rewards-platform-card { margin-bottom: 20px; }
@@ -2194,32 +2311,32 @@
       <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
       <div>
         <div class="app-title">Predara</div>
-        <div class="app-subtitle">Prediction market analyzer</div>
+        <div class="app-subtitle">Independent prediction market intelligence</div>
       </div>
     </div>
     <div class="header-controls">
       <nav class="mode-tabs" aria-label="App mode">
-        <a class="mode-tab active" href="/">Analyze</a>
+        <a class="mode-tab active" href="/" aria-current="page">Analyze</a>
         <a class="mode-tab" href="/settlement.html">Settlement Desk</a>
       </nav>
-      <button class="odds-toggle" id="oddsToggle" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
-      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+      <button class="odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
     </div>
   </div>
 
-  <div class="tab-bar">
-    <button class="tab-btn active" id="tabBtn-analyze" onclick="switchTab('analyze')">Analyze</button>
-    <button class="tab-btn" id="tabBtn-discover" onclick="switchTab('discover')">Discover</button>
-    <button class="tab-btn" id="tabBtn-watchlist" onclick="switchTab('watchlist')">Watchlist</button>
-    <button class="tab-btn" id="tabBtn-calendar" onclick="switchTab('calendar')">Calendar</button>
-    <button class="tab-btn" id="tabBtn-tools" onclick="switchTab('tools')">Tools</button>
-    <button class="tab-btn" id="tabBtn-rewards" onclick="switchTab('rewards')">Rewards</button>
+  <div class="tab-bar" role="tablist" aria-label="Product tools">
+    <button class="tab-btn active" id="tabBtn-analyze" role="tab" aria-selected="true" aria-controls="tab-analyze" onclick="switchTab('analyze')">Analyze</button>
+    <button class="tab-btn" id="tabBtn-discover" role="tab" aria-selected="false" aria-controls="tab-discover" onclick="switchTab('discover')">Discover</button>
+    <button class="tab-btn" id="tabBtn-watchlist" role="tab" aria-selected="false" aria-controls="tab-watchlist" onclick="switchTab('watchlist')">Watchlist</button>
+    <button class="tab-btn" id="tabBtn-calendar" role="tab" aria-selected="false" aria-controls="tab-calendar" onclick="switchTab('calendar')">Calendar</button>
+    <button class="tab-btn" id="tabBtn-tools" role="tab" aria-selected="false" aria-controls="tab-tools" onclick="switchTab('tools')">Tools</button>
+    <button class="tab-btn" id="tabBtn-rewards" role="tab" aria-selected="false" aria-controls="tab-rewards" onclick="switchTab('rewards')">Rewards</button>
   </div>
 
-  <div id="tab-analyze" style="display:block">
+  <div id="tab-analyze" role="tabpanel" aria-labelledby="tabBtn-analyze" style="display:block">
 
   <div class="search-row">
-    <input id="urlInput" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
+    <input id="urlInput" aria-label="Prediction market URL" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
     <button onclick="analyze()">Analyze ↗</button>
   </div>
 
@@ -2265,8 +2382,9 @@
 
   <div id="result">
     <div class="start-card" id="startCard">
-      <div class="start-title">Understand a prediction market before you bet</div>
-      <div class="start-sub">Paste any Kalshi, Polymarket, Gemini, or Coinbase market URL. Predara reads the market's own data and turns it into plain English — what exactly you're betting on, how it resolves, and whether the price leaves you any edge.</div>
+      <div class="start-eyebrow">Independent market intelligence</div>
+      <div class="start-title">Know the contract before you price the trade</div>
+      <div class="start-sub">Predara turns a live prediction-market listing into a decision-ready brief: the actual contract, executable cost, settlement rules, and the edge required to justify a position.</div>
 
       <div class="start-features">
         <div class="start-feature">
@@ -2274,12 +2392,27 @@
           <div class="start-feature-body">The resolution criteria, sources, and close time, rewritten so you know exactly what has to happen to get paid.</div>
         </div>
         <div class="start-feature">
-          <div class="start-feature-title">Real cost of the bet</div>
-          <div class="start-feature-body">Spread, overround, and break-even odds, so you can see the house edge baked into the quoted price.</div>
+          <div class="start-feature-title">Executable cost</div>
+          <div class="start-feature-body">Ask price, spread, venue fees, and break-even probability — not a midpoint that may be impossible to trade.</div>
         </div>
         <div class="start-feature">
-          <div class="start-feature-title">Your edge and stake</div>
-          <div class="start-feature-body">Enter your own probability to get expected value and a Kelly-based position size instead of guessing.</div>
+          <div class="start-feature-title">Your edge and sizing</div>
+          <div class="start-feature-body">Enter your own probability to see expected value and a fee-aware Kelly range instead of relying on the market's estimate.</div>
+        </div>
+      </div>
+
+      <div class="start-proof" aria-label="Predara product principles">
+        <div class="start-proof-item">
+          <span class="start-proof-label">Read-only</span>
+          <span class="start-proof-value">No account, wallet connection, or trade execution.</span>
+        </div>
+        <div class="start-proof-item">
+          <span class="start-proof-label">Primary sources</span>
+          <span class="start-proof-value">Venue APIs, order books, and official contract terms.</span>
+        </div>
+        <div class="start-proof-item">
+          <span class="start-proof-label">Transparent math</span>
+          <span class="start-proof-value">Prices, spreads, fees, EV, and sizing shown explicitly.</span>
         </div>
       </div>
 
@@ -2290,29 +2423,29 @@
         <button class="start-example" onclick="switchTab('discover')">Browse trending markets →</button>
       </div>
 
-      <div class="start-note">Predara is an analysis tool, not advice. Odds come straight from each platform's public data and can move at any time — always confirm on the platform before placing a bet.</div>
+      <div class="start-note">Predara is independent analysis software, not financial advice or a trading venue. Market data can move at any time; confirm price and contract terms on the venue before trading.</div>
     </div>
   </div>
 
   </div><!-- /tab-analyze -->
 
-  <div id="tab-discover" style="display:none">
+  <div id="tab-discover" role="tabpanel" aria-labelledby="tabBtn-discover" style="display:none">
     <div id="discoverContent"><div class="empty-state">Loading trending markets...</div></div>
   </div>
 
-  <div id="tab-watchlist" style="display:none">
+  <div id="tab-watchlist" role="tabpanel" aria-labelledby="tabBtn-watchlist" style="display:none">
     <div id="watchlistContent"><div class="empty-state">Loading watchlist...</div></div>
   </div>
 
-  <div id="tab-calendar" style="display:none">
+  <div id="tab-calendar" role="tabpanel" aria-labelledby="tabBtn-calendar" style="display:none">
     <div id="calendarContent"><div class="empty-state">Loading calendar...</div></div>
   </div>
 
-  <div id="tab-tools" style="display:none">
+  <div id="tab-tools" role="tabpanel" aria-labelledby="tabBtn-tools" style="display:none">
     <div id="toolsContent"><div class="empty-state">Loading tools...</div></div>
   </div>
 
-  <div id="tab-rewards" style="display:none">
+  <div id="tab-rewards" role="tabpanel" aria-labelledby="tabBtn-rewards" style="display:none">
     <div id="rewardsContent"><div class="empty-state">Loading reward programs...</div></div>
   </div>
 
@@ -2325,9 +2458,9 @@
 <script src="adapters.js?v=22"></script>
 <script src="renderers.js?v=22"></script>
 <script src="compare.js?v=22"></script>
-<script src="gemini-live.js?v=22"></script>
-<script src="app.js?v=22"></script>
-<script src="features.js?v=22"></script>
+<script src="gemini-live.js?v=23"></script>
+<script src="app.js?v=23"></script>
+<script src="features.js?v=23"></script>
 <script>
   (function () {
     // Theme

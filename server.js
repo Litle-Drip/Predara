@@ -5,7 +5,8 @@ const fs = require("fs")
 const path = require("path")
 const url = require("url")
 const gemini = require("./lib/gemini")
-const { getGeminiPublic, geminiEventsToDiscoverCards } = require("./lib/gemini-public")
+const { getGeminiPublic } = require("./lib/gemini-public")
+const { getDiscoveryFeed } = require("./lib/discover")
 const { fetchPolymarketSeries, fetchKalshiSeries, normalizeWindow } = require("./lib/history")
 const { makeSignedGet } = require("./lib/kalshi-auth")
 const guard = require("./lib/guard")
@@ -505,53 +506,14 @@ const server = http.createServer((req, res) => {
 
   // ── Discovery / trending markets ──
   if (parsed.pathname === "/api/discover") {
-    const results = { platforms: [] }
-
-    async function fetchPolymarketTrending() {
-      try {
-        const { status, body } = await httpsGetWithTimeout(
-          "https://gamma-api.polymarket.com/events?active=true&closed=false&order=volume&ascending=false&limit=8",
-          REQUEST_TIMEOUT_MS,
-        )
-        if (status !== 200) return []
-        const events = JSON.parse(body)
-        return (Array.isArray(events) ? events : []).map((e) => {
-          const markets = e.markets || []
-          const firstMarket = markets[0] || {}
-          const outcomes = typeof firstMarket.outcomes === "string" ? JSON.parse(firstMarket.outcomes || "[]") : firstMarket.outcomes || []
-          const prices = typeof firstMarket.outcomePrices === "string" ? JSON.parse(firstMarket.outcomePrices || "[]") : firstMarket.outcomePrices || []
-          const topIdx = prices.length ? prices.reduce((best, p, i) => parseFloat(p) > parseFloat(prices[best]) ? i : best, 0) : -1
-          return {
-            title: e.title || firstMarket.question || "Untitled",
-            url: `https://polymarket.com/event/${e.slug || ""}`,
-            volume: e.volume ? Math.round(parseFloat(e.volume)).toLocaleString() : "",
-            topOutcome: topIdx >= 0 && outcomes[topIdx] ? outcomes[topIdx] : "",
-            topPct: topIdx >= 0 && prices[topIdx] ? Math.round(parseFloat(prices[topIdx]) * 100) : "",
-          }
-        })
-      } catch { return [] }
-    }
-
-    async function fetchGeminiTrending() {
-      try {
-        const { status, json } = await getGeminiPublic("events", { status: "active", limit: "24" })
-        if (status !== 200) return []
-        return geminiEventsToDiscoverCards(json, 8)
-      } catch { return [] }
-    }
-
-    Promise.allSettled([fetchPolymarketTrending(), fetchGeminiTrending()])
-      .then(([polyResult, geminiResult]) => {
-        const polyMarkets = polyResult.status === "fulfilled" ? polyResult.value : []
-        const geminiMarkets = geminiResult.status === "fulfilled" ? geminiResult.value : []
-        if (polyMarkets.length) results.platforms.push({ name: "polymarket", markets: polyMarkets })
-        if (geminiMarkets.length) results.platforms.push({ name: "gemini", markets: geminiMarkets })
+    getDiscoveryFeed({ limit: parsed.query.limit })
+      .then((results) => {
         res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify(results))
       })
-      .catch(() => {
-        res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(JSON.stringify(results))
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
       })
     return
   }
