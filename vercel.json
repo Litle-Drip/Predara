@@ -4,5 +4,11 @@
     "api/*.js": {
       "maxDuration": 45
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/discover",
+      "destination": "/api/gemini-events?view=discover"
+    }
+  ]
 }
