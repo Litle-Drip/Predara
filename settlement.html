@@ -110,14 +110,12 @@
       margin-top: 2px;
     }
 
-    /* ── Tab nav — absolutely centered ── */
+    /* ── Tab nav ── */
     .tab-nav {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
       display: flex;
       align-items: center;
       gap: 3px;
+      margin-left: auto;
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -140,7 +138,7 @@
 
     /* ── Theme toggle ── */
     .theme-toggle {
-      margin-left: auto;
+      margin-left: 10px;
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -526,11 +524,12 @@
       .tab-nav {
         position: static;
         transform: none;
+        margin-left: 0;
         order: 2;
         flex: 1;
       }
       .tab-nav a { flex: 1; text-align: center; }
-      .theme-toggle { order: 2; }
+      .theme-toggle { order: 2; margin-left: 0; }
       .intake-row { flex-direction: column; }
       .btn-review { width: 100%; }
       .shortcut-hint { display: none; }

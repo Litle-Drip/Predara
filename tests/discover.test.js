@@ -1,7 +1,10 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const { polymarketEventsToDiscoverCards } = require("../lib/discover")
+const {
+  getDiscoveryFeed,
+  polymarketEventsToDiscoverCards,
+} = require("../lib/discover")
 
 test("Polymarket discovery cards expose the leading outcome and readable volume", () => {
   const cards = polymarketEventsToDiscoverCards([{
@@ -32,4 +35,20 @@ test("Polymarket discovery cards tolerate malformed market arrays", () => {
 
   assert.equal(cards[0].topOutcome, "")
   assert.equal(cards[0].topPct, "")
+})
+
+test("discovery feed returns the public payload without the cache envelope", async () => {
+  const feed = await getDiscoveryFeed({
+    limit: 1,
+    fetchPolymarket: async () => [{
+      title: "Test market",
+      slug: "test-market",
+      markets: [],
+    }],
+    fetchGemini: async () => ({ status: 503, json: {} }),
+  })
+
+  assert.equal(feed.value, undefined)
+  assert.equal(feed.platforms[0].name, "polymarket")
+  assert.equal(feed.platforms[0].markets[0].title, "Test market")
 })
