@@ -579,7 +579,7 @@ async function analyze() {
 
   _analyzing = true
   btn.disabled = true
-  btn.textContent = "ANALYZING\u2026"
+  btn.textContent = "Analyzing\u2026"
   btn.style.opacity = "0.6"
   btn.style.cursor = "not-allowed"
 
@@ -601,7 +601,7 @@ async function analyze() {
   function resetBtn() {
     _analyzing = false
     btn.disabled = false
-    btn.textContent = "ANALYZE \u2197"
+    btn.textContent = "Analyze \u2197"
     btn.style.opacity = ""
     btn.style.cursor = ""
   }

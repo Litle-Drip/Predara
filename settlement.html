@@ -3,7 +3,7 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Settlement Desk — Predara</title>
-  <meta name="description" content="AI-powered settlement auditing for Gemini prediction markets.">
+  <meta name="description" content="Independent settlement auditing for Gemini, Kalshi, Polymarket, and Coinbase prediction markets.">
   <link rel="icon" href="/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,7 +64,7 @@
     }
 
     .app {
-      max-width: 720px;
+      max-width: 800px;
       margin: 0 auto;
       padding: 32px 20px 72px;
     }
@@ -104,20 +104,18 @@
     }
 
     .app-subtitle {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--muted);
       letter-spacing: 0.2px;
       margin-top: 2px;
     }
 
-    /* ── Tab nav — absolutely centered ── */
+    /* ── Tab nav ── */
     .tab-nav {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
       display: flex;
       align-items: center;
       gap: 3px;
+      margin-left: auto;
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -140,7 +138,7 @@
 
     /* ── Theme toggle ── */
     .theme-toggle {
-      margin-left: auto;
+      margin-left: 10px;
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -159,24 +157,24 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 22px 24px;
+      padding: 28px 30px;
       margin-bottom: 28px;
       box-shadow: var(--shadow-sm);
     }
 
     .intake-label {
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 24px;
+      font-weight: 700;
       color: var(--text-bright);
       margin-bottom: 6px;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.7px;
     }
 
     .intake-desc {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
-      line-height: 1.55;
-      margin-bottom: 16px;
+      line-height: 1.65;
+      margin-bottom: 20px;
     }
 
     .intake-row { display: flex; gap: 8px; }
@@ -304,7 +302,26 @@
 
     /* ── Empty state ── */
     .empty-state { text-align: center; padding: 56px 0; color: var(--muted); font-size: 14px; }
-    .empty-state-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state-mark {
+      width: 30px;
+      height: 30px;
+      margin: 0 auto 14px;
+      border: 2px solid var(--border-hi);
+      border-radius: 50%;
+      position: relative;
+      opacity: 0.8;
+    }
+    .empty-state-mark::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 2px;
+      right: -6px;
+      bottom: 1px;
+      border-radius: 2px;
+      background: var(--border-hi);
+      transform: rotate(45deg);
+    }
     .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 
     /* ── Case cards ── */
@@ -320,12 +337,20 @@
       color: var(--muted); margin-bottom: 10px;
     }
     .discover-market {
+      display: block; width: 100%;
       background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
       padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: border-color 0.15s;
+      font-family: inherit; text-align: left;
     }
-    .discover-market:hover { border-color: var(--orange); }
+    .discover-market:hover, .discover-market:focus-visible { border-color: var(--orange); outline: none; }
     .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .discover-market-ticker {
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-size: 10.5px; color: var(--orange); background: var(--orange-bg);
+      border-radius: 4px; padding: 2px 6px;
+    }
+    .discover-market-result { color: var(--text-mid); font-weight: 600; }
     .cal-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
     .cal-empty { font-size: 12px; color: var(--muted); }
     .mi-loading { font-size: 12px; color: var(--muted); }
@@ -481,21 +506,36 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 42px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
     @media (max-width: 560px) {
       .app { padding: 18px 14px 56px; }
       .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
       .tab-nav {
         position: static;
         transform: none;
+        margin-left: 0;
         order: 2;
         flex: 1;
       }
       .tab-nav a { flex: 1; text-align: center; }
-      .theme-toggle { order: 2; }
+      .theme-toggle { order: 2; margin-left: 0; }
       .intake-row { flex-direction: column; }
       .btn-review { width: 100%; }
       .shortcut-hint { display: none; }
       .case-title { font-size: 13px; }
+      .intake { padding: 22px 18px; }
+      .footer { align-items: flex-start; flex-direction: column; }
     }
   </style>
 </head>
@@ -508,23 +548,24 @@
       <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
       <div>
         <div class="app-title">Predara</div>
-        <div class="app-subtitle">Prediction market analyzer</div>
+        <div class="app-subtitle">Independent prediction market intelligence</div>
       </div>
     </a>
     <nav class="tab-nav" aria-label="App sections">
       <a href="/">Analyze</a>
-      <a href="/settlement.html" class="active">Settlement Desk</a>
+      <a href="/settlement.html" class="active" aria-current="page">Settlement Desk</a>
     </nav>
-    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
   </div>
 
   <div class="intake">
-    <div class="intake-label">Settlement Desk</div>
-    <div class="intake-desc">After a market closes, paste a ticker or URL from Gemini, Kalshi, Polymarket, or Coinbase — settlement is confirmed directly from the platform's API data, with no AI call at all for clean results.</div>
+    <div class="intake-label">Audit a market settlement</div>
+    <div class="intake-desc">Verify the venue's reported result against its contract and public settlement data. Clean API-confirmed outcomes are reviewed without AI; ambiguous cases can optionally use your Anthropic key.</div>
     <div class="intake-row">
       <input
         id="tickerInput"
         type="text"
+        aria-label="Prediction market ticker or URL"
         placeholder="Paste ticker or URL — Gemini, Kalshi, Polymarket, Coinbase…"
         autocomplete="off"
         autocorrect="off"
@@ -538,7 +579,7 @@
     <div class="key-panel" id="keyPanel">
       <button class="key-toggle" id="keyToggle" onclick="toggleKeyPanel()" aria-expanded="false" aria-controls="keyBody">
         <span class="caret">▾</span>
-        <span>Your Anthropic API key</span>
+        <span>Optional Anthropic API key</span>
         <span class="key-status" id="keyStatus">Not set</span>
       </button>
       <div class="key-body" id="keyBody">
@@ -571,9 +612,14 @@
 
   <div id="caseList" class="case-list"></div>
 
+  <footer class="footer">
+    <span>Independent, read-only settlement analysis.</span>
+    <span>Confirm final outcomes with the venue.</span>
+  </footer>
+
 </div>
 
-<script src="gemini-live.js?v=20"></script>
+<script src="gemini-live.js?v=23"></script>
 <script>
   /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {
@@ -758,9 +804,9 @@
     const el = document.createElement("div")
     el.className = "empty-state"
     el.innerHTML = `
-      <div class="empty-state-icon">🔍</div>
-      <div class="empty-state-title">No cases yet</div>
-      <div>Paste a ticker or URL from Gemini, Kalshi, Polymarket, or Coinbase above to audit its settlement.</div>
+      <div class="empty-state-mark" aria-hidden="true"></div>
+      <div class="empty-state-title">No settlement audits yet</div>
+      <div>Paste a supported ticker or market URL above, or select a recent Gemini settlement.</div>
     `
     return el
   }

@@ -948,7 +948,9 @@ let _discoveryCacheTs = 0
 async function renderDiscovery() {
   const container = document.getElementById("discoverContent")
   if (!container) return
-  container.innerHTML = `<div class="mi-loading"><div class="mi-spinner"></div> Loading trending markets...</div>`
+  container.innerHTML = `
+    ${_discoveryHeaderHtml()}
+    <div class="mi-loading"><div class="mi-spinner"></div> Loading live market leaders…</div>`
 
   try {
     if (_discoveryCache && Date.now() - _discoveryCacheTs < 120000) {
@@ -963,36 +965,82 @@ async function renderDiscovery() {
     _renderDiscoveryResults(container, data)
   } catch {
     container.innerHTML = `
-      <div class="empty-state">
-        <p>Could not load trending markets. Discovery fetches top markets from each platform.</p>
-        <p style="margin-top:12px">Try searching directly by pasting a market URL in the Analyze tab.</p>
-      </div>`
+      ${_discoveryHeaderHtml()}
+      <div class="discovery-status-card" role="status">
+        <div>
+          <div class="discovery-status-title">Cross-venue leaders are temporarily unavailable</div>
+          <div class="discovery-status-copy">Gemini's live public catalog is still available below, or paste any supported market URL in Analyze.</div>
+        </div>
+        <button class="copy-link-btn" onclick="refreshDiscovery()">Retry</button>
+      </div>
+      ${geminiBrowseHtml()}`
+    geminiBrowseInit()
   }
+}
+
+function refreshDiscovery() {
+  _discoveryCache = null
+  _discoveryCacheTs = 0
+  renderDiscovery()
+}
+
+function _discoveryHeaderHtml(generatedAt = "") {
+  let updated = "Live public market data"
+  if (generatedAt) {
+    const date = new Date(generatedAt)
+    if (!isNaN(date)) {
+      updated = `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+    }
+  }
+  return `
+    <div class="section-intro">
+      <div>
+        <div class="section-eyebrow">MARKET DISCOVERY</div>
+        <div class="section-intro-title">Find liquid markets worth a closer look</div>
+        <div class="section-intro-copy">High-volume public markets from supported venues, with the current leader surfaced before you open the full analysis.</div>
+      </div>
+      <div class="section-intro-actions">
+        <span class="section-updated">${esc(updated)}</span>
+        <button class="copy-link-btn" onclick="refreshDiscovery()">Refresh</button>
+      </div>
+    </div>`
 }
 
 function _renderDiscoveryResults(container, data) {
   const platforms = data.platforms || []
   if (!platforms.length) {
-    container.innerHTML = `<div class="empty-state">No trending markets found. Try again later.</div>`
+    container.innerHTML = `
+      ${_discoveryHeaderHtml(data.generatedAt)}
+      <div class="discovery-status-card">
+        <div>
+          <div class="discovery-status-title">No market leaders are available right now</div>
+          <div class="discovery-status-copy">Browse Gemini's public catalog below or analyze a market directly from its venue URL.</div>
+        </div>
+      </div>
+      ${geminiBrowseHtml()}`
+    geminiBrowseInit()
     return
   }
   const html = platforms.map((p) => {
     const marketsHtml = (p.markets || []).slice(0, 8).map((m) =>
-      `<div class="discover-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+      `<button type="button" class="discover-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
         <div class="discover-market-title">${esc(m.title)}</div>
         <div class="discover-market-meta">
-          ${m.volume ? `<span>Vol: $${esc(m.volume)}</span>` : ""}
-          ${m.topOutcome ? `<span>${esc(m.topOutcome)}: ${m.topPct}%</span>` : ""}
+          ${m.volume ? `<span><strong>Volume</strong> $${esc(m.volume)}</span>` : ""}
+          ${m.topOutcome ? `<span><strong>Leader</strong> ${esc(m.topOutcome)} · ${m.topPct}%</span>` : ""}
         </div>
-      </div>`
+      </button>`
     ).join("")
     return `
-      <div class="discover-platform">
-        <div class="discover-platform-label" style="color:${(PLATFORMS[p.name] || {}).accent || "#999"}">${esc(p.name.toUpperCase())}</div>
+      <section class="discover-platform">
+        <div class="discover-platform-head">
+          <div class="discover-platform-label" style="color:${(PLATFORMS[p.name] || {}).accent || "#999"}">${esc(p.name.toUpperCase())}</div>
+          <div class="discover-platform-count">${(p.markets || []).length} markets</div>
+        </div>
         ${marketsHtml || `<div class="cal-empty">No markets available</div>`}
-      </div>`
+      </section>`
   }).join("")
-  container.innerHTML = geminiBrowseHtml() + html
+  container.innerHTML = _discoveryHeaderHtml(data.generatedAt) + html + geminiBrowseHtml()
   geminiBrowseInit()
 }
 
@@ -1430,7 +1478,10 @@ function switchTab(tab) {
     const el = document.getElementById(`tab-${t}`)
     const btn = document.getElementById(`tabBtn-${t}`)
     if (el) el.style.display = t === tab ? "block" : "none"
-    if (btn) btn.classList.toggle("active", t === tab)
+    if (btn) {
+      btn.classList.toggle("active", t === tab)
+      btn.setAttribute("aria-selected", t === tab ? "true" : "false")
+    }
   })
 
   if (tab === "discover") renderDiscovery()
