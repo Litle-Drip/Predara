@@ -4,7 +4,7 @@
   "description": "Prediction market analyzer for Kalshi, Polymarket, Gemini, and Coinbase",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server.js",
