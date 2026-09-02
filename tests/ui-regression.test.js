@@ -84,3 +84,25 @@ test("Settlement Desk treats a missing Anthropic key as an action state", () => 
   assert.ok(html.includes('data.needsKey ? "action_required"'))
   assert.ok(html.includes('document.getElementById("tickerInput").value = data.ticker || input'))
 })
+
+test("Position news is rendered on the Analyze homepage, not the Watchlist panel", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
+  const features = fs.readFileSync(path.join(__dirname, "..", "features.js"), "utf8")
+  const startCard = html.slice(html.indexOf('<div class="start-card"'), html.indexOf("</div><!-- /tab-analyze -->"))
+  const watchlist = html.slice(html.indexOf('<div id="tab-watchlist"'), html.indexOf('<div id="tab-calendar"'))
+
+  assert.ok(startCard.includes('id="homePositionNews"'))
+  assert.equal(watchlist.includes('id="homePositionNews"'), false)
+  assert.ok(features.includes("News on your positions"))
+  assert.ok(features.includes("renderHomePositionNews()"))
+})
+
+test("Rewards uses a structured dashboard and collapses long live-program tables", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
+  const features = fs.readFileSync(path.join(__dirname, "..", "features.js"), "utf8")
+
+  assert.ok(html.includes(".rewards-program-grid"))
+  assert.ok(features.includes('class="rewards-shell"'))
+  assert.ok(features.includes('class="rewards-extra-row" hidden'))
+  assert.ok(features.includes("toggleRewardsRows"))
+})

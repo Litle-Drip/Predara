@@ -660,9 +660,12 @@ async function _gemLoadLiquidityPools() {
     return
   }
   const total = (data && data.pagination && data.pagination.total) || events.length
-  const rows = events.map((e) => `
-    <tr data-url="${_gemEsc(GEMINI_EVENT_URL(e.event_ticker))}" style="cursor:pointer"
-      onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
+  const visibleLimit = 10
+  const rows = events.map((e, index) => `
+    <tr${index >= visibleLimit ? ` class="rewards-extra-row" hidden` : ""} role="button" tabindex="0"
+      data-url="${_gemEsc(GEMINI_EVENT_URL(e.event_ticker))}"
+      onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')"
+      onkeydown="if(event.key==='Enter')this.click()">
       <td class="rw-desc">${_gemEsc(e.title || e.event_ticker)}</td>
       <td>${_gemEsc(e.category || "—")}</td>
       <td>${_gemMoney(e.daily_pool_usd)}</td>
@@ -679,6 +682,9 @@ async function _gemLoadLiquidityPools() {
         <tbody>${rows}</tbody>
       </table>
     </div>
+    ${events.length > visibleLimit
+      ? `<button class="rewards-expand-btn" aria-expanded="false" data-collapsed-label="Show all ${events.length} events" data-expanded-label="Show fewer events" onclick="toggleRewardsRows('gemLiquidityPools', this)">Show all ${events.length} events</button>`
+      : ""}
     <div class="rewards-note-box">${events.length} of ${total} events currently earning liquidity rewards${data && data.last_score_date ? `, scored through ${_gemEsc(data.last_score_date)}` : ""}. ${configLine} Click a row to analyze the market.</div>`
 }
 

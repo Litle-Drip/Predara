@@ -371,6 +371,37 @@ function _paintPriceHistory(canvas, ts) {
 // ════════════════════════════════════════════════════════════════════════════════
 let _watchlistRefreshInterval = null
 
+function renderHomePositionNews() {
+  const container = document.getElementById("homePositionNews")
+  if (!container) return
+  const bookmarks = _getBookmarks()
+  const items = bookmarks.slice(0, 4).map((bookmark) => {
+    const title = bookmark.title || bookmark.url.slice(-40)
+    const newsUrl = `https://news.google.com/search?q=${encodeURIComponent(title)}`
+    return `
+      <a class="position-news-item" href="${esc(newsUrl)}" target="_blank" rel="noopener">
+        <span class="position-news-copy">
+          <span class="position-news-platform">${esc(bookmark.platform || "Saved market")}</span>
+          <span class="position-news-market">${esc(title)}</span>
+        </span>
+        <span class="position-news-arrow" aria-hidden="true">↗</span>
+      </a>`
+  }).join("")
+
+  container.innerHTML = `
+    <div class="position-news-head">
+      <div>
+        <div class="position-news-eyebrow">Position intelligence</div>
+        <div class="position-news-title">News on your positions</div>
+        <div class="position-news-sub">Jump from saved markets to the latest reporting and potential catalysts.</div>
+      </div>
+      <button class="position-news-manage" onclick="switchTab('watchlist')">Manage watchlist →</button>
+    </div>
+    ${items
+      ? `<div class="position-news-grid">${items}</div>`
+      : `<div class="position-news-empty">Save a market after analyzing it and its latest coverage will appear here.</div>`}`
+}
+
 function renderWatchlist() {
   const container = document.getElementById("watchlistContent")
   if (!container) return
@@ -1533,9 +1564,20 @@ function _rewardsPlatformCard(key, subtitle, programsHtml, extraHtml = "") {
         <span class="rewards-platform-badge" style="background:${p.accent}">${esc(p.label)}</span>
         <span class="rewards-platform-sub">${esc(subtitle)}</span>
       </div>
-      ${programsHtml}
-      ${extraHtml}
+      <div class="rewards-program-grid">${programsHtml}</div>
+      <div class="rewards-platform-extra">${extraHtml}</div>
     </div>`
+}
+
+function _formatKalshiIncentive(description) {
+  const labels = {
+    lip: "Liquidity incentive",
+    vip: "Volume incentive",
+    cip: "Combo incentive",
+  }
+  const raw = String(description || "").trim()
+  const code = raw.toLowerCase().replace(/^series_/, "")
+  return labels[code] || raw.replaceAll("_", " ") || "Incentive program"
 }
 
 function renderRewardsTab() {
@@ -1560,6 +1602,10 @@ function renderRewardsTab() {
     ),
   ].join("")
   const kalshiExtra = `
+    <div class="rewards-live-heading">
+      <span class="rewards-live-title">Active opportunities</span>
+      <span class="rewards-live-meta">Live from Kalshi</span>
+    </div>
     <div id="kalshiLiveIncentives" class="rewards-note-box">Loading live active programs…</div>`
 
   const polymarketPrograms = [
@@ -1575,7 +1621,7 @@ function renderRewardsTab() {
     ),
   ].join("")
   const polymarketExtra = `
-    <div class="rewards-note-box">Open any Polymarket market in the <strong>Analyze</strong> tab — if it has an active Liquidity Rewards program, its daily reward pool, minimum order size, and max spread show automatically in the market's Rewards card.</div>`
+    <div class="rewards-note-box">Open a Polymarket market in <strong>Analyze</strong> to see its daily reward pool, minimum order size, and maximum qualifying spread.</div>`
 
   const geminiPrograms = [
     _rewardsProgramItem(
@@ -1597,9 +1643,15 @@ function renderRewardsTab() {
   ].join("")
   const geminiExtra = `
     <div class="rewards-note-box">You can't be in a contracted Market Maker Program and the Taker Rewards Program at the same time — but Maker Rebates and Taker Rewards can be combined.</div>
-    <div class="rewards-program-name" style="margin-top:16px">Live maker-rebate rates</div>
+    <div class="rewards-live-heading" style="margin-top:20px">
+      <span class="rewards-live-title">Maker-rebate rates</span>
+      <span class="rewards-live-meta">Live from Gemini</span>
+    </div>
     <div id="gemMakerRebates" class="rewards-note-box">Loading live rebate rates…</div>
-    <div class="rewards-program-name" style="margin-top:16px">Events earning liquidity rewards now</div>
+    <div class="rewards-live-heading" style="margin-top:20px">
+      <span class="rewards-live-title">Liquidity reward pools</span>
+      <span class="rewards-live-meta">Active events</span>
+    </div>
     <div id="gemLiquidityPools" class="rewards-note-box">Loading live reward pools…</div>`
 
   const coinbasePrograms = [
@@ -1618,18 +1670,36 @@ function renderRewardsTab() {
     <div class="rewards-note-box">Coinbase Predictions doesn't run its own separate maker/taker program — reward eligibility depends on which venue (Kalshi or Polymarket) is actually matching the order for that market. Check the URL format to know which set of programs applies.</div>`
 
   container.innerHTML = `
-    <div class="mi-card" style="margin-bottom:20px">
-      <div class="section-label">REWARD PROGRAMS ACROSS PLATFORMS</div>
-      <div class="rewards-program-desc" style="padding-top:4px">
-        A reference for market makers and active traders: every maker/taker liquidity incentive currently offered
-        by Kalshi, Polymarket, Gemini, and Coinbase Predictions, in one place. Program terms, eligibility, and payouts
-        change — always confirm current details on the linked official page before trading around a program.
+    <div class="rewards-shell">
+      <div class="mi-card rewards-hero">
+        <div>
+          <div class="rewards-eyebrow">Rewards intelligence</div>
+          <div class="rewards-title">Compare incentive programs without digging through four rulebooks</div>
+          <div class="rewards-intro">
+            Understand how each venue pays for liquidity and trading activity, then confirm current eligibility
+            and terms on the linked official program page.
+          </div>
+        </div>
+        <div class="rewards-summary" aria-label="Rewards coverage">
+          <div class="rewards-summary-item">
+            <span class="rewards-summary-value">4</span>
+            <span class="rewards-summary-label">Venues</span>
+          </div>
+          <div class="rewards-summary-item">
+            <span class="rewards-summary-value">Maker + taker</span>
+            <span class="rewards-summary-label">Program types</span>
+          </div>
+          <div class="rewards-summary-item">
+            <span class="rewards-summary-value">Live</span>
+            <span class="rewards-summary-label">Public data</span>
+          </div>
+        </div>
       </div>
+      ${_rewardsPlatformCard("kalshi", "Liquidity, volume, and combined incentive programs", kalshiPrograms, kalshiExtra)}
+      ${_rewardsPlatformCard("polymarket", "Liquidity rewards and maker rebates", polymarketPrograms, polymarketExtra)}
+      ${_rewardsPlatformCard("gemini", "Market maker, rebate, liquidity, and taker programs", geminiPrograms, geminiExtra)}
+      ${_rewardsPlatformCard("coinbase", "Rewards follow the underlying execution venue", coinbasePrograms, coinbaseExtra)}
     </div>
-    ${_rewardsPlatformCard("kalshi", "Liquidity, Volume & Combo Incentive Programs", kalshiPrograms, kalshiExtra)}
-    ${_rewardsPlatformCard("polymarket", "Liquidity Rewards & Maker Rebates", polymarketPrograms, polymarketExtra)}
-    ${_rewardsPlatformCard("gemini", "Market Maker, Maker Rebate, Liquidity & Taker Rewards", geminiPrograms, geminiExtra)}
-    ${_rewardsPlatformCard("coinbase", "Inherits rewards from the underlying venue", coinbasePrograms, coinbaseExtra)}
   `
   _loadKalshiLiveIncentives()
   loadGeminiLiveRewards()
@@ -1647,13 +1717,15 @@ async function _loadKalshiLiveIncentives() {
       box.innerHTML = "No active Kalshi incentive programs right now — check back later, or browse markets at kalshi.com/incentives."
       return
     }
-    const rows = programs.slice(0, 30).map(p => {
+    const visibleLimit = 12
+    const shownPrograms = programs
+    const rows = shownPrograms.map((p, index) => {
       const ticker = esc(p.market_ticker || "—")
-      const desc = esc(p.incentive_description || "Incentive program")
+      const desc = esc(_formatKalshiIncentive(p.incentive_description))
       const pool = p.period_reward ? `$${fmtNum(parseFloat(p.period_reward)) || 0}` : "—"
       const ends = p.end_date ? new Date(p.end_date).toLocaleDateString() : "—"
       const url = p.market_ticker ? `https://kalshi.com/markets/${p.market_ticker.split("-")[0].toLowerCase()}/${p.market_ticker.toLowerCase()}` : ""
-      return `<tr${url ? ` style="cursor:pointer" onclick="window.open('${url}','_blank')"` : ""}>
+      return `<tr${index >= visibleLimit ? ` class="rewards-extra-row" hidden` : ""}${url ? ` role="link" tabindex="0" data-url="${esc(url)}" onclick="window.open(this.dataset.url,'_blank','noopener')" onkeydown="if(event.key==='Enter')this.click()"` : ""}>
         <td>${ticker}</td>
         <td class="rw-desc">${desc}</td>
         <td>${pool}</td>
@@ -1667,10 +1739,23 @@ async function _loadKalshiLiveIncentives() {
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <div class="rewards-note-box">${programs.length} active program${programs.length === 1 ? "" : "s"} right now. Click a row to open the market on Kalshi.</div>`
+      ${shownPrograms.length > visibleLimit
+        ? `<button class="rewards-expand-btn" aria-expanded="false" data-collapsed-label="Show all ${shownPrograms.length} programs" data-expanded-label="Show fewer programs" onclick="toggleRewardsRows('kalshiLiveIncentives', this)">Show all ${shownPrograms.length} programs</button>`
+        : ""}
+      <div class="rewards-note-box">${programs.length} active program${programs.length === 1 ? "" : "s"} right now. Select a row to open the market on Kalshi.</div>`
   } catch {
     box.innerHTML = "Couldn't load live Kalshi programs right now. Browse current programs directly at <a href=\"https://kalshi.com/incentives\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--orange)\">kalshi.com/incentives ↗</a>."
   }
+}
+
+function toggleRewardsRows(containerId, button) {
+  const container = document.getElementById(containerId)
+  if (!container || !button) return
+  const rows = container.querySelectorAll(".rewards-extra-row")
+  const expanding = [...rows].some((row) => row.hidden)
+  rows.forEach((row) => { row.hidden = !expanding })
+  button.textContent = expanding ? button.dataset.expandedLabel : button.dataset.collapsedLabel
+  button.setAttribute("aria-expanded", expanding ? "true" : "false")
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1745,6 +1830,7 @@ function afterAnalysisHook(url) {
 document.addEventListener("DOMContentLoaded", function () {
   initSmartPaste()
   initExtendedKeyboardShortcuts()
+  renderHomePositionNews()
   // Price alerts poll in the background for as long as this tab is open, so
   // they fire on markets the user is not currently looking at.
   startAlertPoller()

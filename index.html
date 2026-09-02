@@ -2218,25 +2218,358 @@
       .discover-market-meta { flex-direction: column; gap: 3px; }
     }
 
+    /* Homepage position news */
+    .position-news {
+      margin-top: 22px;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+    .position-news-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+    .position-news-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--orange);
+    }
+    .position-news-title {
+      margin-top: 4px;
+      font-size: 17px;
+      font-weight: 650;
+      letter-spacing: -0.015em;
+      color: var(--text-bright);
+    }
+    .position-news-sub {
+      margin-top: 4px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .position-news-manage {
+      flex-shrink: 0;
+      border: 0;
+      background: transparent;
+      color: var(--orange);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 0;
+    }
+    .position-news-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .position-news-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--rule-bg);
+      color: inherit;
+      padding: 13px 14px;
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .position-news-item:hover {
+      border-color: var(--orange);
+      background: var(--card-hover);
+    }
+    .position-news-item:focus-visible,
+    .position-news-manage:focus-visible,
+    .rewards-program-link:focus-visible,
+    .rewards-expand-btn:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 3px;
+    }
+    .position-news-copy { min-width: 0; }
+    .position-news-platform {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .position-news-market {
+      display: block;
+      overflow: hidden;
+      color: var(--text-bright);
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.4;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .position-news-arrow {
+      flex-shrink: 0;
+      color: var(--orange);
+      font-size: 14px;
+    }
+    .position-news-empty {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: var(--rule-bg);
+      padding: 16px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+
     /* Rewards tab */
-    .rewards-platform-card { margin-bottom: 20px; }
-    .rewards-platform-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .rewards-platform-badge { padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 11px; color: #fff; letter-spacing: 0.2px; }
-    .rewards-platform-sub { font-size: 12px; color: var(--muted); }
-    .rewards-program-item { padding: 14px 0; border-top: 1px solid var(--border); }
-    .rewards-program-item:first-child { border-top: none; padding-top: 0; }
-    .rewards-program-name { font-weight: 600; font-size: 13px; color: var(--text-bright); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-    .rewards-program-desc { font-size: 13px; color: var(--text); line-height: 1.6; }
-    .rewards-program-link { font-size: 12px; margin-top: 6px; display: inline-block; color: var(--orange); }
-    .rewards-note-box { font-size: 12px; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 12px; line-height: 1.6; }
-    .rewards-live-wrap { overflow-x: auto; margin-top: 10px; }
-    .rewards-live-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .rewards-live-table th, .rewards-live-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-    .rewards-live-table th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; }
-    .rewards-live-table td.rw-desc { white-space: normal; min-width: 220px; color: var(--text); }
+    .rewards-shell { display: grid; gap: 18px; }
+    .rewards-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 28px;
+      padding: 28px 30px;
+      border-left: 3px solid var(--orange);
+    }
+    .rewards-eyebrow {
+      color: var(--orange);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .rewards-title {
+      max-width: 24ch;
+      margin-top: 7px;
+      color: var(--text-bright);
+      font-size: clamp(22px, 3vw, 29px);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.2;
+    }
+    .rewards-intro {
+      max-width: 68ch;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+    .rewards-summary {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--border);
+    }
+    .rewards-summary-item {
+      min-width: 92px;
+      background: var(--card);
+      padding: 12px 14px;
+    }
+    .rewards-summary-value {
+      display: block;
+      color: var(--text-bright);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .rewards-summary-label {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .rewards-platform-card { margin-bottom: 0; }
+    .rewards-platform-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0;
+      padding: 19px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--rule-bg);
+    }
+    .rewards-platform-badge {
+      flex-shrink: 0;
+      padding: 5px 10px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .rewards-platform-sub {
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+    .rewards-program-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      padding: 20px 24px;
+    }
+    .rewards-program-item {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+    }
+    .rewards-program-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      color: var(--text-bright);
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+    .rewards-program-desc {
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .rewards-program-link {
+      display: inline-block;
+      margin-top: 10px;
+      color: var(--orange);
+      font-size: 11.5px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .rewards-program-link:hover { text-decoration: underline; }
+    .rewards-platform-extra { padding: 0 24px 22px; }
+    .rewards-live-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 2px 0 10px;
+    }
+    .rewards-live-title {
+      color: var(--text-bright);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .rewards-live-meta {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .rewards-note-box {
+      margin-top: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--rule-bg);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .rewards-live-wrap {
+      overflow-x: auto;
+      margin-top: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+    }
+    .rewards-live-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .rewards-live-table th,
+    .rewards-live-table td {
+      padding: 10px 13px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+    .rewards-live-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--rule-bg);
+      color: var(--muted);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .rewards-live-table td { color: var(--text); }
+    .rewards-live-table td:first-child {
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+    .rewards-live-table td.rw-desc {
+      min-width: 220px;
+      color: var(--text);
+      white-space: normal;
+    }
     .rewards-live-table tr:last-child td { border-bottom: none; }
-    .rewards-live-table tr:hover td { background: var(--card); }
-    .rewards-badge-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--green); color: #fff; font-weight: 600; }
+    .rewards-live-table tbody tr:hover td { background: var(--card-hover); }
+    .rewards-live-table tbody tr[role="link"],
+    .rewards-live-table tbody tr[role="button"] { cursor: pointer; }
+    .rewards-live-table tbody tr[role="link"]:focus-visible,
+    .rewards-live-table tbody tr[role="button"]:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: -2px;
+    }
+    .rewards-expand-btn {
+      margin-top: 10px;
+      border: 0;
+      background: transparent;
+      color: var(--orange);
+      cursor: pointer;
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 0;
+    }
+    .rewards-badge-pill {
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: var(--green);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    @media (max-width: 760px) {
+      .rewards-hero { grid-template-columns: 1fr; align-items: start; gap: 20px; }
+      .rewards-summary { width: 100%; grid-template-columns: repeat(3, 1fr); }
+      .rewards-summary-item { min-width: 0; }
+    }
+    @media (max-width: 640px) {
+      .position-news-head { align-items: flex-start; flex-direction: column; gap: 6px; }
+      .position-news-grid { grid-template-columns: 1fr; }
+      .rewards-shell { gap: 12px; }
+      .rewards-hero { padding: 22px 18px; }
+      .rewards-title { font-size: 22px; }
+      .rewards-summary { grid-template-columns: 1fr; }
+      .rewards-summary-item { padding: 10px 12px; }
+      .rewards-platform-head { align-items: flex-start; padding: 16px 18px; }
+      .rewards-platform-sub { line-height: 1.45; }
+      .rewards-program-grid { grid-template-columns: 1fr; padding: 16px 18px; }
+      .rewards-platform-extra { padding: 0 18px 18px; }
+      .rewards-live-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .rewards-live-table th, .rewards-live-table td { padding: 9px 11px; }
+    }
 
     /* Gemini public data — browse, live book, volume */
     .gem-browse-card { margin-bottom: 20px; }
@@ -2415,6 +2748,8 @@
           <span class="start-proof-value">Prices, spreads, fees, EV, and sizing shown explicitly.</span>
         </div>
       </div>
+
+      <div id="homePositionNews" class="position-news" aria-live="polite"></div>
 
       <div class="start-examples-label">Try an example</div>
       <div class="start-examples">
