@@ -368,6 +368,7 @@
     .case-card.verdict-confirmed   { border-left: 3px solid var(--confirmed-pill-bg); }
     .case-card.verdict-discrepancy { border-left: 3px solid var(--discrepancy-pill-bg); }
     .case-card.verdict-needs_review { border-left: 3px solid var(--needs-pill-bg); }
+    .case-card.verdict-action_required { border-left: 3px solid var(--needs-pill-bg); }
     .case-card.verdict-error       { border-left: 3px solid var(--border-hi); }
     .case-card.verdict-pending     { border-left: 3px solid var(--orange); }
 
@@ -420,6 +421,7 @@
     .pill-confirmed    { background: var(--confirmed-pill-bg);   color: var(--confirmed-pill-text); }
     .pill-discrepancy  { background: var(--discrepancy-pill-bg); color: var(--discrepancy-pill-text); }
     .pill-needs_review { background: var(--needs-pill-bg);       color: var(--needs-pill-text); }
+    .pill-action_required { background: var(--needs-pill-bg);    color: var(--needs-pill-text); }
     .pill-error        { background: var(--error-pill-bg);       color: var(--error-pill-text); }
     .pill-pending {
       background: var(--orange-dim);
@@ -727,7 +729,7 @@
 
   /* ── Render helpers ── */
   function verdictLabel(v) {
-    return { confirmed: "Confirmed", discrepancy: "Discrepancy", needs_review: "Needs Review", error: "Error", pending: "Reviewing…" }[v] || v
+    return { confirmed: "Confirmed", discrepancy: "Discrepancy", needs_review: "Needs Review", action_required: "Action Required", error: "Error", pending: "Reviewing…" }[v] || v
   }
 
   function pillClass(v) {
@@ -873,14 +875,15 @@
       // The server asks for a key when none was sent or Anthropic rejected the one that was.
       if (data.needsKey) {
         openKeyPanel()
+        document.getElementById("tickerInput").value = data.ticker || input
         setKeyNote(userKey
           ? "Your key was not accepted for that review — check it at console.anthropic.com."
-          : "That market needs AI analysis. Paste your Anthropic API key below to continue.", true)
+          : "That market needs AI analysis. Paste your Anthropic API key below to continue.", !!userKey)
       }
       resolveCase({
         ticker:         data.ticker || input,
         title:          data.title || "",
-        verdict:        data.verdict || "error",
+        verdict:        data.needsKey ? "action_required" : (data.verdict || "error"),
         summary:        data.summary || "No summary returned.",
         keyFacts:       Array.isArray(data.keyFacts) ? data.keyFacts : [],
         recommendation: data.recommendation || "",
