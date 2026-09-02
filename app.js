@@ -164,11 +164,13 @@ function _saveBookmark(url, title, platform) {
   bms.unshift({ url, title: title || "", platform: platform || "", ts: Date.now(), closeIso: _currentCloseIso() })
   try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms.slice(0, 100))) } catch {}
   _renderBookmarksPanel(); _refreshBookmarkBtn(url)
+  if (typeof renderHomePositionNews === "function") renderHomePositionNews()
 }
 function _removeBookmark(url) {
   const bms = _getBookmarks().filter(b => b.url !== url)
   try { localStorage.setItem("predara-bookmarks", JSON.stringify(bms)) } catch {}
   _renderBookmarksPanel(); _refreshBookmarkBtn(url)
+  if (typeof renderHomePositionNews === "function") renderHomePositionNews()
 }
 function _isBookmarked(url) { return _getBookmarks().some(b => b.url === url) }
 function _refreshBookmarkBtn(url) {
@@ -440,6 +442,7 @@ function resetToHome() {
   }
   const result = document.getElementById("result")
   if (result && _startStateHtml) result.innerHTML = _startStateHtml
+  if (typeof renderHomePositionNews === "function") renderHomePositionNews()
   const shareControls = document.getElementById("shareControls")
   if (shareControls) shareControls.style.display = "none"
   const fetchedAt = document.getElementById("fetchedAt")
