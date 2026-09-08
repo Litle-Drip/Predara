@@ -135,12 +135,22 @@ function _kTickerFromUrl(u) {
 // each candidate is a real lookup, and the first one that exists wins.
 function kyleTickerCandidates(ticker) {
   const out = []
-  const push = (t) => { if (t && !out.includes(t)) out.push(t) }
+  // Trim stray separators: stripping a prefix or a suffix off a malformed
+  // symbol ("GEMI-") can otherwise leave a candidate that is all separator.
+  const push = (t) => {
+    const clean = String(t || "").replace(/^-+|-+$/g, "")
+    if (clean && !out.includes(clean)) out.push(clean)
+  }
   push(ticker)
   const base = String(ticker).replace(/^GEMI-/i, "")
   push(base)
   const parts = base.split("-")
-  for (let drop = 1; drop <= 2 && parts.length - drop >= 2; drop++) {
+  // Stop before emptying the ticker, not before the last segment: an event
+  // ticker is frequently a single word, so GEMI-USOPENM26-ALCARAZ has to be
+  // allowed to reach USOPENM26. Requiring two segments to remain quietly
+  // excluded every event whose ticker has no hyphen in it — which is most of
+  // the non-sports catalogue.
+  for (let drop = 1; drop <= 2 && parts.length - drop >= 1; drop++) {
     push(parts.slice(0, parts.length - drop).join("-"))
   }
   return out
@@ -681,12 +691,6 @@ function kyleBriefHtml(brief) {
     </section>
 
     <section class="k-card">
-      <h2 class="k-card-label">${b.status.code === "settled" ? "Outcomes and result" : "Outcomes"}</h2>
-      ${kyleOutcomesHtml(b)}
-      ${priceNote}
-    </section>
-
-    <section class="k-card">
       <div class="k-actions">
         <button class="k-btn" onclick="kyleCopySummary()">Copy for the ticket</button>
         ${b.links.event ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.event)}" target="_blank" rel="noopener">Event on Gemini ↗</a>` : ""}
@@ -702,6 +706,13 @@ function kyleBriefHtml(brief) {
         <pre class="k-summary" id="kyleSummary">${_kEsc(kyleSummaryText(b))}</pre>
       </details>
     </section>
+
+    <section class="k-card">
+      <h2 class="k-card-label">${b.status.code === "settled" ? "Outcomes and result" : "Outcomes"}</h2>
+      ${kyleOutcomesHtml(b)}
+      ${priceNote}
+    </section>
+
   </div>`
 }
 

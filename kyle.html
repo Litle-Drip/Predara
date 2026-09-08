@@ -116,13 +116,15 @@
     .intake {
       background: var(--card);
       border: 1px solid var(--border);
+      border-top: 3px solid var(--orange);
       border-radius: 14px;
-      padding: 28px 30px;
+      padding: 26px 30px 28px;
       margin-bottom: 28px;
       box-shadow: var(--shadow-sm);
     }
 
     .intake-label {
+      color: var(--text-bright);
       font-size: 24px;
       font-weight: 700;
       color: var(--text-bright);
@@ -224,25 +226,34 @@
        split keeps the brand visible on the chrome and the labels legible.
     */
 
+    /* Gemini — the working default. Blue is the whole palette here, not an
+       accent dropped onto grey: the page, the panel chrome, the borders, the
+       labels and the mono type all sit on the brand hue. Every text token was
+       chosen against BOTH surfaces it can land on (the white card and the
+       tinted page), since a blue-grey that passes on white can fail on the
+       page behind it. */
     body[data-theme="gemini"] {
-      --bg:          #f4f7fd;
+      --bg:          #e9f4fe;   /* light blue page, not white */
       --card:        #ffffff;
-      --border:      #dde7f7;
-      --border-hi:   #bcd0ee;
-      --text:        #4a5a75;
-      --text-mid:    #2a3a55;
-      --text-bright: #0b1a33;
-      --muted:       #7b8aa5;
+      --border:      #cbe4fa;
+      --border-hi:   #8ec6f2;
+      --text:        #3c576f;
+      --text-mid:    #1e3a52;
+      --text-bright: #0a2136;
+      --muted:       #4b6f8b;   /* blue-grey; 4.77:1 on the tinted page */
       --orange:      #0093f5;   /* Gemini brand blue — chrome only, never under text */
       --k-fill:      #0077c8;   /* darkened so white 12px labels clear 4.5:1 */
       --k-on-fill:   #ffffff;
-      --k-ink:       #0077c8;
-      --orange-dim:  rgba(0,147,245,0.14);
-      --orange-bg:   rgba(0,147,245,0.07);
-      --bar-bg:      #eaf1fc;
-      --rec-bg:      rgba(0,147,245,0.05);
+      --k-ink:       #006cb5;   /* the blue as text: 4.94:1 on the page, 5.51:1 on a card */
+      --orange-dim:  rgba(0,147,245,0.16);
+      --orange-bg:   rgba(0,147,245,0.08);
+      --bar-bg:      #dbedfd;
+      --rec-bg:      rgba(0,147,245,0.07);
       --k-art:       none;
+      /* No illustration, but the page still gets the brand wash the other
+         themes get from their artwork. */
       --k-scrim:     none;
+      --k-fallback:  linear-gradient(180deg, rgba(0,147,245,0.20) 0%, rgba(0,147,245,0.06) 38%, rgba(0,147,245,0) 70%);
     }
 
     body[data-theme="mars"] {
@@ -327,7 +338,8 @@
       background-repeat: no-repeat;
       pointer-events: none;
     }
-    body[data-theme="gemini"] .k-backdrop { display: none; }
+    /* Gemini has no artwork, so its backdrop is the gradient alone. */
+    body[data-theme="gemini"] .k-backdrop { background-image: var(--k-fallback); }
 
     /* ── Theme picker ── */
     .k-themes { display: flex; align-items: center; gap: 4px; margin-left: 10px; }
@@ -387,7 +399,7 @@
     .k-answer.k-done { border-left-color: var(--orange); }
 
     .k-answer-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .k-answer-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+    .k-answer-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--k-ink); }
     .k-title { font-size: 21px; font-weight: 700; color: var(--text-bright); letter-spacing: -0.5px; margin: 10px 0 8px; line-height: 1.3; }
     .k-headline { font-size: 15px; color: var(--text-bright); line-height: 1.6; }
     .k-desc { font-size: 13px; color: var(--text); line-height: 1.65; margin-top: 10px; }
@@ -416,7 +428,7 @@
     .k-card-flag { border-color: #a37012; }
     .k-card-label {
       font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 12px;
+      color: var(--k-ink); margin-bottom: 12px;
     }
     .k-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 12px; }
 
@@ -443,7 +455,7 @@
     .k-outcome-lost  { opacity: 0.55; }
     .k-outcome-focus { border-color: var(--orange); background: var(--orange-bg); opacity: 1; }
     .k-outcome-name { font-size: 13px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .k-outcome-pct  { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-mid); }
+    .k-outcome-pct  { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--k-ink); }
     .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
     .k-tag-won   { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
     .k-tag-focus { background: var(--k-fill); color: var(--k-on-fill); border-color: transparent; }
@@ -464,7 +476,7 @@
     .k-apiurl {
       flex: 1; min-width: 0;
       font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
-      color: var(--text-mid); overflow-wrap: anywhere; user-select: all;
+      color: var(--k-ink); overflow-wrap: anywhere; user-select: all;
     }
     .k-copy {
       flex-shrink: 0;

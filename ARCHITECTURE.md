@@ -79,7 +79,15 @@ support agent mid-ticket who has never traded a prediction market, so:
   a link, as selectable text with a copy button (agents paste it more often
   than they open it), and as a line in the ticket summary. It is built from the
   ticker Kyle *resolved*, never from what the agent pasted — a contract symbol
-  would 404 the same way the original lookup did.
+  would 404 the same way the original lookup did. The links sit directly under
+  Details, with the identifiers and dates the agent is acting on, rather than
+  below a field of outcomes they would have to scroll past.
+
+  `kyleTickerCandidates()` must keep stripping until one segment remains, not
+  two. Most non-sports event tickers have no hyphen at all, so their instrument
+  symbols are only two segments after the venue prefix
+  (`GEMI-USOPENM26-ALCARAZ`); stopping at two silently excluded every one of
+  them.
 - **Themes are Kyle's alone.** Four of them (`gemini` default, `mars`, `seas`,
   `astro`) set the same token names the shared shell reads, stored under
   `predara-kyle-theme` so picking one here does not change the Analyze or
