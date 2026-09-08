@@ -397,11 +397,65 @@ function kyleSettlement(event) {
 function kyleSubject(event) {
   const e = event || {}
   const ticker = String(_kFirst(e.ticker, e.event_ticker, e.eventTicker) || "")
-  const leagues = ["MLB", "NBA", "NFL", "NHL", "NCAAF", "NCAAB", "MLS", "EPL", "UFC"]
+  const leagues = ["MLB", "NBA", "NFL", "NHL", "NCAAF", "NCAAB", "MLS", "EPL", "UFC", "F1", "NASCAR", "PGA", "ATP", "WTA"]
   const fromTicker = leagues.find((l) => new RegExp(`(^|-)${l}(-|$)`, "i").test(ticker)) || ""
+  // Real payloads carry no top-level `sport`. The league lives in subcategory
+  // ("F1"), in tags, or under sportsMarket.sport ("motorsports") — checked in
+  // that order because the most specific label is the one an agent routes on.
+  const sub = e.subcategory || {}
+  const sportsMarket = e.sportsMarket || {}
+  const tag = Array.isArray(e.tags) && e.tags.length ? String(e.tags[0]) : ""
+  const category = _kFirst(e.category, e.categoryName,
+    Array.isArray(sub.path) && sub.path.length ? sub.path[0] : "")
+  const sport = _kFirst(e.sport, e.league, sub.name, tag, fromTicker, sportsMarket.sport)
   return {
-    sport: _kFirst(e.sport, e.league, fromTicker),
-    category: _kFirst(e.category, e.categoryName, Array.isArray(e.tags) ? e.tags[0] : ""),
+    // Do not print the category twice when the only "sport" we found is it.
+    sport: String(sport) === String(category) ? "" : sport,
+    category,
+  }
+}
+
+// ── Resolution criteria ───────────────────────────────────────────────────────
+// Every contract carries the text that decides it — what has to happen, and
+// which source agencies are consulted, in order. That is the single most useful
+// paragraph on the page for an agent facing "why did this resolve that way?",
+// and Kyle was throwing it away. Gemini sends it as a rich-text document, so it
+// is flattened here; a plain string is accepted too.
+function _kRichText(node) {
+  if (!node) return ""
+  if (typeof node === "string") return node.trim()
+  if (Array.isArray(node)) return node.map(_kRichText).filter(Boolean).join(" ")
+  if (typeof node === "object") {
+    if (typeof node.value === "string" && node.value.trim()) return node.value.trim()
+    if (node.content) return _kRichText(node.content)
+  }
+  return ""
+}
+
+// Markdown links in that text ("[terms & conditions](https://…)") read as noise
+// once the page already links the terms, so the label is kept and the URL cut.
+function _kStripMdLinks(text) {
+  return String(text || "").replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$1")
+}
+
+function kyleResolution(event, focusSymbol = "") {
+  const contracts = _kContracts(event)
+  if (!contracts.length) return null
+  const wanted = String(focusSymbol || "").toUpperCase()
+  const match = contracts.find((c) => String(c.instrumentSymbol || "").toUpperCase() === wanted)
+  const source = match || contracts[0]
+  const text = _kStripMdLinks(_kRichText(source && source.description)).trim()
+  if (!text) return null
+  return {
+    text,
+    contract: String(_kContractName(source, "")),
+    // Only one contract's wording is shown; say whose, so an agent does not
+    // read a per-driver criterion as the whole event's rule.
+    isExample: !match && contracts.length > 1,
+    agency: String(_kFirst(
+      (event.sourceDetails || {}).agency,
+      (event.settlement || {}).source,
+    ) || ""),
   }
 }
 
@@ -421,7 +475,20 @@ function kyleOutcomes(event) {
   const type = kyleType(event)
   const rows = contracts.map((c, i) => {
     const p = (c && c.prices) || {}
-    const price = _kNum(_kFirst(p.lastTradePrice, p.bestAsk, p.bestBid, c.lastPrice, c.price))
+    // Live payloads nest the book under prices.buy / prices.sell (and older
+    // ones under prices.yes). Only known key names are read: picking an
+    // arbitrary number out of an unfamiliar object could show a bid where
+    // Gemini's own page shows an ask, and an agent would quote the difference.
+    const buy = p.buy || {}
+    const sell = p.sell || {}
+    const yes = p.yes || p.YES || {}
+    const price = _kNum(_kFirst(
+      p.lastTradePrice, p.bestAsk, p.bestBid,
+      buy.bestAsk, buy.ask, buy.price, buy.lastTradePrice,
+      yes.bestAsk, yes.ask, yes.lastTradePrice,
+      sell.bestBid, sell.bid, sell.price,
+      c.lastPrice, c.price,
+    ))
     const side = String((c && c.resolutionSide) || "").toLowerCase()
     return {
       name: String(_kContractName(c, `Outcome ${i + 1}`)),
@@ -516,6 +583,12 @@ function kyleIssues(event, now = Date.now()) {
       body: "Gemini reports this event as open while the close time it publishes has already passed. Kyle will not pick a side, because telling a customer trading has stopped when it has not can cost them a position they wanted to exit. Confirm on the event page before you reply." })
   }
 
+  const priced = kyleOutcomes(event).filter((o) => !o.derived && o.pct !== null)
+  if ((status.code === "open" || status.code === "conflict") && _kContracts(event).length && !priced.length) {
+    issues.push({ level: "warn", title: "No prices returned for this event",
+      body: "Gemini returned contracts but no readable price for any of them, so Kyle is showing no percentages. Do not quote a price from this page — read it off the event page instead." })
+  }
+
   if (!dates.tradingCloses) {
     issues.push({ level: "warn", title: "No close date published",
       body: "This event does not publish an end date, so Kyle cannot tell the customer when trading stops or when it resolves." })
@@ -569,6 +642,7 @@ function kyleBrief(event, now = Date.now(), options = {}) {
         : dates.tradingCloses
           ? { known: false, text: `Not resolved yet. Trading ${_kTense(dates.tradingCloses, now)} ${_kDateTimeUtc(dates.tradingCloses)} and the result is published after that.` }
           : { known: false, text: "Not resolved yet, and no close date is published — Kyle cannot say when it will resolve." },
+    criteria: kyleResolution(e, options.focusSymbol || ""),
     outcomes: kyleOutcomes(e).map((o) => (
       focusSymbol && o.symbol && o.symbol.toUpperCase() === focusSymbol ? { ...o, focus: true } : o
     )),
@@ -816,6 +890,12 @@ function kyleBriefHtml(brief) {
         <summary>What kind of market is this?</summary>
         <p>${_kEsc(b.type.plain)}</p>
       </details>
+      ${b.criteria ? `<details class="k-explain">
+        <summary>How this resolves${b.criteria.isExample ? ` (wording for ${_kEsc(b.criteria.contract)})` : ""}</summary>
+        <p>${_kEsc(b.criteria.text)}</p>
+        ${b.criteria.isExample ? `<p class="k-note">Every contract on this event carries its own wording naming its own outcome; the rest of the rule is the same. Read the customer's contract if they are disputing the result.</p>` : ""}
+        ${b.criteria.agency ? `<p class="k-note">Result feed: ${_kEsc(b.criteria.agency)}.</p>` : ""}
+      </details>` : ""}
       <p class="k-disclaimer">Event data as published by Gemini. This is not a statement of any customer's account, position, or payout, and it is not advice — confirm balances and payouts in the customer's account before you write to them.</p>
     </div>
 
@@ -1032,7 +1112,7 @@ if (KYLE_HAS_DOM) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     kyleParseQuery, kyleTickerCandidates, kyleStatus, kyleType, kyleExclusive, kyleDates, kyleSubject,
-    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleSummaryText,
+    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleSummaryText, kyleResolution,
     kyleResultsHtml, kyleBriefHtml, kyleFactsHtml, kyleOutcomesHtml, kyleSettlement,
   }
 }
