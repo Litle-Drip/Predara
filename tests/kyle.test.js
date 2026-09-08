@@ -662,3 +662,85 @@ test("the whole brief renders from the real payload without a hole in it", () =>
   }
   assert.doesNotMatch(html, /undefined|\[object Object\]|NaN/, "no unrendered value may reach the page")
 })
+
+// ══ Verified against a live book and a settled top-N event ════════════════════
+const LIVE_EVENT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "fixtures", "gemini-live-categorical.json"), "utf8")
+)
+const PODIUM_EVENT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "fixtures", "gemini-settled-podium.json"), "utf8")
+)
+
+test("the percentage shown is the one gemini.com shows the customer", () => {
+  // A live book carries bestAsk, bestBid and lastTradePrice at once. Gemini
+  // displays the ask as the contract's "Yes %". Reading lastTradePrice first
+  // showed 31% for a contract Gemini was showing at 37%.
+  const byName = {}
+  for (const o of kyle.kyleOutcomes(LIVE_EVENT)) byName[o.name] = o.pctLabel
+  assert.equal(byName["Andrea Kimi Antonelli"], "37%", "must be bestAsk (0.37), not lastTradePrice (0.31)")
+  assert.equal(byName["Lando Norris"], "21%", "must be bestAsk (0.21), not lastTradePrice (0.17)")
+  assert.equal(byName["George Russell"], "15%")
+  assert.equal(byName["Alexander Albon"], "2%")
+})
+
+test("a live event's prices are read at all, rather than flagged as missing", () => {
+  const issues = kyle.kyleIssues(LIVE_EVENT, Date.parse("2026-09-08T18:00:00Z"))
+  assert.ok(!issues.some((i) => /No prices returned/.test(i.title)), "prices.buy/bestAsk must be readable")
+})
+
+test("`type` cannot separate a winner market from a podium market", () => {
+  // This is why the type field is not used for exclusivity: it is identical on
+  // both, so trusting it would repeat the price-heuristic error.
+  assert.equal(REAL_EVENT.type, "categorical")
+  assert.equal(PODIUM_EVENT.type, "categorical")
+  assert.notEqual(REAL_EVENT.template, PODIUM_EVENT.template, "template is the field that distinguishes them")
+})
+
+test("template 'categorical' means exactly one outcome can win", () => {
+  assert.equal(kyle.kyleExclusive(LIVE_EVENT), true)
+  assert.match(kyle.kyleType(LIVE_EVENT).plain, /only one of them can happen/i)
+})
+
+test("a LIVE top-N market is identified before it settles", () => {
+  // Before this, exclusivity could only be answered once resolution sides
+  // existed — which is exactly too late to help a customer holding a position.
+  const livePodium = JSON.parse(JSON.stringify(PODIUM_EVENT))
+  livePodium.status = "active"
+  delete livePodium.resolvedAt
+  livePodium.contracts.forEach((c) => { delete c.resolutionSide; delete c.resolvedAt })
+
+  assert.equal(kyle.kyleExclusive(livePodium), false)
+  const plain = kyle.kyleType(livePodium).plain
+  assert.match(plain, /more than one/i)
+  assert.doesNotMatch(plain, /only one of them can happen/i)
+})
+
+test("'binary' alone is not enough — the strikes must agree", () => {
+  // A head-to-head market has not been observed. If those also carry template
+  // "binary", template alone would wrongly call a two-team market non-exclusive,
+  // so the per-contract strike is required as a second signal.
+  const templateOnly = {
+    template: "binary",
+    contracts: [{ label: "Team A" }, { label: "Team B" }],
+  }
+  assert.equal(kyle.kyleExclusive(templateOnly), null, "abstain when only one signal is present")
+  assert.match(kyle.kyleType(templateOnly).plain, /contract terms/i)
+
+  const withStrikes = {
+    template: "binary",
+    contracts: [
+      { label: "A", strike: { type: "under_or_equal", value: "3" } },
+      { label: "B", strike: { type: "under_or_equal", value: "3" } },
+    ],
+  }
+  assert.equal(kyle.kyleExclusive(withStrikes), false, "both signals agreeing is enough")
+})
+
+test("the settled podium still reports all three winners", () => {
+  const brief = kyle.kyleBrief(PODIUM_EVENT, Date.parse("2026-09-08T18:00:00Z"))
+  const won = brief.outcomes.filter((o) => o.result === "won").map((o) => o.name).sort()
+  assert.deepEqual(won, ["Andrea Kimi Antonelli", "George Russell", "Max Verstappen"])
+  assert.equal(brief.winner, null, "there is no single winner on a multi-winner event")
+  assert.match(kyle.kyleSummaryText(brief, Date.parse("2026-09-08T18:00:00Z")), /WINNING OUTCOMES \(3\)/)
+  assert.match(kyle.kyleResolution(PODIUM_EVENT).text, /finishes on the podium \(top 3\)/)
+})

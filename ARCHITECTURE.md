@@ -66,6 +66,24 @@ support agent mid-ticket who has never traded a prediction market, so:
   (the `settlement` key is an empty object), and that prices nest under
   `prices.buy` / `prices.sell` rather than the flat `bestAsk` the code reads.
   Do not hand-edit the fixture to make a test pass — recapture it.
+
+  Two more captures followed: `gemini-live-categorical.json` (the only observed
+  populated price book) and `gemini-settled-podium.json` (a top-N event). Between
+  them they settled the two questions that were open:
+
+  - **`template`, never `type`, says whether outcomes are exclusive.** A
+    race-winner market and a podium market both carry `type: "categorical"`, so
+    `type` cannot tell them apart and trusting it would have repeated the
+    price-heuristic error exactly. `template` does: `"categorical"` on the
+    winner, `"binary"` on the podium, whose contracts each carry their own
+    `strike` as well. `"categorical"` is believed on its own; `"binary"` is
+    believed only when every contract also has a strike, because a head-to-head
+    market has never been observed and might also be `"binary"`. This is the
+    first thing that answers exclusivity on a market that has not settled yet.
+  - **Prices are read ask-first.** A live book carries `bestAsk`, `bestBid` and
+    `lastTradePrice` at once, and gemini.com displays the ask as the contract's
+    "Yes %". Reading `lastTradePrice` first showed 31% for a contract Gemini was
+    showing at 37%. The page has to agree with what the customer is looking at.
 - **Gemini's status is the status.** Kyle never overrules the venue's own
   `status` with the agent's browser clock. When the published close time has
   passed but Gemini still reports the event open, that is a `conflict` state
