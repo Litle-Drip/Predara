@@ -404,6 +404,22 @@
     .k-headline { font-size: 15px; color: var(--text-bright); line-height: 1.6; }
     .k-desc { font-size: 13px; color: var(--text); line-height: 1.65; margin-top: 10px; }
 
+    /* How old this reading is. Quiet while fresh, insistent once it is not. */
+    .k-freshness {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-top: 12px; font-size: 11.5px; color: var(--muted);
+    }
+    .k-freshness.k-stale {
+      color: var(--text-bright); font-weight: 600;
+      background: var(--orange-bg); border: 1px solid var(--border-hi);
+      border-radius: 8px; padding: 7px 10px;
+    }
+
+    .k-disclaimer {
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+      font-size: 11.5px; color: var(--muted); line-height: 1.6;
+    }
+
     /* Anything an agent needs only sometimes is one click away, not in the way. */
     .k-explain { margin-top: 12px; }
     .k-explain summary {

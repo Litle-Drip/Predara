@@ -57,6 +57,40 @@ support agent mid-ticket who has never traded a prediction market, so:
   priced as shares of one outcome and sum near 100%; independent top-N contracts
   sum far past it), and returns null rather than guessing when neither is
   available. `kyleWinner()` is therefore the *single* winner or null.
+- **Gemini's status is the status.** Kyle never overrules the venue's own
+  `status` with the agent's browser clock. When the published close time has
+  passed but Gemini still reports the event open, that is a `conflict` state
+  the agent is told to resolve on the event page — not a confident "trading has
+  stopped". Telling a customer trading is over, on the strength of a clock, can
+  cost them a position they wanted to exit.
+- **Exclusivity is a fact or it is unstated.** `kyleExclusive()` answers only
+  from an explicit flag, from a single yes/no contract, or from a settled
+  event's own resolution sides. It used to sum contract prices, which was
+  unsound by construction: the price fallback reads `bestAsk`, and in any real
+  book the asks sum above 1 because of the spread, so genuinely exclusive
+  markets read as "several can win" — systematically, on ordinary two-way
+  sports markets. Do not reintroduce a price-derived answer.
+- **Settlement is what a contract does, not what an account has received.**
+  Kyle reads a resolution state and has no visibility into credits, so it says
+  a contract "settles at" a value and tells the agent to check the account. The
+  value itself comes from `kyleSettlement()`, which reads the payload rather
+  than assuming $1 — `lib/gemini.js` carries a `settlementValue` parameter, so
+  $1 is a default, not a guarantee. When it is absent the copy says "its full
+  settlement value" instead of inventing a number for a customer's email.
+- **Never print a rounded certainty.** A price of 0.9999 rounds to "100%",
+  which an agent will repeat as certainty about an undecided market. Only a
+  settled contract may show 0 or 100; everything else clamps to `>99%`/`<1%`.
+  The derived NO row complements the raw price, not the rounded percentage, and
+  is labelled "calculated" because Gemini quotes no NO book.
+- **The copied block is the only part of Kyle that leaves the building**, so it
+  carries its own provenance: source, absolute UTC read time, and a line saying
+  it is event data rather than a statement of anyone's account. Every timestamp
+  in it is absolute — "settled 1 hour ago" becomes false the moment the text is
+  forwarded. Relative times stay on screen, where they are true.
+- **A reading has an age.** The brief records `retrievedAt`, the page states it,
+  and past five minutes the line escalates and asks the agent to re-read before
+  quoting. Prices and status are a snapshot; a tab open all afternoon otherwise
+  looks exactly as authoritative as one opened a second ago.
 - **Never guess on the agent's behalf.** An event marked settled with no winning
   contract published is an alert to escalate, not an inference from prices. A
   missing close date is stated as missing. An agent repeating an invented

@@ -69,6 +69,17 @@ function _kDateTime(iso) {
   } catch { return new Date(t).toISOString() }
 }
 
+// Absolute UTC, for anything that leaves the tool. The page may show the
+// agent's local time, but a timestamp pasted into a customer email must match
+// what the customer sees on gemini.com, and must not drift as it is forwarded.
+function _kDateTimeUtc(iso) {
+  const t = _kTime(iso)
+  if (t === null) return ""
+  const d = new Date(t)
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+}
+
 function _kDate(iso) {
   const t = _kTime(iso)
   if (t === null) return ""
@@ -204,16 +215,24 @@ function kyleStatus(event, now = Date.now()) {
   const resolvedIso = _kFirst(event && event.resolvedAt, event && event.settledAt, event && event.resolutionDate)
   const hasSide = contracts.some((c) => !!(c && c.resolutionSide))
 
+  const settle = kyleSettlement(event)
+
   if (/cancel|void/.test(raw)) {
     return {
       code: "voided", label: "VOIDED", short: "VOIDED", tone: "bad",
-      plain: "Gemini cancelled this event. It did not settle to a result — trades on a voided event are unwound rather than paid out. Send the customer to the settlement team for the refund position.",
+      // How a cancelled event is unwound is Gemini policy, and Kyle reads none
+      // of it. Describing a refund here would put a policy statement Kyle
+      // cannot source into a customer's inbox.
+      plain: "Gemini cancelled this event, so it has no result. Kyle cannot tell you how the trades on it were handled — that is a settlement question. Escalate rather than describing a refund to the customer.",
     }
   }
   if (/settl|resolv|paid/.test(raw) || resolvedIso || hasSide) {
     return {
       code: "settled", label: "SETTLED", short: "SETTLED", tone: "done",
-      plain: "This event is finished. The result is final and the winning contracts have paid out at $1 each; the losing contracts are worth nothing.",
+      // Kyle reads a resolution state. It has no visibility into whether an
+      // account has been credited, so it describes what the contract does, not
+      // what has already happened to the customer's balance.
+      plain: `This event is finished and the result is final. Winning contracts settle at ${settle.each}; losing contracts settle at zero. Kyle cannot see whether an individual account has been credited yet — check the customer's account before confirming a payout.`,
     }
   }
 
@@ -221,16 +240,26 @@ function kyleStatus(event, now = Date.now()) {
   const closeT = _kTime(closeIso)
   const closedByClock = closeT !== null && closeT <= now
 
-  if (/closed|expired|inactive|pending/.test(raw) || closedByClock) {
+  if (/closed|expired|inactive|pending/.test(raw)) {
     return {
       code: "closed", label: "CLOSED — AWAITING RESULT", short: "CLOSED", tone: "warn",
-      plain: "Trading has stopped but Gemini has not published the result yet. Nobody has been paid out and no position can be opened or closed. This is normal for a short window after an event ends.",
+      plain: "Gemini reports trading as closed and has not published a result yet. No position can be opened or closed, and no contract has settled. This is normal for a short window after an event ends.",
     }
   }
   if (/active|approved|open|live|trading/.test(raw)) {
+    // The close time passing does NOT make Kyle overrule Gemini. Telling a
+    // customer trading has stopped, on the strength of the agent's own browser
+    // clock, is how someone gets told they cannot exit a position that is in
+    // fact still tradeable. The disagreement is surfaced instead of resolved.
+    if (closedByClock) {
+      return {
+        code: "conflict", label: "OPEN — BUT PAST ITS CLOSE TIME", short: "CHECK", tone: "warn",
+        plain: "Gemini still reports this event as open, but the close time it publishes has already passed. Kyle will not guess which is right. Do not tell the customer either that trading is open or that it has stopped — open the event page and confirm before you reply.",
+      }
+    }
     return {
       code: "open", label: "OPEN", short: "OPEN", tone: "good",
-      plain: "This event is live. The customer can still buy and sell contracts, and no result exists yet — nothing has been decided or paid out.",
+      plain: "Gemini reports this event as open. Nothing has been decided and no contract has settled.",
     }
   }
   return {
@@ -239,42 +268,36 @@ function kyleStatus(event, now = Date.now()) {
   }
 }
 
-// Can more than one outcome pay out? A race winner market has exactly one
-// winner; a podium market pays every driver who finishes top three, and a
-// support agent told "only one of these can win" about a podium market will
-// give the customer a wrong answer.
+// Can more than one outcome pay out? A race-winner market has exactly one
+// winner; a podium market pays every driver who finishes top three. Telling a
+// support agent the wrong one produces a wrong statement to a customer about
+// whether their contract could still have won.
 //
-// Gemini does not consistently publish an exclusivity flag, so when there is no
-// flag the prices decide: contracts that are mutually exclusive are priced as
-// shares of one outcome and sum to roughly 100%, while independent yes/no
-// contracts on the same event sum well past it (a three-place podium field sums
-// near 300%). Returns true, false, or null when neither the flag nor enough
-// prices are available — null means Kyle says nothing rather than guessing.
+// This is answered ONLY from facts. It used to fall back to summing contract
+// prices, which was unsound by construction: the price fallback reads bestAsk,
+// and in any real order book the asks sum to more than 1 because of the spread,
+// so a genuinely mutually exclusive market read as "several can win" — a
+// systematic error, not an edge case, on ordinary two-way sports markets.
+// Returns null when nothing states the answer, and the copy then points at the
+// contract terms instead of asserting.
 function kyleExclusive(event) {
   const e = event || {}
   for (const key of ["mutuallyExclusive", "mutually_exclusive", "isMutuallyExclusive", "exclusive"]) {
     if (typeof e[key] === "boolean") return e[key]
   }
   const contracts = _kContracts(e)
+  // A single yes/no contract is exclusive by construction: YES and NO are the
+  // two sides of one question.
   if (e.type === "binary" || contracts.length === 1) return true
 
-  // A settled event has already answered the question: more than one contract
-  // settled YES means they were never mutually exclusive. This is fact, not
-  // inference, so it outranks the price reading below — which a settled book
-  // cannot supply anyway, since settled prices are all 1 or 0.
+  // A settled event has already answered it. More than one contract settling
+  // YES proves the outcomes were never mutually exclusive; exactly one YES with
+  // every other contract resolved NO proves they were.
   const sides = contracts.map((c) => String((c && c.resolutionSide) || "").toLowerCase())
   const yes = sides.filter((v) => v === "yes").length
   if (yes > 1) return false
   if (yes === 1 && sides.every((v) => v === "yes" || v === "no")) return true
 
-  const prices = contracts
-    .map((c) => _kNum(_kFirst((c.prices || {}).lastTradePrice, (c.prices || {}).bestAsk, (c.prices || {}).bestBid)))
-    .filter((p) => p !== null)
-  // Too few priced contracts to read a total from — a thin or settled book.
-  if (prices.length < contracts.length || prices.length < 2) return null
-  const sum = prices.reduce((a, b) => a + b, 0)
-  if (sum > 1.3) return false
-  if (sum >= 0.7) return true
   return null
 }
 
@@ -283,11 +306,22 @@ function kyleExclusive(event) {
 function kyleType(event) {
   const contracts = _kContracts(event)
   const n = contracts.length
+  const settle = kyleSettlement(event)
+
+  // A list payload carries no contracts. Saying "0 outcomes" states something
+  // about the market that the payload never said.
+  if (n === 0 && !(event && event.type === "binary")) {
+    return {
+      code: "unlisted", outcomeCount: null, exclusive: null, label: "Outcomes not listed",
+      plain: "This view did not return the event's contracts, so Kyle cannot describe its outcomes. Open the event itself before answering anything about what a customer holds.",
+    }
+  }
+
   const isBinary = (event && event.type === "binary") || n === 1
   if (isBinary) {
     return {
       code: "binary", outcomeCount: 2, exclusive: true, label: "Yes / No question",
-      plain: "One question with two sides. A customer holding YES is paid $1 per contract if it happens; a customer holding NO is paid $1 per contract if it does not. Only one side can be right.",
+      plain: `One question with two sides. A customer holding YES collects ${settle.each} if it happens; a customer holding NO collects ${settle.each} if it does not. Only one side can be right.`,
     }
   }
 
@@ -297,24 +331,26 @@ function kyleType(event) {
   if (n === 2 && exclusive === true) {
     return {
       code: "head2head", outcomeCount: 2, exclusive: true, label: "Head-to-head (2 outcomes)",
-      plain: "Two possible results, usually two teams or two candidates. The one that actually happens pays $1 per contract; the other pays nothing.",
+      plain: `Two possible results, and only one of them can happen. The one that does settles at ${settle.each}; the other settles at zero.`,
     }
   }
   if (exclusive === true) {
     return {
       code: "multi", outcomeCount: n, exclusive: true, label: `Pick one of ${n} outcomes`,
-      plain: `${n} possible results, and only one of them can happen. That one pays $1 per contract; every other one pays nothing.` + ask,
+      plain: `${n} possible results, and only one of them can happen. That one settles at ${settle.each}; every other one settles at zero.` + ask,
     }
   }
   if (exclusive === false) {
     return {
-      code: "multi", outcomeCount: n, exclusive: false, label: `${n} separate outcomes (more than one can win)`,
-      plain: `${n} separate yes/no contracts on the same event — a podium or top-N market, where several of them can pay out at once. Each one pays $1 per contract if that outcome happens, independently of the others, so a customer can hold a losing contract on an event that had several winners.` + ask,
+      code: "multi", outcomeCount: n, exclusive: false, label: `${n} outcomes, more than one can win`,
+      plain: `${n} separate contracts on the same event, and this one settled with more than one of them winning — a podium or top-N market. Each winning contract settles at ${settle.each} independently of the others, so a customer can hold a losing contract on an event that had several winners.` + ask,
     }
   }
+  // Nothing in the payload states whether these are mutually exclusive, and it
+  // is not safe to infer from prices. Say so and point at the terms.
   return {
     code: "multi", outcomeCount: n, exclusive: null, label: `${n} outcomes`,
-    plain: `${n} separate contracts, each paying $1 per contract if its outcome happens. Kyle cannot tell from this event's data whether only one of them can pay out or several can, so do not tell the customer that the others must have lost — check the event page if their question turns on it.` + ask,
+    plain: `${n} separate contracts, each settling at ${settle.each} if its outcome happens. Whether only one of them can win is set by the contract terms and this event's data does not state it — read the terms before telling a customer anything about the other outcomes.` + ask,
   }
 }
 
@@ -322,12 +358,38 @@ function kyleDates(event) {
   const e = event || {}
   const contracts = _kContracts(e)
   const c0 = contracts[0] || {}
+  // createdAt is when the record was created, which is not when trading opened.
+  // It is still the best available hint, so it is kept — under an honest label.
+  const opened = _kFirst(e.openDate, e.startDate, e.effectiveDate)
   return {
-    listed: _kFirst(e.openDate, e.startDate, e.effectiveDate, e.createdAt),
+    listed: opened || _kFirst(e.createdAt),
+    listedLabel: opened ? "Listed" : "Record created",
     eventStart: _kFirst(e.startTime, e.eventStartTime, e.gameTime),
     tradingCloses: _kFirst(e.closeDate, e.expiryDate, e.endDate, c0.closeDate, c0.expiryDate, c0.endDate),
     resolved: _kFirst(e.resolvedAt, e.settledAt, e.resolutionDate),
   }
+}
+
+// ── B4: the settlement value is read, never assumed ───────────────────────────
+// A winning contract pays its settlement value. That is $1 for a standard
+// binary contract, but lib/gemini.js carries a settlementValue parameter, so $1
+// is a default rather than a guarantee — and every payout figure Kyle prints
+// rests on it. When the payload publishes a value Kyle quotes that value; when
+// it does not, Kyle says "its full settlement value" rather than inventing a
+// number to put in a customer's email.
+function kyleSettlement(event) {
+  const e = event || {}
+  const c0 = _kContracts(e)[0] || {}
+  const raw = _kFirst(
+    e.settlementValue, e.settlement_value, e.payoutValue,
+    c0.settlementValue, c0.settlement_value, c0.payoutValue,
+  )
+  const value = _kNum(raw)
+  if (value === null) {
+    return { value: null, known: false, amount: "its full settlement value", each: "its full settlement value" }
+  }
+  const amount = "$" + (Number.isInteger(value) ? value.toFixed(2) : String(value))
+  return { value, known: true, amount, each: amount + " per contract" }
 }
 
 // Sports events carry a league; everything else carries a category. Agents
@@ -343,6 +405,17 @@ function kyleSubject(event) {
   }
 }
 
+// A price of 0.9999 rounds to "100%", which reads as certainty on a market
+// where nothing has been decided — and an agent will repeat it that way. Only
+// a settled contract is allowed to show 0 or 100.
+function _kPctLabel(price) {
+  if (price === null) return "—"
+  const pct = Math.round(price * 100)
+  if (pct >= 100 && price < 1) return ">99%"
+  if (pct <= 0 && price > 0) return "<1%"
+  return pct + "%"
+}
+
 function kyleOutcomes(event) {
   const contracts = _kContracts(event)
   const type = kyleType(event)
@@ -354,6 +427,9 @@ function kyleOutcomes(event) {
       name: String(_kContractName(c, `Outcome ${i + 1}`)),
       symbol: String(_kFirst(c.instrumentSymbol, c.instrument_symbol, c.ticker, "")),
       pct: price === null ? null : Math.round(price * 100),
+      pctLabel: _kPctLabel(price),
+      _price: price,
+      derived: false,
       result: side === "yes" ? "won" : side === "no" ? "lost" : null,
     }
   })
@@ -361,17 +437,30 @@ function kyleOutcomes(event) {
   // so an agent looking at a customer who "bet no" sees their side listed.
   if (type.code === "binary" && rows.length === 1) {
     const yes = rows[0]
+    // Gemini publishes one book for the YES contract. The NO figure here is
+    // 100 minus that — arithmetic, not a quote off the NO book — so it is
+    // marked derived and the UI labels it. An agent quoting it as the NO price
+    // would be quoting a number no one is trading at.
+    const yesRow = { ...yes, name: "YES — " + yes.name }
+    delete yesRow._price
     return [
-      { ...yes, name: "YES — " + yes.name },
+      yesRow,
       {
         name: "NO — the opposite",
         symbol: "",
         pct: yes.pct === null ? null : 100 - yes.pct,
+        // Complement the RAW price, not the rounded percentage: 1 - round(0.996)
+        // is exactly 0 and would print "0%", reintroducing the false certainty
+        // the label exists to prevent.
+        pctLabel: yes._price === null ? "—" : _kPctLabel(1 - yes._price),
+        derived: true,
         result: yes.result === "won" ? "lost" : yes.result === "lost" ? "won" : null,
       },
     ]
   }
-  return rows.sort((a, b) => (b.pct === null ? -1 : b.pct) - (a.pct === null ? -1 : a.pct))
+  rows.sort((a, b) => (b.pct === null ? -1 : b.pct) - (a.pct === null ? -1 : a.pct))
+  rows.forEach((r) => { delete r._price })
+  return rows
 }
 
 // The single winning outcome. On an event where several contracts can settle
@@ -396,7 +485,7 @@ function kyleIssues(event, now = Date.now()) {
 
   if (status.code === "voided") {
     issues.push({ level: "alert", title: "Event was voided",
-      body: "Do not quote a result. Voided events are unwound, so the customer's question is a refund question — escalate to settlement." })
+      body: "Do not quote a result, and do not describe how the trades were handled — Kyle reads no refund or unwind policy. Escalate to settlement." })
   }
 
   if (status.code === "closed" && closeT !== null) {
@@ -422,9 +511,9 @@ function kyleIssues(event, now = Date.now()) {
       body: `Trading stops ${_kRelative(dates.tradingCloses, now)}. If the customer wants to exit a position, they need to do it before then.` })
   }
 
-  if (status.code === "open" && closeT !== null && closeT <= now) {
-    issues.push({ level: "alert", title: "Data conflict: listed as open but the close time has passed",
-      body: "The event still reports an open state although its close time is in the past. Treat the state as unconfirmed and check the event page before answering." })
+  if (status.code === "conflict") {
+    issues.push({ level: "alert", title: "Gemini's status and its close time disagree",
+      body: "Gemini reports this event as open while the close time it publishes has already passed. Kyle will not pick a side, because telling a customer trading has stopped when it has not can cost them a position they wanted to exit. Confirm on the event page before you reply." })
   }
 
   if (!dates.tradingCloses) {
@@ -432,9 +521,9 @@ function kyleIssues(event, now = Date.now()) {
       body: "This event does not publish an end date, so Kyle cannot tell the customer when trading stops or when it resolves." })
   }
 
-  if (status.code !== "settled" && type.code === "multi") {
+  if (status.code !== "settled" && type.code === "multi" && type.outcomeCount) {
     issues.push({ level: "info", title: "Multiple outcomes — get the specific one",
-      body: `This event has ${type.outcomeCount} separate contracts${type.exclusive === false ? ", and more than one of them can pay out" : ""}. A position lookup needs the exact outcome the customer holds, not just the event name.` })
+      body: `This event has ${type.outcomeCount} separate contracts${type.exclusive === false ? ", and more than one of them can win" : ""}. A position lookup needs the exact outcome the customer holds, not just the event name.` })
   }
 
   if (resolvedT !== null && closeT !== null && resolvedT < closeT) {
@@ -458,6 +547,11 @@ function kyleBrief(event, now = Date.now(), options = {}) {
   const subject = kyleSubject(e)
 
   return {
+    // When this event was read from Gemini. Prices and status are a snapshot,
+    // and a tab left open all afternoon is quoting the morning's market — so
+    // the brief carries its own age rather than looking equally fresh forever.
+    retrievedAt: new Date(options.retrievedAt || now).toISOString(),
+    settlement: kyleSettlement(e),
     ticker,
     title: String(_kFirst(e.title, e.name, ticker, "Untitled event")),
     description: String(_kFirst(e.description, e.subtitle, "")),
@@ -469,11 +563,11 @@ function kyleBrief(event, now = Date.now(), options = {}) {
     // "when will it resolve" is the single most asked support question, so it
     // gets its own answered-or-not field rather than being inferred from dates.
     resolution: status.code === "settled" && dates.resolved
-      ? { known: true, text: `Resolved ${_kDateTime(dates.resolved)} (${_kRelative(dates.resolved, now)})` }
+      ? { known: true, text: `Resolved ${_kDateTimeUtc(dates.resolved)}` }
       : status.code === "settled"
         ? { known: false, text: "Marked settled, but no resolution timestamp was published." }
         : dates.tradingCloses
-          ? { known: false, text: `Not resolved yet. Trading ${_kTense(dates.tradingCloses, now)} ${_kDateTime(dates.tradingCloses)} (${_kRelative(dates.tradingCloses, now)}) and the result is published after that.` }
+          ? { known: false, text: `Not resolved yet. Trading ${_kTense(dates.tradingCloses, now)} ${_kDateTimeUtc(dates.tradingCloses)} and the result is published after that.` }
           : { known: false, text: "Not resolved yet, and no close date is published — Kyle cannot say when it will resolve." },
     outcomes: kyleOutcomes(e).map((o) => (
       focusSymbol && o.symbol && o.symbol.toUpperCase() === focusSymbol ? { ...o, focus: true } : o
@@ -498,43 +592,63 @@ function kyleBrief(event, now = Date.now(), options = {}) {
 // One sentence, written the way the agent will say it. A support agent should
 // not have to assemble this from a status pill and a date row: the whole point
 // of the page is that the answer is the first thing on it.
-function kyleHeadline(brief, now = Date.now()) {
+// `relative` renders "3 hours ago" for the screen. Copied text must not use it:
+// "It settled 1 hour ago", pasted into an email sent tomorrow, is false.
+function kyleHeadline(brief, now = Date.now(), { relative = true } = {}) {
   const b = brief || {}
   const dates = b.dates || {}
   const code = (b.status && b.status.code) || "unknown"
   const won = (b.outcomes || []).filter((o) => o.result === "won")
+  const pay = (b.settlement && b.settlement.each) || "its full settlement value"
+  const when = (iso, phrase) => {
+    if (!iso) return ""
+    return relative ? ` ${phrase} ${_kRelative(iso, now)}.` : ` ${phrase} ${_kDateTimeUtc(iso)}.`
+  }
 
   if (code === "voided") {
-    return "Gemini cancelled this event, so there is no result and no payout. Trades are unwound — this is a refund question, not a settlement question."
+    return "Gemini cancelled this event, so it has no result. How the trades were handled is a settlement question Kyle cannot answer — escalate rather than describing a refund."
   }
   if (code === "settled") {
-    const when = dates.resolved ? ` It settled ${_kRelative(dates.resolved, now)}.` : ""
-    if (won.length === 1) return `Finished — ${won[0].name} won.${when} Those contracts paid $1 each; every other contract paid $0.`
-    if (won.length > 1) return `Finished — ${won.length} outcomes won: ${won.map((o) => o.name).join(", ")}.${when} Each of those paid $1 per contract; every other contract paid $0.`
-    return `Finished, but the data does not say which outcome won.${when} Confirm the result on the event page before telling the customer anything about their payout.`
+    // Kyle reads a resolution state, never an account balance. It says what the
+    // contract does, not that the customer has been credited.
+    const at = when(dates.resolved, relative ? "It settled" : "Settled")
+    if (won.length === 1) return `Finished — ${won[0].name} won.${at} That contract settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+    if (won.length > 1) return `Finished — ${won.length} outcomes won: ${won.map((o) => o.name).join(", ")}.${at} Each of those settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+    return `Finished, but the data does not say which outcome won.${at} Confirm the result on the event page before telling the customer anything about their payout.`
+  }
+  if (code === "conflict") {
+    return `Gemini reports this event as open, but its published close time${when(dates.tradingCloses, relative ? "passed" : "was")} Kyle will not guess which is right — confirm on the event page before telling the customer whether they can still trade.`
   }
   if (code === "closed") {
-    const when = dates.tradingCloses ? ` Trading stopped ${_kRelative(dates.tradingCloses, now)}.` : ""
-    return `Trading is over and the result has not been published yet.${when} Nobody has been paid, and no position can be opened or closed.`
+    const at = when(dates.tradingCloses, relative ? "Trading stopped" : "Trading closed")
+    return `Gemini reports trading as closed, and no result has been published.${at} No contract has settled and no position can be opened or closed.`
   }
   if (code === "open") {
-    const when = dates.tradingCloses ? ` Trading closes ${_kRelative(dates.tradingCloses, now)}.` : ""
-    return `Still trading — nothing has been decided and nothing has paid out.${when} The customer can still buy or sell.`
+    const at = when(dates.tradingCloses, relative ? "Trading closes" : "Trading closes")
+    return `Gemini reports this event as open — nothing has been decided and no contract has settled.${at}`
   }
   return "Gemini did not return a state Kyle recognises. Do not tell the customer whether this is open or settled — check the event page first."
 }
 
 // Plain text an agent pastes straight into the ticket. No markup, no emoji —
 // it gets read by the next agent and sometimes by the customer.
-function kyleSummaryText(brief) {
+// The block an agent pastes into a ticket or a customer email. This is the only
+// part of Kyle that leaves the building, so it carries its own provenance: what
+// it is, where it came from, when it was read, and that it is not a statement
+// of the customer's account. Every timestamp is absolute UTC — a relative one
+// ("settled 1 hour ago") becomes false the moment the text is forwarded.
+function kyleSummaryText(brief, now = Date.now()) {
   const b = brief || {}
+  const pay = (b.settlement && b.settlement.each) || "its full settlement value"
   const lines = [
     `EVENT: ${b.title}`,
     b.ticker ? `TICKER: ${b.ticker}` : "",
-    `STATUS: ${b.status && b.status.label}`,
+    `STATUS: ${b.status && b.status.label} (as reported by Gemini)`,
     `TYPE: ${b.type && b.type.label}${b.sport ? ` — ${b.sport}` : ""}${b.category ? ` — ${b.category}` : ""}`,
-    b.dates && b.dates.tradingCloses ? `TRADING ${_kTense(b.dates.tradingCloses).toUpperCase()}: ${_kDateTime(b.dates.tradingCloses)}` : "",
-    b.dates && b.dates.resolved ? `RESOLVED: ${_kDateTime(b.dates.resolved)}` : "",
+    b.dates && b.dates.tradingCloses
+      ? `${b.status && b.status.code === "conflict" ? "PUBLISHED CLOSE TIME" : "TRADING " + _kTense(b.dates.tradingCloses, now).toUpperCase()}: ${_kDateTimeUtc(b.dates.tradingCloses)}`
+      : "",
+    b.dates && b.dates.resolved ? `RESOLVED: ${_kDateTimeUtc(b.dates.resolved)}` : "",
     b.resolution ? `RESOLUTION: ${b.resolution.text}` : "",
     (() => {
       const won = (b.outcomes || []).filter((o) => o.result === "won")
@@ -543,7 +657,9 @@ function kyleSummaryText(brief) {
         ? `WINNING OUTCOME: ${won[0].name}`
         : `WINNING OUTCOMES (${won.length}): ${won.map((o) => o.name).join(", ")}`
     })(),
-    (b.outcomes || []).filter((o) => o.focus).map((o) => `CONTRACT ASKED ABOUT: ${o.name}${o.result ? ` (${o.result === "won" ? "won — paid $1" : "did not win — paid $0"})` : ""}`).join("\n"),
+    (b.outcomes || []).filter((o) => o.focus).map((o) => `CONTRACT ASKED ABOUT: ${o.name}${
+      o.result === "won" ? ` (won — settles at ${pay})` : o.result === "lost" ? " (did not win — settles at zero)" : ""
+    }`).join("\n"),
     b.links && b.links.event ? `EVENT PAGE: ${b.links.event}` : "",
     b.links && b.links.api ? `API: ${b.links.api}` : "",
   ].filter(Boolean)
@@ -553,9 +669,17 @@ function kyleSummaryText(brief) {
     lines.push("FLAGS:")
     issues.forEach((i) => lines.push(`  - ${i.title}`))
   }
-  // The answer, then a blank line, then the reference block. The blank line is
-  // added here rather than as a list entry, which filter(Boolean) would drop.
-  return kyleHeadline(b) + "\n\n" + lines.join("\n")
+
+  const readAt = _kDateTimeUtc(b.retrievedAt) || _kDateTimeUtc(new Date(now).toISOString())
+  return [
+    kyleHeadline(b, now, { relative: false }),
+    "",
+    lines.join("\n"),
+    "",
+    `Source: Gemini Prediction Markets API, read ${readAt}.`,
+    "Event data only — not a statement of any customer's account, position, or payout.",
+    "Confirm the current state on the event page before quoting it to a customer.",
+  ].join("\n")
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -601,16 +725,25 @@ function _kFact(label, value, hint) {
 // The event title and ticker are already in the header, so repeating them in a
 // table is just more page between the reader and the answer.
 function kyleFactsHtml(b) {
+  const conflicted = b.status && b.status.code === "conflict"
   const closedAlready = _kTense(b.dates.tradingCloses) === "closed"
+  // Every timestamp shows UTC underneath the agent's local rendering. Gemini
+  // publishes UTC and that is what the customer sees on the event page, so an
+  // agent reading local time alone will quote a different day than the customer
+  // is looking at.
+  const stamp = (label, iso) => _kFact(label, _kDateTime(iso), iso ? `${_kDateTimeUtc(iso)} · ${_kRelative(iso)}` : "")
   return [
     _kFact("Type", b.type.label),
     _kFact("Sport", b.sport),
     _kFact("Category", b.category),
-    _kFact("Listed", _kDate(b.dates.listed)),
-    _kFact("Event starts", _kDateTime(b.dates.eventStart)),
-    _kFact(closedAlready ? "Trading closed" : "Trading closes", _kDateTime(b.dates.tradingCloses), _kRelative(b.dates.tradingCloses)),
-    _kFact("Resolved", _kDateTime(b.dates.resolved), _kRelative(b.dates.resolved)),
-    _kFact("Contracts", String(b.stats.contracts || "")),
+    _kFact(b.dates.listedLabel || "Listed", _kDate(b.dates.listed)),
+    stamp("Event starts", b.dates.eventStart),
+    stamp(conflicted ? "Published close time" : closedAlready ? "Trading closed" : "Trading closes", b.dates.tradingCloses),
+    stamp("Resolved", b.dates.resolved),
+    _kFact("Contracts", b.stats.contracts ? String(b.stats.contracts) : ""),
+    // Only shown when Gemini published it — a blank row is honest, an assumed
+    // "$1" is not.
+    _kFact("Winning contract settles at", b.settlement && b.settlement.known ? b.settlement.amount : ""),
     _kFact("Total traded", b.stats.volume),
   ].filter(Boolean).join("")
 }
@@ -631,10 +764,11 @@ function _kOutcomeHtml(o) {
     o.focus ? `<span class="k-tag k-tag-focus">pasted</span>` : "",
     o.result === "won" ? `<span class="k-tag k-tag-won">WON</span>` : "",
     o.result === "lost" ? `<span class="k-tag">lost</span>` : "",
+    o.derived && !o.result ? `<span class="k-tag" title="Calculated as 100% minus the YES price, not quoted off a NO book">calculated</span>` : "",
   ].join("")
   return `<div class="${cls}">
     <span class="k-outcome-name">${_kEsc(o.name)}${tags}</span>
-    <span class="k-outcome-pct">${o.result ? "" : o.pct === null ? "—" : _kEsc(o.pct + "%")}</span>
+    <span class="k-outcome-pct">${o.result ? "" : _kEsc(o.pctLabel || "—")}</span>
   </div>`
 }
 
@@ -673,11 +807,16 @@ function kyleBriefHtml(brief) {
       </div>
       <h1 class="k-title">${_kEsc(b.title)}</h1>
       <p class="k-headline">${_kEsc(kyleHeadline(b))}</p>
+      <div class="k-freshness" id="kyleFreshness" data-read="${_kEsc(b.retrievedAt)}">
+        <span id="kyleFreshnessText">Read from Gemini just now</span>
+        <button type="button" class="k-copy" onclick="kyleRefresh()">Re-read</button>
+      </div>
       ${b.description && b.description !== b.title ? `<p class="k-desc">${_kEsc(b.description)}</p>` : ""}
       <details class="k-explain">
         <summary>What kind of market is this?</summary>
         <p>${_kEsc(b.type.plain)}</p>
       </details>
+      <p class="k-disclaimer">Event data as published by Gemini. This is not a statement of any customer's account, position, or payout, and it is not advice — confirm balances and payouts in the customer's account before you write to them.</p>
     </div>
 
     ${issues ? `<section class="k-card k-card-flag">
@@ -721,6 +860,7 @@ function kyleBriefHtml(brief) {
 const KYLE_HAS_DOM = typeof document !== "undefined"
 let _kyleBrief = null
 let _kyleSeq = 0
+let _kyleFreshnessTimer = null
 
 function _kSet(html) {
   const el = document.getElementById("kyleResult")
@@ -800,11 +940,14 @@ async function kyleOpen(ticker) {
       const event = (data && data.event) || data
       // When the agent pasted a contract symbol, that contract is the customer's
       // position — mark it rather than leaving them to match it up by eye.
-      _kyleBrief = kyleBrief(event, Date.now(), { focusSymbol: ticker })
+      _kyleBrief = kyleBrief(event, Date.now(), { focusSymbol: ticker, retrievedAt: Date.now() })
       _kSet(kyleBriefHtml(_kyleBrief))
       const input = document.getElementById("kyleInput")
       if (input) input.value = _kyleBrief.ticker || candidate
       window.scrollTo({ top: 0, behavior: "smooth" })
+      kyleTickFreshness()
+      if (_kyleFreshnessTimer) clearInterval(_kyleFreshnessTimer)
+      _kyleFreshnessTimer = setInterval(kyleTickFreshness, 30000)
       return
     }
     if (seq !== _kyleSeq) return
@@ -816,6 +959,30 @@ async function kyleOpen(ticker) {
   } finally {
     if (seq === _kyleSeq) _kBusy(false)
   }
+}
+
+// Prices and status are a snapshot. A tab left open all afternoon looks exactly
+// as authoritative as one opened a second ago, so the age is stated, and past a
+// few minutes it stops being a quiet note and starts telling the agent to
+// re-read before quoting anything.
+const KYLE_STALE_AFTER_MS = 5 * 60 * 1000
+
+function kyleTickFreshness() {
+  const el = document.getElementById("kyleFreshness")
+  const text = document.getElementById("kyleFreshnessText")
+  if (!el || !text) return
+  const read = Date.parse(el.dataset.read || "")
+  if (!Number.isFinite(read)) return
+  const age = Date.now() - read
+  const stale = age >= KYLE_STALE_AFTER_MS
+  el.classList.toggle("k-stale", stale)
+  text.textContent = stale
+    ? `Read from Gemini ${_kRelative(new Date(read).toISOString())} — re-read before quoting this to a customer`
+    : `Read from Gemini ${age < 60000 ? "just now" : _kRelative(new Date(read).toISOString())}`
+}
+
+function kyleRefresh() {
+  if (_kyleBrief && _kyleBrief.ticker) kyleOpen(_kyleBrief.ticker)
 }
 
 function kyleToggleOutcomes() {
@@ -866,6 +1033,6 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     kyleParseQuery, kyleTickerCandidates, kyleStatus, kyleType, kyleExclusive, kyleDates, kyleSubject,
     kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleSummaryText,
-    kyleResultsHtml, kyleBriefHtml, kyleFactsHtml, kyleOutcomesHtml,
+    kyleResultsHtml, kyleBriefHtml, kyleFactsHtml, kyleOutcomesHtml, kyleSettlement,
   }
 }

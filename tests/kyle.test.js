@@ -32,8 +32,8 @@ test("a pasted Gemini link, a ticker and a customer's words are told apart", () 
 test("status separates open, closed-awaiting-result, settled and voided", () => {
   assert.equal(kyle.kyleStatus(openEvent(), NOW).code, "open")
 
-  // Trading time has passed but nothing has been published: not settled.
-  const closed = openEvent({ closeDate: new Date(NOW - 2 * HOUR).toISOString() })
+  // Gemini says trading is closed and nothing has been published: not settled.
+  const closed = openEvent({ status: "closed", closeDate: new Date(NOW - 2 * HOUR).toISOString() })
   assert.equal(kyle.kyleStatus(closed, NOW).code, "closed")
 
   const settled = openEvent({
@@ -59,7 +59,7 @@ test("a settled event names the winning outcome and the payout line", () => {
 })
 
 test("an event stuck unresolved a day after close is flagged for escalation", () => {
-  const stuck = openEvent({ closeDate: new Date(NOW - 3 * DAY).toISOString() })
+  const stuck = openEvent({ status: "closed", closeDate: new Date(NOW - 3 * DAY).toISOString() })
   const issues = kyle.kyleIssues(stuck, NOW)
   assert.ok(issues.some((i) => i.level === "alert" && /after trading closed/i.test(i.title)))
 })
@@ -182,82 +182,42 @@ test("pasting a contract symbol marks that contract as the one asked about", () 
 // Several contracts settle YES on a top-N event. Telling an agent "only one of
 // these can win" about one of those produces a wrong answer to the customer.
 
-test("independent top-N contracts are not described as mutually exclusive", () => {
+test("exclusivity is never inferred from prices", () => {
+  // The old heuristic summed contract prices. It read bestAsk, and in a real
+  // book the asks sum above 1 because of the spread, so genuinely exclusive
+  // markets read as "several can win" — wrong, and wrong systematically.
   const podium = {
-    ticker: "F1-ITAGP-POD-20260906",
-    title: "Italian Grand Prix — podium finish",
-    status: "active",
-    closeDate: new Date(NOW + DAY).toISOString(),
     contracts: [
       { label: "Verstappen", prices: { lastTradePrice: "0.72" } },
       { label: "Norris", prices: { lastTradePrice: "0.55" } },
       { label: "Albon", prices: { lastTradePrice: "0.11" } },
     ],
   }
-  assert.equal(kyle.kyleExclusive(podium), false)
-  const type = kyle.kyleType(podium)
-  assert.equal(type.exclusive, false)
-  assert.doesNotMatch(type.plain, /only one/i)
-  assert.match(type.plain, /several of them can pay out/i)
-})
-
-test("a field priced as shares of one outcome stays a pick-one market", () => {
-  const raceWinner = {
+  const twoWayThinBook = {
     contracts: [
-      { label: "Verstappen", prices: { lastTradePrice: "0.55" } },
-      { label: "Norris", prices: { lastTradePrice: "0.30" } },
-      { label: "Albon", prices: { lastTradePrice: "0.15" } },
+      { label: "Home", prices: { bestAsk: "0.72" } },
+      { label: "Away", prices: { bestAsk: "0.66" } },
     ],
   }
-  assert.equal(kyle.kyleExclusive(raceWinner), true)
-  assert.match(kyle.kyleType(raceWinner).plain, /only one of them can happen/i)
-
-  const headToHead = {
-    contracts: [
-      { label: "Yankees", prices: { lastTradePrice: "0.6" } },
-      { label: "Red Sox", prices: { lastTradePrice: "0.4" } },
-    ],
+  for (const [name, event] of [["podium", podium], ["thin two-way", twoWayThinBook]]) {
+    assert.equal(kyle.kyleExclusive(event), null, `${name}: prices must not decide exclusivity`)
+    const plain = kyle.kyleType(event).plain
+    assert.doesNotMatch(plain, /only one of them can happen/i, `${name} must not claim exclusivity`)
+    assert.doesNotMatch(plain, /several of them can pay out/i, `${name} must not deny exclusivity`)
+    assert.match(plain, /contract terms/i, `${name} should send the agent to the terms`)
   }
-  assert.equal(kyle.kyleType(headToHead).code, "head2head")
 })
 
-test("an explicit exclusivity flag beats the price heuristic", () => {
-  const flagged = {
-    mutuallyExclusive: true,
-    contracts: [
-      { label: "A", prices: { lastTradePrice: "0.9" } },
-      { label: "B", prices: { lastTradePrice: "0.9" } },
-    ],
-  }
-  assert.equal(kyle.kyleExclusive(flagged), true)
+test("an explicit exclusivity flag is honoured in both directions", () => {
+  const two = [{ label: "A", prices: { lastTradePrice: "0.9" } }, { label: "B", prices: { lastTradePrice: "0.9" } }]
+  assert.equal(kyle.kyleExclusive({ mutuallyExclusive: true, contracts: two }), true)
+  assert.equal(kyle.kyleExclusive({ mutually_exclusive: false, contracts: two }), false)
+  assert.match(kyle.kyleType({ mutuallyExclusive: true, contracts: two }).plain, /only one of them can happen/i)
 })
 
-test("with no flag and no prices Kyle says it cannot tell, rather than guessing", () => {
-  const unpriced = { contracts: [{ label: "A" }, { label: "B" }, { label: "C" }] }
-  assert.equal(kyle.kyleExclusive(unpriced), null)
-  assert.match(kyle.kyleType(unpriced).plain, /cannot tell/i)
-})
-
-test("a settled top-N event reports every winning outcome", () => {
-  const settled = {
-    ticker: "F1-ITAGP-POD-20260906",
-    title: "Italian Grand Prix — podium finish",
-    status: "settled",
-    resolvedAt: new Date(NOW - HOUR).toISOString(),
-    closeDate: new Date(NOW - 2 * HOUR).toISOString(),
-    contracts: [
-      { label: "Verstappen", resolutionSide: "yes" },
-      { label: "Norris", resolutionSide: "yes" },
-      { label: "Albon", resolutionSide: "no" },
-    ],
-  }
-  const brief = kyle.kyleBrief(settled, NOW)
-  assert.equal(brief.winner, null, "there is no single winner on a multi-winner event")
-  assert.match(kyle.kyleSummaryText(brief), /WINNING OUTCOMES \(2\): Verstappen, Norris/)
-  assert.ok(
-    !brief.issues.some((i) => /no winning outcome/i.test(i.title)),
-    "two published winners must not trip the missing-winner alert"
-  )
+test("a single yes/no contract is exclusive by construction", () => {
+  assert.equal(kyle.kyleExclusive({ type: "binary", contracts: [{ label: "Yes" }] }), true)
+  assert.equal(kyle.kyleType({ type: "binary", contracts: [{ label: "Yes" }] }).code, "binary")
 })
 
 test("a settled event's own resolution sides decide exclusivity, not its prices", () => {
@@ -285,8 +245,8 @@ test("a settled event's own resolution sides decide exclusivity, not its prices"
 
 test("the headline states the outcome, not the status word", () => {
   const open = kyle.kyleBrief(openEvent(), NOW)
-  assert.match(kyle.kyleHeadline(open, NOW), /Still trading/)
-  assert.match(kyle.kyleHeadline(open, NOW), /nothing has paid out/)
+  assert.match(kyle.kyleHeadline(open, NOW), /reports this event as open/i)
+  assert.match(kyle.kyleHeadline(open, NOW), /no contract has settled/i)
 
   const settled = kyle.kyleBrief(openEvent({
     status: "settled",
@@ -294,10 +254,10 @@ test("the headline states the outcome, not the status word", () => {
     contracts: [{ label: "Yes", resolutionSide: "yes" }],
   }), NOW)
   assert.match(kyle.kyleHeadline(settled, NOW), /Finished/)
-  assert.match(kyle.kyleHeadline(settled, NOW), /paid \$1/)
+  assert.match(kyle.kyleHeadline(settled, NOW), /settles at/i)
 
-  // The ticket summary opens with the same sentence the agent just read.
-  assert.ok(kyle.kyleSummaryText(settled).startsWith(kyle.kyleHeadline(settled)))
+  // The ticket summary opens with the same sentence, in its absolute form.
+  assert.ok(kyle.kyleSummaryText(settled, NOW).startsWith(kyle.kyleHeadline(settled, NOW, { relative: false })))
 })
 
 test("a long outcome field collapses but never hides a winner or the pasted contract", () => {
@@ -468,4 +428,148 @@ test("the Gemini theme carries the brand blue across the page, not just the butt
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16))
   assert.ok(b > r && b > g, `the page tint ${bg} should lean blue`)
   assert.match(block, /--k-fallback:\s*linear-gradient/, "the Gemini page should carry a brand wash")
+})
+
+// ══ Accuracy hardening ════════════════════════════════════════════════════════
+// Kyle's output is read aloud to customers and pasted into emails by a public
+// company. Each test below fixes a case where Kyle stated something it could
+// not source. The rule they enforce together: Kyle reports what the API says,
+// and names the gap everywhere else.
+
+test("Gemini's status is never overruled by the agent's clock", () => {
+  // Telling a customer trading has stopped, on the strength of a browser clock,
+  // can cost them a position they wanted to exit.
+  const stillOpen = openEvent({ status: "active", closeDate: new Date(NOW - 3 * HOUR).toISOString() })
+  const status = kyle.kyleStatus(stillOpen, NOW)
+  assert.equal(status.code, "conflict")
+  assert.doesNotMatch(status.plain, /trading has stopped/i)
+  assert.match(status.plain, /will not guess|confirm/i)
+})
+
+test("the status/close-time conflict raises a flag that can actually fire", () => {
+  // The flag written for this case used to be unreachable: it was gated on a
+  // status the clock override had already made impossible.
+  const conflicted = openEvent({ status: "active", closeDate: new Date(NOW - 3 * HOUR).toISOString() })
+  const issues = kyle.kyleIssues(conflicted, NOW)
+  assert.ok(issues.some((i) => i.level === "alert" && /disagree/i.test(i.title)), "the conflict must be flagged")
+})
+
+test("settlement is described as what the contract does, never as a completed payout", () => {
+  const settled = kyle.kyleBrief(openEvent({
+    status: "settled",
+    resolvedAt: new Date(NOW - HOUR).toISOString(),
+    contracts: [{ label: "Yes", resolutionSide: "yes" }],
+  }), NOW)
+  const surfaces = [settled.status.plain, kyle.kyleHeadline(settled, NOW), kyle.kyleSummaryText(settled, NOW)]
+  for (const text of surfaces) {
+    assert.doesNotMatch(text, /have paid out|has been paid|were paid|paid \$1/i,
+      "Kyle reads a resolution state, not an account credit")
+  }
+  assert.match(settled.status.plain, /cannot see whether an individual account has been credited/i)
+})
+
+test("the settlement value is read from the payload, not assumed to be $1", () => {
+  assert.equal(kyle.kyleSettlement({ contracts: [{ label: "Yes" }] }).known, false)
+  assert.match(kyle.kyleSettlement({ contracts: [{ label: "Yes" }] }).each, /full settlement value/i)
+
+  const published = kyle.kyleSettlement({ settlementValue: 1, contracts: [{ label: "Yes" }] })
+  assert.equal(published.known, true)
+  assert.equal(published.amount, "$1.00")
+
+  const nonStandard = kyle.kyleSettlement({ contracts: [{ label: "Yes", settlementValue: 5 }] })
+  assert.equal(nonStandard.amount, "$5.00")
+  assert.match(kyle.kyleType({ type: "binary", settlementValue: 5, contracts: [{ label: "Yes" }] }).plain, /\$5\.00/)
+})
+
+test("an undecided market never displays 0% or 100%", () => {
+  for (const price of ["0.9999", "0.996", "0.0001", "0.004"]) {
+    const [yes, no] = kyle.kyleOutcomes({ type: "binary", contracts: [{ label: "Yes", prices: { lastTradePrice: price } }] })
+    for (const row of [yes, no]) {
+      assert.notEqual(row.pctLabel, "100%", `price ${price} rendered certainty`)
+      assert.notEqual(row.pctLabel, "0%", `price ${price} rendered impossibility`)
+      assert.match(row.pctLabel, /^(>99%|<1%|\d{1,2}%)$/)
+    }
+  }
+  // An ordinary price is still shown plainly.
+  const [mid] = kyle.kyleOutcomes({ type: "binary", contracts: [{ label: "Yes", prices: { lastTradePrice: "0.5" } }] })
+  assert.equal(mid.pctLabel, "50%")
+})
+
+test("the derived NO side is marked as calculated, not quoted", () => {
+  const [, no] = kyle.kyleOutcomes({ type: "binary", contracts: [{ label: "Yes", prices: { lastTradePrice: "0.42" } }] })
+  assert.equal(no.derived, true)
+  const html = kyle.kyleBriefHtml(kyle.kyleBrief(openEvent(), NOW))
+  assert.match(html, /calculated/, "the calculated row must be labelled on the page")
+})
+
+test("the copied block carries its own provenance", () => {
+  const brief = kyle.kyleBrief(openEvent({ ticker: "BTC2609082100" }), NOW)
+  const text = kyle.kyleSummaryText(brief, NOW)
+  assert.match(text, /Source: Gemini Prediction Markets API, read \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC\./)
+  assert.match(text, /not a statement of any customer's account, position, or payout/i)
+  assert.match(text, /Confirm the current state on the event page/i)
+  assert.match(text, /as reported by Gemini/i)
+})
+
+test("copied timestamps are absolute UTC, because relative ones go stale on send", () => {
+  const brief = kyle.kyleBrief(openEvent({
+    status: "settled",
+    resolvedAt: new Date(NOW - HOUR).toISOString(),
+  }), NOW)
+  const text = kyle.kyleSummaryText(brief, NOW)
+  assert.doesNotMatch(text, /\b(ago|in \d+ (minute|hour|day|month))/i, "no relative time may survive into copied text")
+  assert.match(text, /\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/)
+})
+
+test("the brief records when it was read, and the page shows its age", () => {
+  const brief = kyle.kyleBrief(openEvent(), NOW, { retrievedAt: NOW })
+  assert.equal(brief.retrievedAt, new Date(NOW).toISOString())
+  const html = kyle.kyleBriefHtml(brief)
+  assert.match(html, /id="kyleFreshness"/)
+  assert.match(html, /data-read="[^"]+"/)
+  assert.match(html, /kyleRefresh\(\)/)
+})
+
+test("the disclaimer sits with the answer, not only in the page footer", () => {
+  const html = kyle.kyleBriefHtml(kyle.kyleBrief(openEvent(), NOW))
+  assert.match(html, /not a statement of any customer's account/i)
+})
+
+test("a voided event never describes how the trades were handled", () => {
+  const voided = kyle.kyleBrief(openEvent({ status: "cancelled" }), NOW)
+  for (const text of [voided.status.plain, kyle.kyleHeadline(voided, NOW), kyle.kyleSummaryText(voided, NOW)]) {
+    assert.doesNotMatch(text, /unwound|refund(ed)? (is|are|will)/i, "refund mechanics are Gemini policy Kyle does not read")
+  }
+  assert.match(voided.status.plain, /cannot tell you how the trades/i)
+})
+
+test("a payload with no contracts describes no outcomes", () => {
+  const listRow = { ticker: "USOPENM26", title: "US Open", status: "active" }
+  const type = kyle.kyleType(listRow)
+  assert.equal(type.code, "unlisted")
+  assert.equal(type.outcomeCount, null)
+  assert.doesNotMatch(type.label, /\b0\b/, "never claim zero outcomes")
+  assert.doesNotMatch(type.plain, /\b0 separate contracts/)
+  assert.deepEqual(kyle.kyleIssues(listRow, NOW).filter((i) => /Multiple outcomes/.test(i.title)), [])
+})
+
+test("'Listed' is not silently the record-creation time", () => {
+  assert.equal(kyle.kyleDates({ openDate: "2026-01-01T00:00:00Z" }).listedLabel, "Listed")
+  assert.equal(kyle.kyleDates({ createdAt: "2026-01-01T00:00:00Z" }).listedLabel, "Record created")
+})
+
+test("on-page timestamps show UTC alongside the agent's local time", () => {
+  const brief = kyle.kyleBrief(openEvent(), NOW)
+  assert.match(kyle.kyleFactsHtml(brief), /UTC/, "the customer sees UTC on gemini.com")
+})
+
+test("a conflicted event does not label its close time as already closed", () => {
+  // The row label is derived from the clock; on a conflict it would otherwise
+  // contradict the banner directly above it.
+  const conflicted = kyle.kyleBrief(openEvent({ status: "active", closeDate: new Date(NOW - 3 * HOUR).toISOString() }), NOW)
+  assert.equal(conflicted.status.code, "conflict")
+  const facts = kyle.kyleFactsHtml(conflicted)
+  assert.match(facts, /Published close time/)
+  assert.doesNotMatch(facts, /Trading closed/)
+  assert.match(kyle.kyleSummaryText(conflicted, NOW), /PUBLISHED CLOSE TIME:/)
 })
