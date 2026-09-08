@@ -11,6 +11,28 @@ Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase predictio
 - **kyle.html / kyle.js** — "Kyle", the customer-support event brief (third tab, after Analyze and Settlement Desk). A Gemini CS agent pastes what a customer sent them — an event name in their own words, a ticker, or a gemini.com link — and gets a plain-English brief: what the event is, whether it is open / closed-awaiting-result / settled / voided, the dates, the winning outcome once it settles, and the things to check before replying. It reads the existing read-only routes (`/api/gemini` for one event, `/api/gemini-markets?resource=events&search=` for a name search) and adds no upstream surface. Everything above the DOM section of `kyle.js` is pure and covered by `tests/kyle.test.js`.
 - **api/*.js** — Vercel serverless functions for predara.org production. Keep these as thin HTTP shells: put the logic in `lib/` so `server.js` runs the same code path locally. `api/kalshi.js` and `api/polymarket.js` have not been migrated to `lib/` yet — change them only with care, since production deploys directly from this directory.
 
+## Service worker caching
+
+`sw.js` splits its strategy by what is being requested, and the split matters:
+
+- **Pages are network-first**, falling back to the cache only when the fetch
+  fails. A page carries the site's navigation, so serving a stale one strands
+  the user on an old version of the app — that is how the Kyle tab went missing
+  from the Settlement Desk header for anyone who had opened that page before
+  Kyle shipped. Cache-first handed them the old HTML and refreshed it only in
+  the background, so a new tab did not appear until their *second* visit after
+  a deploy, and never for someone who visited once. Pages are small and change
+  on every deploy; there is nothing to gain by serving them from cache first.
+- **Assets are cache-first**, refreshed behind the response. This is where the
+  speed and the offline shell actually come from, so it stays.
+- **Bump `CACHE_NAME` on any change returning users must not miss.** Old caches
+  are deleted on activate, which is the only thing that clears an entry already
+  poisoned with stale HTML.
+
+`tests/navigation.test.js` asserts both strategies and that all three pages link
+to each other, because "the link is right there in the markup" was true the
+whole time the tab was unreachable.
+
 ## Kyle — the support brief
 
 Kyle is not a smaller Analyze page and must not drift into one. Its reader is a
