@@ -1,0 +1,124 @@
+{
+  "id": "214396",
+  "title": "Italian Grand Prix Winner",
+  "slug": "italian-grand-prix-winner",
+  "type": "categorical",
+  "category": "Sports",
+  "ticker": "F1-ITAGP-WIN-20260906",
+  "status": "settled",
+  "createdAt": "2026-08-25T15:30:57.134Z",
+  "contracts": [
+    {
+      "id": "1",
+      "label": "Alexander Albon",
+      "description": {
+        "content": [
+          {
+            "value": "This market resolves to Yes if Alexander Albon is officially declared the winner of the Formula 1 Grand Prix originally scheduled for September 6, 2026 at 9:00 AM ET. Otherwise, it will resolve to No. The Underlying is the official result of the specified sporting event. Source Agencies, in order, are the league governing the event (FIA), ESPN, Fox Sports, and the broadcast partner of the event.",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {},
+        "sell": {}
+      },
+      "status": "settled",
+      "termsAndConditionsUrl": "https://assets.gemini.com/x.pdf",
+      "ticker": "ALB",
+      "instrumentSymbol": "GEMI-F1-ITAGP-WIN-20260906-ALB",
+      "marketState": "closed",
+      "abbreviatedName": "ALB",
+      "expiryDate": "2026-09-06T17:00:00.000Z",
+      "resolutionSide": "no",
+      "resolvedAt": "2026-09-06T19:45:05.670Z",
+      "effectiveDate": "2026-08-25T15:31:00.000Z",
+      "priceIncrement": "0.01",
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "3",
+      "label": "Andrea Kimi Antonelli",
+      "description": {
+        "content": [
+          {
+            "value": "This market resolves to Yes if Andrea Kimi Antonelli is officially declared the winner of the Formula 1 Grand Prix originally scheduled for September 6, 2026 at 9:00 AM ET. Otherwise, it will resolve to No.",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {},
+        "sell": {}
+      },
+      "status": "settled",
+      "termsAndConditionsUrl": "https://assets.gemini.com/x.pdf",
+      "ticker": "ANT",
+      "instrumentSymbol": "GEMI-F1-ITAGP-WIN-20260906-ANT",
+      "marketState": "closed",
+      "abbreviatedName": "ANT",
+      "expiryDate": "2026-09-06T17:00:00.000Z",
+      "resolutionSide": "yes",
+      "resolvedAt": "2026-09-06T19:45:37.124Z",
+      "effectiveDate": "2026-08-25T15:31:00.000Z"
+    },
+    {
+      "id": "20",
+      "label": "Max Verstappen",
+      "prices": {
+        "buy": {},
+        "sell": {}
+      },
+      "status": "settled",
+      "ticker": "VER",
+      "instrumentSymbol": "GEMI-F1-ITAGP-WIN-20260906-VER",
+      "marketState": "closed",
+      "abbreviatedName": "VER",
+      "expiryDate": "2026-09-06T17:00:00.000Z",
+      "resolutionSide": "no",
+      "resolvedAt": "2026-09-06T19:44:12.257Z"
+    }
+  ],
+  "effectiveDate": "2026-08-25T15:30:57.134Z",
+  "isLive": false,
+  "participants": [],
+  "description": "Italian Grand Prix Winner",
+  "resolvedAt": "2026-09-06T21:01:16.212Z",
+  "volume": "5253.45",
+  "volume24h": "0",
+  "tags": [
+    "F1"
+  ],
+  "expiryDate": "2026-09-06T17:00:00.000Z",
+  "startTime": "2026-09-06T13:00:00.000Z",
+  "termsLink": "https://assets.gemini.com/predictions/terms_and_conditions/Sporting_Win_Lose_Event_2.pdf",
+  "subcategory": {
+    "id": 108,
+    "slug": "sports_motorsports_f1",
+    "name": "F1",
+    "path": [
+      "Sports",
+      "Motorsports",
+      "F1"
+    ]
+  },
+  "template": "categorical",
+  "gameId": "6326049",
+  "settlement": {},
+  "sourceDetails": {
+    "agency": "statscore-rest-api",
+    "index": "Motorsport"
+  },
+  "sportsMarket": {
+    "sport": "motorsports",
+    "type": "prop",
+    "subject": "participant",
+    "scope": {
+      "type": "race"
+    },
+    "metric": "finishing_position"
+  },
+  "_note": "Trimmed from a real Gemini response for F1-ITAGP-WIN-20260906 (3 of 20 contracts kept, boilerplate stripped). Field names and shapes are verbatim \u2014 this is the only payload Kyle has been verified against, so do not hand-edit it to make a test pass."
+}

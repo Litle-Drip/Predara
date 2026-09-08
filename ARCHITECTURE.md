@@ -57,6 +57,15 @@ support agent mid-ticket who has never traded a prediction market, so:
   priced as shares of one outcome and sum near 100%; independent top-N contracts
   sum far past it), and returns null rather than guessing when neither is
   available. `kyleWinner()` is therefore the *single* winner or null.
+- **Verified against one real response.**
+  `tests/fixtures/gemini-settled-categorical.json` is a trimmed but verbatim
+  capture of `F1-ITAGP-WIN-20260906`. Before it, every field name in Kyle was
+  inferred from what `adapters.js` happened to read. It confirmed
+  `resolutionSide: "yes"|"no"`, `status: "settled"`, and `expiryDate` as the
+  close; it also showed there is no top-level `sport`, no `settlementValue`
+  (the `settlement` key is an empty object), and that prices nest under
+  `prices.buy` / `prices.sell` rather than the flat `bestAsk` the code reads.
+  Do not hand-edit the fixture to make a test pass — recapture it.
 - **Gemini's status is the status.** Kyle never overrules the venue's own
   `status` with the agent's browser clock. When the published close time has
   passed but Gemini still reports the event open, that is a `conflict` state

@@ -573,3 +573,92 @@ test("a conflicted event does not label its close time as already closed", () =>
   assert.doesNotMatch(facts, /Trading closed/)
   assert.match(kyle.kyleSummaryText(conflicted, NOW), /PUBLISHED CLOSE TIME:/)
 })
+
+// ══ Verified against a real Gemini response ═══════════════════════════════════
+// tests/fixtures/gemini-settled-categorical.json is a trimmed but verbatim
+// capture of F1-ITAGP-WIN-20260906. Until this landed, every field name in Kyle
+// was inferred from what adapters.js happened to read. These tests pin Kyle to
+// the one payload shape that has actually been observed.
+const REAL_EVENT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "fixtures", "gemini-settled-categorical.json"), "utf8")
+)
+const REAL_NOW = Date.parse("2026-09-08T18:00:00Z")
+
+test("a real settled categorical event reports the right winner and state", () => {
+  const brief = kyle.kyleBrief(REAL_EVENT, REAL_NOW)
+  assert.equal(brief.status.code, "settled")
+  assert.equal(brief.ticker, "F1-ITAGP-WIN-20260906")
+  assert.equal(brief.title, "Italian Grand Prix Winner")
+  assert.ok(brief.winner, "the winning contract must be identified")
+  assert.equal(brief.winner.name, "Andrea Kimi Antonelli")
+  // Exactly one contract carries resolutionSide "yes"; the rest are "no".
+  assert.equal(brief.outcomes.filter((o) => o.result === "won").length, 1)
+  assert.equal(kyle.kyleExclusive(REAL_EVENT), true)
+})
+
+test("the real payload's dates map to the right rows", () => {
+  const { dates } = kyle.kyleBrief(REAL_EVENT, REAL_NOW)
+  assert.equal(dates.tradingCloses, "2026-09-06T17:00:00.000Z", "event.expiryDate is the close")
+  assert.equal(dates.resolved, "2026-09-06T21:01:16.212Z")
+  assert.equal(dates.eventStart, "2026-09-06T13:00:00.000Z", "startTime is when the race began")
+  assert.equal(dates.listedLabel, "Listed", "effectiveDate is a real listing date, not createdAt")
+})
+
+test("the sport is found even though the payload has no top-level sport field", () => {
+  const brief = kyle.kyleBrief(REAL_EVENT, REAL_NOW)
+  assert.equal(brief.sport, "F1", "subcategory.name carries the league")
+  assert.equal(brief.category, "Sports")
+  assert.notEqual(brief.sport, brief.category, "never print the same label twice")
+})
+
+test("the contract's own resolution wording is surfaced, with its source feed", () => {
+  const criteria = kyle.kyleResolution(REAL_EVENT)
+  assert.ok(criteria, "the criteria text must be extracted from the rich-text document")
+  assert.match(criteria.text, /officially declared the winner/)
+  assert.match(criteria.text, /Source Agencies/)
+  assert.equal(criteria.isExample, true, "one contract's wording stands in for the event")
+  assert.equal(criteria.agency, "statscore-rest-api")
+  assert.doesNotMatch(criteria.text, /\]\(https?:/, "markdown link syntax must not reach the page")
+
+  // Pasting a specific contract shows that contract's wording, not a stand-in.
+  const focused = kyle.kyleResolution(REAL_EVENT, "GEMI-F1-ITAGP-WIN-20260906-ANT")
+  assert.equal(focused.isExample, false)
+  assert.match(focused.text, /Andrea Kimi Antonelli/)
+})
+
+test("the real payload publishes no settlement value, so no amount is invented", () => {
+  // There is a `settlement` key, but it is an empty object — Kyle must not
+  // print "$1" on the strength of a convention.
+  assert.deepEqual(REAL_EVENT.settlement, {})
+  const brief = kyle.kyleBrief(REAL_EVENT, REAL_NOW)
+  assert.equal(brief.settlement.known, false)
+  assert.doesNotMatch(kyle.kyleSummaryText(brief, REAL_NOW), /\$1\b/)
+})
+
+test("settled contracts show a result rather than a price, with an empty book", () => {
+  // prices are {buy:{},sell:{}} on a settled event — no percentage may appear.
+  const brief = kyle.kyleBrief(REAL_EVENT, REAL_NOW)
+  for (const outcome of brief.outcomes) {
+    assert.ok(outcome.result, "every contract on a settled event has a result")
+  }
+  const html = kyle.kyleBriefHtml(brief)
+  assert.doesNotMatch(html, /k-outcome-pct">\s*\d/, "no price is shown for a settled contract")
+})
+
+test("an open event with an unreadable price book says so instead of showing dashes", () => {
+  const live = JSON.parse(JSON.stringify(REAL_EVENT))
+  live.status = "active"
+  live.expiryDate = new Date(REAL_NOW + DAY).toISOString()
+  delete live.resolvedAt
+  live.contracts.forEach((c) => { delete c.resolutionSide; delete c.resolvedAt; c.prices = { buy: {}, sell: {} } })
+  const issues = kyle.kyleIssues(live, REAL_NOW)
+  assert.ok(issues.some((i) => /No prices returned/.test(i.title)), "an agent must not read blank rows as zero")
+})
+
+test("the whole brief renders from the real payload without a hole in it", () => {
+  const html = kyle.kyleBriefHtml(kyle.kyleBrief(REAL_EVENT, REAL_NOW))
+  for (const expected of ["Italian Grand Prix Winner", "Andrea Kimi Antonelli", "F1", "How this resolves"]) {
+    assert.ok(html.includes(expected), `the brief is missing ${expected}`)
+  }
+  assert.doesNotMatch(html, /undefined|\[object Object\]|NaN/, "no unrendered value may reach the page")
+})
