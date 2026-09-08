@@ -326,7 +326,14 @@ test("the Kyle page ships four themes and never hardcodes a colour into the mark
     assert.ok(html.includes(`kyleSetTheme('${theme}')`), `${theme} has no picker button`)
   }
   // Every illustrated theme must degrade to a gradient if its artwork is absent.
-  assert.equal((html.match(/--k-fallback:/g) || []).length, 3)
+  for (const theme of ["mars", "seas", "astro"]) {
+    const marker = `body[data-theme="${theme}"]`
+    // Slice past the marker itself, then stop at the next theme block.
+    const after = html.slice(html.indexOf(marker) + marker.length)
+    const block = after.split("body[data-theme=")[0]
+    assert.match(block, /--k-art:\s*url\(/, `${theme} should load artwork`)
+    assert.match(block, /--k-fallback:/, `${theme} must stay readable without its artwork`)
+  }
   assert.ok(html.includes('data-theme="gemini"'), "the clean Gemini theme is the default")
 })
 
@@ -410,4 +417,55 @@ test("nothing renders white text directly on the raw brand accent", () => {
   const offenders = html.split("\n").filter((line) =>
     /background:\s*var\(--orange\)/.test(line) && /color:\s*(#fff|#ffffff|white)/i.test(line))
   assert.deepEqual(offenders, [], "filled elements must use --k-fill/--k-on-fill, not --orange with #fff")
+})
+
+// ── Single-word event tickers ─────────────────────────────────────────────────
+// Most of the non-sports catalogue has no hyphen in its event ticker, so an
+// instrument symbol for one is only two segments after the venue prefix. The
+// candidate walk used to stop while two segments remained, which meant it never
+// emitted the bare ticker and every one of those symbols dead-ended.
+test("an instrument symbol reaches a single-word event ticker", () => {
+  const candidates = kyle.kyleTickerCandidates("GEMI-USOPENM26-ALCARAZ")
+  assert.equal(candidates[0], "GEMI-USOPENM26-ALCARAZ", "the pasted value is still tried first")
+  assert.ok(candidates.includes("USOPENM26"), "the event ticker must be among the candidates")
+})
+
+test("hyphenated tickers still resolve, and a bare ticker costs one lookup", () => {
+  assert.ok(kyle.kyleTickerCandidates("GEMI-F1-ITAGP-POD-20260906-ALB").includes("F1-ITAGP-POD-20260906"))
+  assert.deepEqual(kyle.kyleTickerCandidates("USOPENM26"), ["USOPENM26"])
+  assert.deepEqual(kyle.kyleTickerCandidates("FEDJUL26"), ["FEDJUL26"])
+})
+
+test("candidate stripping never produces an empty ticker", () => {
+  for (const input of ["GEMI-ABC", "GEMI-", "A-B", "X"]) {
+    for (const candidate of kyle.kyleTickerCandidates(input)) {
+      assert.ok(candidate.length > 0, `"${input}" produced an empty candidate`)
+      assert.doesNotMatch(candidate, /^-|-$/, `"${input}" produced a ragged candidate "${candidate}"`)
+    }
+  }
+})
+
+// ── Card order ────────────────────────────────────────────────────────────────
+// The links belong with the identifiers an agent is acting on, not below a
+// field of outcomes they have to scroll past.
+test("the hand-off card sits directly under Details, above Outcomes", () => {
+  const brief = kyle.kyleBrief(openEvent({ ticker: "USOPENM26" }), NOW)
+  const html = kyle.kyleBriefHtml(brief)
+  const details = html.indexOf(">Details<")
+  const actions = html.indexOf('class="k-actions"')
+  const outcomes = html.indexOf(">Outcomes")
+  assert.ok(details < actions, "the hand-off must come after Details")
+  assert.ok(actions < outcomes, "the hand-off must come before Outcomes")
+})
+
+test("the Gemini theme carries the brand blue across the page, not just the buttons", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "kyle.html"), "utf8")
+  const marker = 'body[data-theme="gemini"]'
+  const block = html.slice(html.indexOf(marker) + marker.length).split("body[data-theme=")[0]
+  // The page itself is tinted rather than white or grey.
+  const bg = block.match(/--bg:\s*(#[0-9a-fA-F]{6})/)[1].toLowerCase()
+  assert.notEqual(bg, "#ffffff", "the Gemini page should be tinted, not white")
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16))
+  assert.ok(b > r && b > g, `the page tint ${bg} should lean blue`)
+  assert.match(block, /--k-fallback:\s*linear-gradient/, "the Gemini page should carry a brand wash")
 })
