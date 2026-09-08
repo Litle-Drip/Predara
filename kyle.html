@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kyle — Predara</title>
+  <meta name="description" content="Plain-English event briefs for customer support: what a prediction market event is, whether it is open or settled, and when it resolves.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/og-image.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f0f11;
+      --card:        #18181c;
+      --border:      #27272e;
+      --border-hi:   #3a3a42;
+      --text:        #b4b4c0;
+      --text-mid:    #d0d0da;
+      --text-bright: #ededf2;
+      --muted:       #6b6b7a;
+      --orange:      #d94f20;
+      --orange-dim:  rgba(217,79,32,0.12);
+      --orange-bg:   rgba(217,79,32,0.08);
+      --bar-bg:      #222228;
+      --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25);
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
+      --rec-bg:      rgba(255,255,255,0.03);
+      --confirmed-pill-bg:    #0f8a5e; --confirmed-pill-text:    #e2f7ee;
+      --discrepancy-pill-bg:  #c73a2f; --discrepancy-pill-text:  #fceceb;
+      --needs-pill-bg:        #a37012; --needs-pill-text:        #fdf3dc;
+      --error-pill-bg:        #333;    --error-pill-text:        #aaa;
+    }
+
+    body.light {
+      --bg:          #f7f7f5;
+      --card:        #ffffff;
+      --border:      #e6e6e4;
+      --border-hi:   #d0d0ce;
+      --text:        #4a4a52;
+      --text-mid:    #2e2e38;
+      --text-bright: #16161a;
+      --muted:       #8e8e9a;
+      --orange:      #c8421a;
+      --orange-dim:  rgba(200,66,26,0.1);
+      --orange-bg:   rgba(200,66,26,0.06);
+      --bar-bg:      #eeeeed;
+      --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+      --shadow-sm:   0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
+      --rec-bg:      rgba(0,0,0,0.03);
+      --error-pill-bg: #ddd; --error-pill-text: #555;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .app {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    .logo-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .app-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .app-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+    .app-title {
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--text-bright);
+      letter-spacing: -0.4px;
+    }
+
+    .app-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+      margin-top: 2px;
+    }
+
+    /* ── Tab nav ── */
+    .tab-nav {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: auto;
+      background: var(--bar-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .tab-nav a {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 5px 11px;
+      border-radius: 5px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
+    .tab-nav a.active { background: var(--orange); color: #fff; }
+
+    /* ── Theme toggle ── */
+    .theme-toggle {
+      margin-left: 10px;
+      background: var(--bar-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 6px 9px;
+      transition: color 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .theme-toggle:hover { color: var(--text-bright); border-color: var(--border-hi); }
+
+    /* ── Intake panel ── */
+    .intake {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 30px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .intake-label {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 6px;
+      letter-spacing: -0.7px;
+    }
+
+    .intake-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 20px;
+    }
+
+    .intake-row { display: flex; gap: 8px; }
+
+    .intake-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text-bright);
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+      min-width: 0;
+    }
+
+    .intake-row input::placeholder { color: var(--muted); }
+
+    .intake-row input:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px var(--orange-dim);
+    }
+
+    .btn-review {
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+      letter-spacing: 0.2px;
+    }
+
+    .btn-review:hover { opacity: 0.88; }
+    .btn-review:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .shortcut-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 42px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Kyle ── support-agent brief. Status is the loudest thing on the page:
+       the reader's first question is always "is this still running?" ── */
+    .k-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      border-radius: 999px;
+      white-space: nowrap;
+      background: var(--bar-bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .k-pill.k-good { background: var(--confirmed-pill-bg); color: var(--confirmed-pill-text); border-color: transparent; }
+    .k-pill.k-warn { background: var(--needs-pill-bg);     color: var(--needs-pill-text);     border-color: transparent; }
+    .k-pill.k-bad  { background: var(--discrepancy-pill-bg); color: var(--discrepancy-pill-text); border-color: transparent; }
+    .k-pill.k-done { background: var(--orange); color: #fff; border-color: transparent; }
+
+    .k-status {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--muted);
+      border-radius: 14px;
+      padding: 22px 26px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .k-status.k-good { border-left-color: var(--confirmed-pill-bg); }
+    .k-status.k-warn { border-left-color: var(--needs-pill-bg); }
+    .k-status.k-bad  { border-left-color: var(--discrepancy-pill-bg); }
+    .k-status.k-done { border-left-color: var(--orange); }
+
+    .k-status-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .k-status-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+    .k-title { font-size: 21px; font-weight: 700; color: var(--text-bright); letter-spacing: -0.5px; margin: 10px 0 8px; line-height: 1.3; }
+    .k-status-plain { font-size: 14px; color: var(--text-mid); line-height: 1.65; }
+
+    .k-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 26px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .k-card-flag { border-color: var(--needs-pill-bg); }
+
+    .k-card-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .k-lede { font-size: 15px; color: var(--text-bright); line-height: 1.6; margin-bottom: 10px; }
+    .k-plain { font-size: 13px; color: var(--text); line-height: 1.7; }
+
+    .k-row { display: flex; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .k-row:last-child { border-bottom: none; }
+    .k-row-key { flex: 0 0 148px; color: var(--muted); }
+    .k-row-val { flex: 1; color: var(--text-bright); min-width: 0; overflow-wrap: anywhere; }
+    .k-row-hint { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .k-issue { border-left: 3px solid var(--border-hi); padding: 2px 0 2px 12px; margin-bottom: 14px; }
+    .k-issue:last-child { margin-bottom: 0; }
+    .k-issue-alert { border-left-color: var(--discrepancy-pill-bg); }
+    .k-issue-warn  { border-left-color: var(--needs-pill-bg); }
+    .k-issue-info  { border-left-color: var(--border-hi); }
+    .k-issue-title { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
+    .k-issue-body { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+    .k-outcome {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; margin-top: 8px;
+    }
+    .k-outcome-won  { border-color: var(--confirmed-pill-bg); background: var(--rec-bg); }
+    .k-outcome-lost { opacity: 0.6; }
+    .k-outcome-name { font-size: 13px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .k-outcome-pct { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-mid); }
+    .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
+    .k-tag-won { background: var(--confirmed-pill-bg); color: var(--confirmed-pill-text); border-color: transparent; }
+
+    .k-stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 11px; color: var(--muted); }
+
+    .k-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .k-btn {
+      background: var(--orange); color: #fff; border: none; border-radius: 9px;
+      padding: 9px 15px; font: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    .k-btn:hover { opacity: 0.88; }
+    .k-btn-quiet { background: var(--bar-bg); color: var(--text-mid); border: 1px solid var(--border); }
+
+    .k-summary {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 14px 16px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    /* ── Search results ── */
+    .k-results-head { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .k-result {
+      display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left;
+      background: var(--card); border: 1px solid var(--border); border-radius: 11px;
+      padding: 13px 16px; margin-bottom: 8px; cursor: pointer; font: inherit;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .k-result:hover { border-color: var(--orange); background: var(--rec-bg); }
+    /* Fixed pill column so a row of results reads as a column of titles, not a ragged edge. */
+    .k-result .k-pill { flex: 0 0 74px; text-align: center; }
+    .k-result-body { flex: 1; min-width: 0; }
+    .k-result-title { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-bright); margin-bottom: 4px; }
+    .k-result-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); }
+
+    /* ── Empty / error / first-run ── */
+    .k-empty {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 24px 26px; box-shadow: var(--shadow-sm);
+    }
+    .k-empty-err { border-color: var(--discrepancy-pill-bg); }
+    .k-empty-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; }
+    .k-empty-body { font-size: 13px; color: var(--text); line-height: 1.7; }
+
+    .k-primer { margin-top: 14px; }
+    .k-primer dt { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-top: 12px; }
+    .k-primer dd { font-size: 13px; color: var(--text); line-height: 1.7; margin-top: 2px; }
+
+    @media (max-width: 560px) {
+      .app { padding: 18px 14px 56px; }
+      .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+      .tab-nav { margin-left: 0; order: 2; flex: 1; }
+      .tab-nav a { flex: 1; text-align: center; }
+      .theme-toggle { order: 2; margin-left: 0; }
+      .intake { padding: 22px 18px; }
+      .intake-row { flex-direction: column; }
+      .btn-review { width: 100%; }
+      .k-status, .k-card { padding: 18px 16px; }
+      .k-row { flex-direction: column; gap: 2px; }
+      .k-row-key { flex: none; }
+      .footer { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body class="light">
+
+<div class="app">
+
+  <div class="app-header">
+    <a class="logo-link" href="/" title="Back to Analyze">
+      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
+      <div>
+        <div class="app-title">Predara</div>
+        <div class="app-subtitle">Independent prediction market intelligence</div>
+      </div>
+    </a>
+    <nav class="tab-nav" aria-label="App sections">
+      <a href="/">Analyze</a>
+      <a href="/settlement.html">Settlement Desk</a>
+      <a href="/kyle.html" class="active" aria-current="page">Kyle</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+  </div>
+
+  <div class="intake">
+    <div class="intake-label">Kyle — support event lookup</div>
+    <div class="intake-desc">
+      A customer is asking about an event. Paste what they sent you — the event name in their own
+      words, the ticker, or the Gemini link — and Kyle explains in plain English what the event is,
+      whether it is still open, when it closes or closed, whether it has paid out, and anything
+      about it you should know before you reply.
+    </div>
+    <div class="intake-row">
+      <input
+        id="kyleInput"
+        type="text"
+        aria-label="Event name, ticker, or Gemini link"
+        placeholder="e.g. “will the Fed cut rates in January”, FEDJAN26, or a gemini.com link"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        onkeydown="if(event.key==='Enter')kyleSubmit()"
+      />
+      <button class="btn-review" id="kyleBtn" onclick="kyleSubmit()">Look up ↗</button>
+    </div>
+    <div class="shortcut-hint">Press Enter to look it up. Read-only — Kyle cannot change an event, a position, or a payout.</div>
+  </div>
+
+  <div id="kyleResult">
+    <div class="k-empty">
+      <div class="k-empty-title">New here? Read this once.</div>
+      <div class="k-empty-body">
+        Gemini prediction markets let people buy contracts on whether something will happen.
+        Everything below follows from three ideas.
+      </div>
+      <dl class="k-primer">
+        <dt>An event is the question. A contract is one answer to it.</dt>
+        <dd>“Will the Fed cut rates in January?” is the event. YES and NO are its contracts. A customer never holds “the event” — they hold one specific contract, so always ask which one.</dd>
+
+        <dt>Every winning contract pays exactly $1. Every losing one pays $0.</dt>
+        <dd>That is the whole payout rule. What a customer paid for the contract is what they risked; $1 per contract is what they collect if they were right.</dd>
+
+        <dt>An event is open, closed, or settled — and that decides your answer.</dt>
+        <dd><strong>Open:</strong> still trading, nothing decided, no payouts. <strong>Closed:</strong> trading stopped, result not published yet, nobody paid. <strong>Settled:</strong> finished, result final, winners paid. “Where is my money?” means something different in each of the three.</dd>
+
+        <dt>A percentage is a price, not a fact.</dt>
+        <dd>A contract trading at 70% means people are paying 70¢ for a $1 payout. It is what traders think, not what Gemini predicts. Never quote it to a customer as the odds of something happening.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>Read-only event information for support use. Not trading advice.</span>
+    <span>Confirm final results and payouts with the settlement team.</span>
+  </footer>
+
+</div>
+
+<script src="kyle.js?v=1"></script>
+<script>
+  /* ── Theme ── (light by default, matching the Analyze and Settlement pages) */
+  ;(function() {
+    if (localStorage.getItem('predara-theme') === 'dark') {
+      document.body.classList.remove('light')
+      const btn = document.getElementById('themeToggle')
+      if (btn) btn.textContent = '☾'
+    }
+  })()
+
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light')
+    localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
+    document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
+  }
+</script>
+
+</body>
+</html>

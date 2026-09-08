@@ -8,7 +8,29 @@ Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase predictio
 - **server.js** — Local dev HTTP server on port 5000 / 0.0.0.0. Proxies API calls to Kalshi (authenticated via RSA-signed JWT), Polymarket (public gamma API) and Gemini (public, unauthenticated). Serves static files.
 - **app.js** — Client-side rendering. Detects platform from URL, fetches data via `/api/kalshi` or `/api/polymarket`, renders: "WHAT'S THE BET?" explainer, outcomes, bet simulator, resolution rules, timeline, trader analytics, glossary tooltips, and volume stats.
 - **index.html** — Single-page app shell with all CSS inline.
+- **kyle.html / kyle.js** — "Kyle", the customer-support event brief (third tab, after Analyze and Settlement Desk). A Gemini CS agent pastes what a customer sent them — an event name in their own words, a ticker, or a gemini.com link — and gets a plain-English brief: what the event is, whether it is open / closed-awaiting-result / settled / voided, the dates, the winning outcome once it settles, and the things to check before replying. It reads the existing read-only routes (`/api/gemini` for one event, `/api/gemini-markets?resource=events&search=` for a name search) and adds no upstream surface. Everything above the DOM section of `kyle.js` is pure and covered by `tests/kyle.test.js`.
 - **api/*.js** — Vercel serverless functions for predara.org production. Keep these as thin HTTP shells: put the logic in `lib/` so `server.js` runs the same code path locally. `api/kalshi.js` and `api/polymarket.js` have not been migrated to `lib/` yet — change them only with care, since production deploys directly from this directory.
+
+## Kyle — the support brief
+
+Kyle is not a smaller Analyze page and must not drift into one. Its reader is a
+support agent mid-ticket who has never traded a prediction market, so:
+
+- **State first.** Open / closed-awaiting-result / settled / voided is the top of
+  the page, because it decides the whole answer: "where is my money?" means
+  something different in each. `kyleStatus()` takes the status string, the
+  resolution timestamp and the per-contract `resolutionSide` as three votes,
+  since Gemini spells the state differently across payloads.
+- **Never guess on the agent's behalf.** An event marked settled with no winning
+  contract published is an alert to escalate, not an inference from prices. A
+  missing close date is stated as missing. An agent repeating an invented
+  settlement date to a customer is worse than one saying "I need to check".
+- **No trading language.** No EV, Kelly, edge, spread or fee model. A percentage
+  is labelled as a price traders are paying, with an explicit "do not quote this
+  to a customer as odds".
+- **Every number is either a fact or an identifier.** Tickers and instrument
+  symbols are there to be pasted into a ticket; the hand-off card emits the whole
+  brief as plain text for exactly that.
 
 ## Page Layout Order (beginner-first)
 1. Event title + urgency banner
