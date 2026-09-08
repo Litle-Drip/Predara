@@ -72,6 +72,14 @@ support agent mid-ticket who has never traded a prediction market, so:
   a two-column fact grid, no row repeating the title or ticker already in the
   header, the market-type explainer behind a disclosure, and a long outcome
   field collapsed to six — with winners and any pasted contract pinned visible.
+- **The raw API record is a first-class link.** Agents open
+  `api.gemini.com/v1/prediction-markets/events/{TICKER}` on essentially every
+  ticket: it is the source Kyle itself reads, so it is what to quote when a
+  customer disputes the page and what to attach when escalating. It appears as
+  a link, as selectable text with a copy button (agents paste it more often
+  than they open it), and as a line in the ticket summary. It is built from the
+  ticker Kyle *resolved*, never from what the agent pasted — a contract symbol
+  would 404 the same way the original lookup did.
 - **Themes are Kyle's alone.** Four of them (`gemini` default, `mars`, `seas`,
   `astro`) set the same token names the shared shell reads, stored under
   `predara-kyle-theme` so picking one here does not change the Analyze or
@@ -80,6 +88,16 @@ support agent mid-ticket who has never traded a prediction market, so:
   `--k-fallback` gradient so the theme is complete and readable with the image
   missing or still loading. Cards stay near-opaque: the art is atmosphere and
   must never compete with the brief.
+
+  Each theme carries three accent tokens, because one colour cannot do all
+  three jobs. `--orange` is the brand accent and appears only where nothing
+  sits on top of it — borders, focus rings, tints. `--k-fill` is the button
+  background and `--k-on-fill` the text on it; `--k-ink` is the accent used as
+  small text on a card. A brand colour bright enough to read as the brand is
+  rarely dark enough to carry white 12px text: Gemini blue `#0093F5` with white
+  is 3.2:1 against the 4.5:1 WCAG AA needs at that size, and all four themes
+  failed the same check before the split. `tests/kyle.test.js` computes the
+  ratio rather than trusting the eye.
 - **Every number is either a fact or an identifier.** Tickers and instrument
   symbols are there to be pasted into a ticket; the hand-off card emits the whole
   brief as plain text for exactly that.

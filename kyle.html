@@ -94,7 +94,7 @@
     }
 
     .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
-    .tab-nav a.active { background: var(--orange); color: #fff; }
+    .tab-nav a.active { background: var(--k-fill); color: var(--k-on-fill); }
 
     /* ── Theme toggle ── */
     .theme-toggle {
@@ -161,8 +161,8 @@
     }
 
     .btn-review {
-      background: var(--orange);
-      color: #fff;
+      background: var(--k-fill);
+      color: var(--k-on-fill);
       border: none;
       border-radius: 10px;
       padding: 12px 20px;
@@ -212,7 +212,17 @@
        Contrast rule for all four: cards stay near-opaque and text sits on the
        card, never directly on the artwork. A support agent reads this page
        under time pressure — the art is atmosphere, it never competes with the
-       answer. */
+       answer.
+
+       Three accent tokens per theme, because one colour cannot do all three
+       jobs. --orange is the brand accent and is only ever used where nothing
+       sits on top of it: borders, focus rings, tints. --k-fill is the button
+       background and --k-on-fill the text on it; --k-ink is the accent used as
+       small text on a card. A brand colour bright enough to read as the brand
+       is rarely dark enough to carry white 12px text: Gemini blue #0093F5 with
+       white is 3.2:1, against the 4.5:1 WCAG AA needs for text that size. The
+       split keeps the brand visible on the chrome and the labels legible.
+    */
 
     body[data-theme="gemini"] {
       --bg:          #f4f7fd;
@@ -223,11 +233,14 @@
       --text-mid:    #2a3a55;
       --text-bright: #0b1a33;
       --muted:       #7b8aa5;
-      --orange:      #0057ff;   /* the accent token is named for Predara's brand; here it carries Gemini blue */
-      --orange-dim:  rgba(0,87,255,0.12);
-      --orange-bg:   rgba(0,87,255,0.06);
-      --bar-bg:      #eaf0fb;
-      --rec-bg:      rgba(0,87,255,0.04);
+      --orange:      #0093f5;   /* Gemini brand blue — chrome only, never under text */
+      --k-fill:      #0077c8;   /* darkened so white 12px labels clear 4.5:1 */
+      --k-on-fill:   #ffffff;
+      --k-ink:       #0077c8;
+      --orange-dim:  rgba(0,147,245,0.14);
+      --orange-bg:   rgba(0,147,245,0.07);
+      --bar-bg:      #eaf1fc;
+      --rec-bg:      rgba(0,147,245,0.05);
       --k-art:       none;
       --k-scrim:     none;
     }
@@ -242,6 +255,9 @@
       --text-bright: #fff1e8;
       --muted:       #c08a72;
       --orange:      #ff6b35;
+      --k-fill:      #c2410c;
+      --k-on-fill:   #ffffff;
+      --k-ink:       #ff8a5c;
       --orange-dim:  rgba(255,107,53,0.20);
       --orange-bg:   rgba(255,107,53,0.10);
       --bar-bg:      rgba(255,255,255,0.06);
@@ -263,6 +279,9 @@
       --text-bright: #eafcff;
       --muted:       #74b3ba;
       --orange:      #f2c14e;   /* the submersible's gold, against the teal */
+      --k-fill:      #f2c14e;   /* light enough that the label on it must be dark, not white */
+      --k-on-fill:   #052b33;
+      --k-ink:       #f2c14e;
       --orange-dim:  rgba(242,193,78,0.20);
       --orange-bg:   rgba(242,193,78,0.10);
       --bar-bg:      rgba(255,255,255,0.06);
@@ -284,6 +303,9 @@
       --text-bright: #241d14;
       --muted:       #93856f;
       --orange:      #c07a1e;   /* the ski suit's gold */
+      --k-fill:      #a2650f;
+      --k-on-fill:   #ffffff;
+      --k-ink:       #a2650f;
       --orange-dim:  rgba(192,122,30,0.14);
       --orange-bg:   rgba(192,122,30,0.07);
       --bar-bg:      #eae2d2;
@@ -318,7 +340,17 @@
     }
     .k-swatch:hover { transform: translateY(-1px); border-color: var(--border-hi); }
     .k-swatch[aria-pressed="true"] { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-dim); }
-    .k-swatch-gemini { background: linear-gradient(135deg, #ffffff 0 50%, #0057ff 50% 100%); }
+    .k-swatch-gemini {
+      background: #0093f5;
+      position: relative;
+    }
+    /* The white mark centred on the blue disc, matching Gemini's own lockup. */
+    .k-swatch-gemini::after {
+      content: "";
+      position: absolute; inset: 0; margin: auto;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #ffffff;
+    }
     .k-swatch-mars   { background: linear-gradient(135deg, #ff8a4c 0 50%, #7d2b16 50% 100%); }
     .k-swatch-seas   { background: linear-gradient(135deg, #35d6c4 0 50%, #1a6bd6 50% 100%); }
     .k-swatch-astro  { background: linear-gradient(135deg, #f4efe2 0 50%, #c07a1e 50% 100%); }
@@ -337,7 +369,7 @@
     .k-pill.k-good { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
     .k-pill.k-warn { background: #a37012; color: #fdf3dc; border-color: transparent; }
     .k-pill.k-bad  { background: #c73a2f; color: #fceceb; border-color: transparent; }
-    .k-pill.k-done { background: var(--orange); color: #fff; border-color: transparent; }
+    .k-pill.k-done { background: var(--k-fill); color: var(--k-on-fill); border-color: transparent; }
 
     /* ── The answer ── */
     .k-answer {
@@ -414,17 +446,38 @@
     .k-outcome-pct  { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-mid); }
     .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
     .k-tag-won   { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
-    .k-tag-focus { background: var(--orange); color: #fff; border-color: transparent; }
+    .k-tag-focus { background: var(--k-fill); color: var(--k-on-fill); border-color: transparent; }
 
     .k-link-btn {
       background: none; border: none; padding: 4px 0; font: inherit; font-size: 12px;
-      color: var(--orange); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+      color: var(--k-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
     }
+
+    /* ── The raw API URL ──
+       Shown as text and not only as a link, because agents paste it into
+       tickets and escalations rather than only opening it. */
+    .k-apirow {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 10px; padding: 8px 10px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
+    }
+    .k-apiurl {
+      flex: 1; min-width: 0;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+      color: var(--text-mid); overflow-wrap: anywhere; user-select: all;
+    }
+    .k-copy {
+      flex-shrink: 0;
+      background: var(--bar-bg); color: var(--text-mid);
+      border: 1px solid var(--border); border-radius: 7px;
+      padding: 5px 10px; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .k-copy:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     /* ── Actions ── */
     .k-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .k-btn {
-      background: var(--orange); color: #fff; border: none; border-radius: 9px;
+      background: var(--k-fill); color: var(--k-on-fill); border: none; border-radius: 9px;
       padding: 9px 15px; font: inherit; font-size: 12px; font-weight: 600;
       cursor: pointer; text-decoration: none; display: inline-block;
     }
