@@ -259,3 +259,73 @@ test("a settled top-N event reports every winning outcome", () => {
     "two published winners must not trip the missing-winner alert"
   )
 })
+
+test("a settled event's own resolution sides decide exclusivity, not its prices", () => {
+  const podium = {
+    status: "settled",
+    contracts: [
+      { label: "Verstappen", resolutionSide: "yes" },
+      { label: "Norris", resolutionSide: "yes" },
+      { label: "Piastri", resolutionSide: "yes" },
+      { label: "Leclerc", resolutionSide: "no" },
+    ],
+  }
+  assert.equal(kyle.kyleExclusive(podium), false, "three winners cannot be mutually exclusive")
+
+  const raceWinner = {
+    status: "settled",
+    contracts: [
+      { label: "Verstappen", resolutionSide: "yes" },
+      { label: "Norris", resolutionSide: "no" },
+      { label: "Piastri", resolutionSide: "no" },
+    ],
+  }
+  assert.equal(kyle.kyleExclusive(raceWinner), true)
+})
+
+test("the headline states the outcome, not the status word", () => {
+  const open = kyle.kyleBrief(openEvent(), NOW)
+  assert.match(kyle.kyleHeadline(open, NOW), /Still trading/)
+  assert.match(kyle.kyleHeadline(open, NOW), /nothing has paid out/)
+
+  const settled = kyle.kyleBrief(openEvent({
+    status: "settled",
+    resolvedAt: new Date(NOW - HOUR).toISOString(),
+    contracts: [{ label: "Yes", resolutionSide: "yes" }],
+  }), NOW)
+  assert.match(kyle.kyleHeadline(settled, NOW), /Finished/)
+  assert.match(kyle.kyleHeadline(settled, NOW), /paid \$1/)
+
+  // The ticket summary opens with the same sentence the agent just read.
+  assert.ok(kyle.kyleSummaryText(settled).startsWith(kyle.kyleHeadline(settled)))
+})
+
+test("a long outcome field collapses but never hides a winner or the pasted contract", () => {
+  const many = {
+    ticker: "F1-ITAGP-POD-20260906",
+    status: "settled",
+    contracts: Array.from({ length: 22 }, (_, i) => ({
+      label: `Driver ${i + 1}`,
+      instrumentSymbol: `GEMI-F1-ITAGP-POD-20260906-D${i + 1}`,
+      resolutionSide: i < 3 ? "yes" : "no",
+    })),
+  }
+  const brief = kyle.kyleBrief(many, NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-D20" })
+  const html = kyle.kyleOutcomesHtml(brief)
+  const beforeCollapse = html.split('id="kyleMoreOutcomes"')[0]
+  for (const name of ["Driver 1", "Driver 2", "Driver 3", "Driver 20"]) {
+    assert.ok(beforeCollapse.includes(name), `${name} must stay visible without expanding`)
+  }
+  assert.match(html, /Show \d+ more/)
+})
+
+test("the Kyle page ships four themes and never hardcodes a colour into the markup", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "kyle.html"), "utf8")
+  for (const theme of ["gemini", "mars", "seas", "astro"]) {
+    assert.ok(html.includes(`body[data-theme="${theme}"]`), `${theme} theme tokens are missing`)
+    assert.ok(html.includes(`kyleSetTheme('${theme}')`), `${theme} has no picker button`)
+  }
+  // Every illustrated theme must degrade to a gradient if its artwork is absent.
+  assert.equal((html.match(/--k-fallback:/g) || []).length, 3)
+  assert.ok(html.includes('data-theme="gemini"'), "the clean Gemini theme is the default")
+})
