@@ -329,3 +329,85 @@ test("the Kyle page ships four themes and never hardcodes a colour into the mark
   assert.equal((html.match(/--k-fallback:/g) || []).length, 3)
   assert.ok(html.includes('data-theme="gemini"'), "the clean Gemini theme is the default")
 })
+
+// ── The raw API record ────────────────────────────────────────────────────────
+// Agents open the upstream event JSON on essentially every ticket: it is the
+// source Kyle itself reads, so it is what to quote when a customer disputes the
+// page and what to attach when escalating.
+
+test("the brief carries the upstream API URL for the event", () => {
+  const brief = kyle.kyleBrief(openEvent({ ticker: "BTC2609082100" }), NOW)
+  assert.equal(brief.links.api, "https://api.gemini.com/v1/prediction-markets/events/BTC2609082100")
+})
+
+test("the API URL is built from the resolved event, not from what was pasted", () => {
+  // The agent pasted a contract symbol; the API link must point at the event
+  // that was actually found, or it 404s exactly like the original lookup did.
+  const event = {
+    ticker: "F1-ITAGP-POD-20260906",
+    title: "Italian Grand Prix Podium",
+    status: "active",
+    closeDate: new Date(NOW + DAY).toISOString(),
+    contracts: [{ label: "Albon", instrumentSymbol: "GEMI-F1-ITAGP-POD-20260906-ALB", prices: { lastTradePrice: "0.11" } }],
+  }
+  const brief = kyle.kyleBrief(event, NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-ALB" })
+  assert.ok(brief.links.api.endsWith("/events/F1-ITAGP-POD-20260906"))
+  assert.ok(!brief.links.api.includes("ALB"))
+})
+
+test("the API URL reaches the ticket, the page, and a copy button", () => {
+  const brief = kyle.kyleBrief(openEvent({ ticker: "BTC2609082100" }), NOW)
+  assert.match(kyle.kyleSummaryText(brief), /^API: https:\/\/api\.gemini\.com\/v1\/prediction-markets\/events\/BTC2609082100$/m)
+  const html = kyle.kyleBriefHtml(brief)
+  assert.match(html, /API response ↗/)
+  assert.match(html, /id="kyleApiUrl"/)
+  assert.match(html, /kyleCopyApiUrl\(\)/)
+})
+
+test("an event with no ticker offers no links rather than a broken one", () => {
+  const brief = kyle.kyleBrief({ title: "Untitled", status: "active", contracts: [{ label: "Yes" }] }, NOW)
+  assert.equal(brief.links.api, "")
+  assert.doesNotMatch(kyle.kyleBriefHtml(brief), /API response/)
+  assert.doesNotMatch(kyle.kyleSummaryText(brief), /^API:/m)
+})
+
+// ── Theme contrast ────────────────────────────────────────────────────────────
+// A brand colour bright enough to read as the brand is rarely dark enough to
+// carry white 12px text. Gemini blue #0093F5 with white is 3.2:1, against the
+// 4.5:1 WCAG AA needs at that size — so the fill is a darkened variant and the
+// brand colour is kept for chrome. This asserts the arithmetic, not the taste.
+function contrast(a, b) {
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)))
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+  }
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+test("every theme's button label clears WCAG AA against its fill", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "kyle.html"), "utf8")
+  for (const theme of ["gemini", "mars", "seas", "astro"]) {
+    const block = html.slice(html.indexOf(`body[data-theme="${theme}"]`))
+    const fill = block.match(/--k-fill:\s*(#[0-9a-fA-F]{6})/)
+    const onFill = block.match(/--k-on-fill:\s*(#[0-9a-fA-F]{6})/)
+    assert.ok(fill && onFill, `${theme} is missing a fill/on-fill pair`)
+    const ratio = contrast(fill[1], onFill[1])
+    assert.ok(ratio >= 4.5, `${theme}: ${onFill[1]} on ${fill[1]} is ${ratio.toFixed(2)}:1, below AA 4.5:1`)
+  }
+})
+
+test("the Gemini theme uses the brand blue on its chrome", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "kyle.html"), "utf8")
+  const block = html.slice(html.indexOf('body[data-theme="gemini"]'), html.indexOf('body[data-theme="mars"]'))
+  assert.match(block, /--orange:\s*#0093f5/i, "the brand blue should be the theme accent")
+  assert.match(html, /\.k-swatch-gemini \{\s*background: #0093f5/i, "the picker swatch should be the blue disc")
+})
+
+test("nothing renders white text directly on the raw brand accent", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "kyle.html"), "utf8")
+  const offenders = html.split("\n").filter((line) =>
+    /background:\s*var\(--orange\)/.test(line) && /color:\s*(#fff|#ffffff|white)/i.test(line))
+  assert.deepEqual(offenders, [], "filled elements must use --k-fill/--k-on-fill, not --orange with #fff")
+})

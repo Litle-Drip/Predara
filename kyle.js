@@ -19,6 +19,13 @@
 // Everything above the DOM section is pure so tests/ can exercise it directly.
 
 const KYLE_EVENT_URL = (ticker) => `https://www.gemini.com/predictions/${ticker}`
+
+// The upstream record for an event, unstyled and complete. Agents open this on
+// every ticket — it is the source Kyle itself reads, so it is the thing to
+// quote when a customer disputes what the page says, and the thing to attach
+// when escalating. Built from the same ticker Kyle resolved, so it is always
+// the event actually on screen rather than whatever the agent pasted.
+const KYLE_API_URL = (ticker) => `https://api.gemini.com/v1/prediction-markets/events/${ticker}`
 const KYLE_SEARCH_LIMIT = 12
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -471,6 +478,7 @@ function kyleBrief(event, now = Date.now(), options = {}) {
     },
     links: {
       event: ticker ? KYLE_EVENT_URL(ticker) : "",
+      api: ticker ? KYLE_API_URL(ticker) : "",
       terms: String(_kFirst(e.termsLink, e._contract_url, contracts[0] && contracts[0].termsAndConditionsUrl) || ""),
     },
   }
@@ -511,8 +519,6 @@ function kyleHeadline(brief, now = Date.now()) {
 function kyleSummaryText(brief) {
   const b = brief || {}
   const lines = [
-    kyleHeadline(b),
-    "",
     `EVENT: ${b.title}`,
     b.ticker ? `TICKER: ${b.ticker}` : "",
     `STATUS: ${b.status && b.status.label}`,
@@ -529,6 +535,7 @@ function kyleSummaryText(brief) {
     })(),
     (b.outcomes || []).filter((o) => o.focus).map((o) => `CONTRACT ASKED ABOUT: ${o.name}${o.result ? ` (${o.result === "won" ? "won — paid $1" : "did not win — paid $0"})` : ""}`).join("\n"),
     b.links && b.links.event ? `EVENT PAGE: ${b.links.event}` : "",
+    b.links && b.links.api ? `API: ${b.links.api}` : "",
   ].filter(Boolean)
 
   const issues = (b.issues || []).filter((i) => i.level !== "info")
@@ -536,7 +543,9 @@ function kyleSummaryText(brief) {
     lines.push("FLAGS:")
     issues.forEach((i) => lines.push(`  - ${i.title}`))
   }
-  return lines.join("\n")
+  // The answer, then a blank line, then the reference block. The blank line is
+  // added here rather than as a list entry, which filter(Boolean) would drop.
+  return kyleHeadline(b) + "\n\n" + lines.join("\n")
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -681,8 +690,13 @@ function kyleBriefHtml(brief) {
       <div class="k-actions">
         <button class="k-btn" onclick="kyleCopySummary()">Copy for the ticket</button>
         ${b.links.event ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.event)}" target="_blank" rel="noopener">Event on Gemini ↗</a>` : ""}
+        ${b.links.api ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.api)}" target="_blank" rel="noopener">API response ↗</a>` : ""}
         ${b.links.terms ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.terms)}" target="_blank" rel="noopener">Contract terms ↗</a>` : ""}
       </div>
+      ${b.links.api ? `<div class="k-apirow">
+        <code class="k-apiurl" id="kyleApiUrl">${_kEsc(b.links.api)}</code>
+        <button type="button" class="k-copy" id="kyleApiCopy" onclick="kyleCopyApiUrl()" title="Copy the API URL">Copy</button>
+      </div>` : ""}
       <details class="k-explain">
         <summary>Preview what gets copied</summary>
         <pre class="k-summary" id="kyleSummary">${_kEsc(kyleSummaryText(b))}</pre>
@@ -801,19 +815,29 @@ function kyleToggleOutcomes() {
   btn.textContent = more.hidden ? `Show ${more.children.length} more` : "Show fewer"
 }
 
+function _kCopy(text, button) {
+  const flash = (message) => {
+    if (!button) return
+    const original = button.dataset.label || button.textContent
+    button.dataset.label = original
+    button.textContent = message
+    setTimeout(() => { button.textContent = button.dataset.label }, 1600)
+  }
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    flash("Select and copy")
+    return
+  }
+  navigator.clipboard.writeText(text).then(() => flash("Copied ✓")).catch(() => flash("Select and copy"))
+}
+
 function kyleCopySummary() {
   if (!_kyleBrief) return
-  const text = kyleSummaryText(_kyleBrief)
-  const done = () => {
-    const el = document.querySelector(".k-actions .k-btn")
-    if (!el) return
-    const original = el.textContent
-    el.textContent = "Copied ✓"
-    setTimeout(() => { el.textContent = original }, 1600)
-  }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done).catch(() => {})
-  }
+  _kCopy(kyleSummaryText(_kyleBrief), document.querySelector(".k-actions .k-btn"))
+}
+
+function kyleCopyApiUrl() {
+  if (!_kyleBrief || !_kyleBrief.links.api) return
+  _kCopy(_kyleBrief.links.api, document.getElementById("kyleApiCopy"))
 }
 
 if (KYLE_HAS_DOM) {
