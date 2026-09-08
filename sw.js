@@ -1,10 +1,20 @@
 // Predara Service Worker — PWA offline shell
-// Bumped so returning users get the corrected betting math rather than a
-// cached bundle that still prices off the midpoint.
-const CACHE_NAME = "predara-v2"
-const SHELL_URLS = [
+//
+// Bump CACHE_NAME on any change that returning users must not miss. The
+// previous bump was for the corrected betting math; this one is for the page
+// navigation fix below, and it also clears caches poisoned with pre-Kyle HTML.
+const CACHE_NAME = "predara-v3"
+
+// Pages, cached so the app opens offline — but always fetched fresh first when
+// the network is there. See the navigation rule in the fetch handler.
+const PAGE_URLS = [
   "/",
   "/index.html",
+  "/settlement.html",
+  "/kyle.html",
+]
+
+const ASSET_URLS = [
   "/utils.js",
   "/components.js",
   "/adapters.js",
@@ -12,9 +22,20 @@ const SHELL_URLS = [
   "/compare.js",
   "/app.js",
   "/features.js",
+  "/kyle.js",
   "/og-image.png",
   "/manifest.json",
 ]
+
+const SHELL_URLS = PAGE_URLS.concat(ASSET_URLS)
+
+// A page request — the browser asking for a document, not for a script or an
+// image. `mode: "navigate"` covers every way a user reaches a page: typing a
+// URL, a bookmark, and clicking a link from another page.
+function isPageRequest(request, url) {
+  return request.mode === "navigate" || (request.destination === "document") ||
+    url.pathname.endsWith(".html") || url.pathname === "/"
+}
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -32,20 +53,44 @@ self.addEventListener("activate", (e) => {
   self.clients.claim()
 })
 
+function putInCache(request, response) {
+  if (response && response.ok) {
+    const clone = response.clone()
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+  }
+  return response
+}
+
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return
   const url = new URL(e.request.url)
   if (url.pathname.startsWith("/api/")) return
+  if (url.origin !== self.location.origin) return
+
+  // ── Pages: network first ──
+  // A page carries the site's navigation, so serving a stale one strands the
+  // user on an old version of the app: this is exactly how the Kyle tab went
+  // missing from the Settlement Desk header for anyone who had visited that
+  // page before Kyle shipped. Cache-first handed them the old HTML and only
+  // refreshed it in the background, so the new tab did not appear until their
+  // SECOND visit after the deploy — and never, if they only ever came once.
+  // Pages are small and change on every deploy; assets are the things worth
+  // serving instantly from cache. The cached copy stays as the offline
+  // fallback, which is the reason this service worker exists.
+  if (isPageRequest(e.request, url)) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => putInCache(e.request, res))
+        .catch(() => caches.match(e.request).then((cached) => cached || caches.match("/index.html")))
+    )
+    return
+  }
+
+  // ── Assets: cache first, refreshed in the background ──
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const fetchPromise = fetch(e.request)
-        .then((res) => {
-          if (res.ok && url.origin === self.location.origin) {
-            const clone = res.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone))
-          }
-          return res
-        })
+        .then((res) => putInCache(e.request, res))
         .catch(() => cached)
       return cached || fetchPromise
     })
