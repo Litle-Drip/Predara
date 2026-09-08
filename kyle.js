@@ -94,18 +94,59 @@ function _kTense(iso, now = Date.now()) {
 }
 
 // ── What did the agent paste in? ──────────────────────────────────────────────
-// Customers send all three: a gemini.com link, a bare ticker copied off the
-// page, or a description in their own words ("the Fed cut thing in January").
+// Customers send all of these: a gemini.com link, a bare event ticker, the
+// instrument symbol off their position, or a description in their own words
+// ("the Fed cut thing in January").
+
+// An ID (F1-ITAGP-POD-20260906) versus a human-readable slug
+// (italian-grand-prix-podium): the ID shouts or is numeric, the slug does not.
+function _kLooksLikeTicker(seg) {
+  return /^[A-Za-z0-9_\-\.]{2,64}$/.test(seg) && (/[A-Z]/.test(seg) || /^[0-9]+$/.test(seg))
+}
+
+// A Gemini event URL is /predictions/{TICKER}, optionally followed by a slug and
+// a query string: /predictions/F1-ITAGP-POD-20260906/italian-grand-prix-podium
+// ?categoryPath=... Taking the last path segment grabs the slug instead of the
+// ticker, which is why a link that a customer copied out of their browser used
+// to fail where the bare ticker worked.
+function _kTickerFromUrl(u) {
+  const parts = u.pathname.split("/").filter(Boolean).map((seg) => {
+    try { return decodeURIComponent(seg) } catch { return seg }
+  })
+  const marker = parts.findIndex((seg) => /^predictions?$|^prediction-markets$/i.test(seg))
+  if (marker >= 0 && parts[marker + 1]) return parts[marker + 1]
+  // Unrecognised path shape: take the last segment that reads as an ID.
+  for (let i = parts.length - 1; i >= 0; i--) if (_kLooksLikeTicker(parts[i])) return parts[i]
+  return ""
+}
+
+// An instrument symbol names one contract inside an event: the venue prefix and
+// the contract code wrap the event ticker, so GEMI-F1-ITAGP-POD-20260906-ALB is
+// the ALB contract of event F1-ITAGP-POD-20260906. Only the event has an API
+// record, so an agent pasting the symbol off a customer's position needs these
+// candidates tried in order rather than a dead end. Nothing is derived blindly —
+// each candidate is a real lookup, and the first one that exists wins.
+function kyleTickerCandidates(ticker) {
+  const out = []
+  const push = (t) => { if (t && !out.includes(t)) out.push(t) }
+  push(ticker)
+  const base = String(ticker).replace(/^GEMI-/i, "")
+  push(base)
+  const parts = base.split("-")
+  for (let drop = 1; drop <= 2 && parts.length - drop >= 2; drop++) {
+    push(parts.slice(0, parts.length - drop).join("-"))
+  }
+  return out
+}
+
 function kyleParseQuery(raw) {
   const q = String(raw == null ? "" : raw).trim()
   if (!q) return { kind: "empty", value: "" }
 
   if (/^https?:\/\//i.test(q)) {
     let ticker = ""
-    try {
-      const u = new URL(q)
-      ticker = decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || "")
-    } catch { /* not a parseable URL — fall through to a text search */ }
+    try { ticker = _kTickerFromUrl(new URL(q)) }
+    catch { /* not a parseable URL — fall through to a text search */ }
     if (ticker && /^[A-Za-z0-9_\-\.]+$/.test(ticker)) return { kind: "ticker", value: ticker }
     return { kind: "search", value: q }
   }
@@ -181,6 +222,36 @@ function kyleStatus(event, now = Date.now()) {
   }
 }
 
+// Can more than one outcome pay out? A race winner market has exactly one
+// winner; a podium market pays every driver who finishes top three, and a
+// support agent told "only one of these can win" about a podium market will
+// give the customer a wrong answer.
+//
+// Gemini does not consistently publish an exclusivity flag, so when there is no
+// flag the prices decide: contracts that are mutually exclusive are priced as
+// shares of one outcome and sum to roughly 100%, while independent yes/no
+// contracts on the same event sum well past it (a three-place podium field sums
+// near 300%). Returns true, false, or null when neither the flag nor enough
+// prices are available — null means Kyle says nothing rather than guessing.
+function kyleExclusive(event) {
+  const e = event || {}
+  for (const key of ["mutuallyExclusive", "mutually_exclusive", "isMutuallyExclusive", "exclusive"]) {
+    if (typeof e[key] === "boolean") return e[key]
+  }
+  const contracts = _kContracts(e)
+  if (e.type === "binary" || contracts.length === 1) return true
+
+  const prices = contracts
+    .map((c) => _kNum(_kFirst((c.prices || {}).lastTradePrice, (c.prices || {}).bestAsk, (c.prices || {}).bestBid)))
+    .filter((p) => p !== null)
+  // Too few priced contracts to read a total from — a thin or settled book.
+  if (prices.length < contracts.length || prices.length < 2) return null
+  const sum = prices.reduce((a, b) => a + b, 0)
+  if (sum > 1.3) return false
+  if (sum >= 0.7) return true
+  return null
+}
+
 // Binary (one yes/no question) vs pick-one-of-many. This is the single thing
 // support agents most often get wrong when reading a ticket back to a customer.
 function kyleType(event) {
@@ -189,19 +260,35 @@ function kyleType(event) {
   const isBinary = (event && event.type === "binary") || n === 1
   if (isBinary) {
     return {
-      code: "binary", outcomeCount: 2, label: "Yes / No question",
+      code: "binary", outcomeCount: 2, exclusive: true, label: "Yes / No question",
       plain: "One question with two sides. A customer holding YES is paid $1 per contract if it happens; a customer holding NO is paid $1 per contract if it does not. Only one side can be right.",
     }
   }
-  if (n === 2) {
+
+  const exclusive = kyleExclusive(event)
+  const ask = ` Ask the customer WHICH outcome they hold — "I bet on this event" is not enough to look up their position.`
+
+  if (n === 2 && exclusive === true) {
     return {
-      code: "head2head", outcomeCount: 2, label: "Head-to-head (2 outcomes)",
+      code: "head2head", outcomeCount: 2, exclusive: true, label: "Head-to-head (2 outcomes)",
       plain: "Two possible results, usually two teams or two candidates. The one that actually happens pays $1 per contract; the other pays nothing.",
     }
   }
+  if (exclusive === true) {
+    return {
+      code: "multi", outcomeCount: n, exclusive: true, label: `Pick one of ${n} outcomes`,
+      plain: `${n} possible results, and only one of them can happen. That one pays $1 per contract; every other one pays nothing.` + ask,
+    }
+  }
+  if (exclusive === false) {
+    return {
+      code: "multi", outcomeCount: n, exclusive: false, label: `${n} separate outcomes (more than one can win)`,
+      plain: `${n} separate yes/no contracts on the same event — a podium or top-N market, where several of them can pay out at once. Each one pays $1 per contract if that outcome happens, independently of the others, so a customer can hold a losing contract on an event that had several winners.` + ask,
+    }
+  }
   return {
-    code: "multi", outcomeCount: n, label: `Pick one of ${n} outcomes`,
-    plain: `${n} possible results. Exactly one of them pays $1 per contract and every other one pays nothing. Ask the customer WHICH outcome they hold — "I bet on this event" is not enough to look up their position.`,
+    code: "multi", outcomeCount: n, exclusive: null, label: `${n} outcomes`,
+    plain: `${n} separate contracts, each paying $1 per contract if its outcome happens. Kyle cannot tell from this event's data whether only one of them can pay out or several can, so do not tell the customer that the others must have lost — check the event page if their question turns on it.` + ask,
   }
 }
 
@@ -261,8 +348,12 @@ function kyleOutcomes(event) {
   return rows.sort((a, b) => (b.pct === null ? -1 : b.pct) - (a.pct === null ? -1 : a.pct))
 }
 
+// The single winning outcome. On an event where several contracts can settle
+// YES there is no such thing, so this returns null and the outcome list — which
+// tags every winner — is the answer instead.
 function kyleWinner(event) {
-  return kyleOutcomes(event).find((o) => o.result === "won") || null
+  const won = kyleOutcomes(event).filter((o) => o.result === "won")
+  return won.length === 1 ? won[0] : null
 }
 
 // ── Things the agent must not miss ────────────────────────────────────────────
@@ -294,7 +385,8 @@ function kyleIssues(event, now = Date.now()) {
     }
   }
 
-  if (status.code === "settled" && !winner) {
+  const anyWinner = kyleOutcomes(event).some((o) => o.result === "won")
+  if (status.code === "settled" && !anyWinner) {
     issues.push({ level: "alert", title: "Settled, but no winning outcome published",
       body: "Gemini marks this event as settled but the data does not say which outcome won. Do not tell the customer who won from this page — confirm on the event page or with settlement first." })
   }
@@ -316,7 +408,7 @@ function kyleIssues(event, now = Date.now()) {
 
   if (status.code !== "settled" && type.code === "multi") {
     issues.push({ level: "info", title: "Multiple outcomes — get the specific one",
-      body: `This event has ${type.outcomeCount} separate contracts. A position lookup needs the exact outcome the customer holds, not just the event name.` })
+      body: `This event has ${type.outcomeCount} separate contracts${type.exclusive === false ? ", and more than one of them can pay out" : ""}. A position lookup needs the exact outcome the customer holds, not just the event name.` })
   }
 
   if (resolvedT !== null && closeT !== null && resolvedT < closeT) {
@@ -329,8 +421,9 @@ function kyleIssues(event, now = Date.now()) {
 
 // ── The brief ─────────────────────────────────────────────────────────────────
 
-function kyleBrief(event, now = Date.now()) {
+function kyleBrief(event, now = Date.now(), options = {}) {
   const e = event || {}
+  const focusSymbol = String(options.focusSymbol || "").toUpperCase()
   const contracts = _kContracts(e)
   const ticker = String(_kFirst(e.ticker, e.event_ticker, e.eventTicker) || "")
   const status = kyleStatus(e, now)
@@ -356,7 +449,9 @@ function kyleBrief(event, now = Date.now()) {
         : dates.tradingCloses
           ? { known: false, text: `Not resolved yet. Trading ${_kTense(dates.tradingCloses, now)} ${_kDateTime(dates.tradingCloses)} (${_kRelative(dates.tradingCloses, now)}) and the result is published after that.` }
           : { known: false, text: "Not resolved yet, and no close date is published — Kyle cannot say when it will resolve." },
-    outcomes: kyleOutcomes(e),
+    outcomes: kyleOutcomes(e).map((o) => (
+      focusSymbol && o.symbol && o.symbol.toUpperCase() === focusSymbol ? { ...o, focus: true } : o
+    )),
     winner,
     issues: kyleIssues(e, now),
     stats: {
@@ -384,7 +479,14 @@ function kyleSummaryText(brief) {
     b.dates && b.dates.tradingCloses ? `TRADING ${_kTense(b.dates.tradingCloses).toUpperCase()}: ${_kDateTime(b.dates.tradingCloses)}` : "",
     b.dates && b.dates.resolved ? `RESOLVED: ${_kDateTime(b.dates.resolved)}` : "",
     b.resolution ? `RESOLUTION: ${b.resolution.text}` : "",
-    b.winner ? `WINNING OUTCOME: ${b.winner.name}` : "",
+    (() => {
+      const won = (b.outcomes || []).filter((o) => o.result === "won")
+      if (!won.length) return ""
+      return won.length === 1
+        ? `WINNING OUTCOME: ${won[0].name}`
+        : `WINNING OUTCOMES (${won.length}): ${won.map((o) => o.name).join(", ")}`
+    })(),
+    (b.outcomes || []).filter((o) => o.focus).map((o) => `CONTRACT ASKED ABOUT: ${o.name}${o.result ? ` (${o.result === "won" ? "won — paid $1" : "did not win — paid $0"})` : ""}`).join("\n"),
     b.links && b.links.event ? `EVENT PAGE: ${b.links.event}` : "",
   ].filter(Boolean)
 
@@ -444,8 +546,8 @@ function kyleBriefHtml(brief) {
     </div>`).join("")
 
   const outcomes = (b.outcomes || []).map((o) => `
-    <div class="k-outcome${o.result === "won" ? " k-outcome-won" : o.result === "lost" ? " k-outcome-lost" : ""}">
-      <div class="k-outcome-name">${_kEsc(o.name)}${o.result === "won" ? `<span class="k-tag k-tag-won">WON</span>` : o.result === "lost" ? `<span class="k-tag">did not win</span>` : ""}</div>
+    <div class="k-outcome${o.focus ? " k-outcome-focus" : ""}${o.result === "won" ? " k-outcome-won" : o.result === "lost" ? " k-outcome-lost" : ""}">
+      <div class="k-outcome-name">${_kEsc(o.name)}${o.focus ? `<span class="k-tag k-tag-focus">the contract you pasted</span>` : ""}${o.result === "won" ? `<span class="k-tag k-tag-won">WON</span>` : o.result === "lost" ? `<span class="k-tag">did not win</span>` : ""}</div>
       <div class="k-outcome-pct">${o.result ? "" : o.pct === null ? "—" : _kEsc(o.pct + "%")}</div>
     </div>`).join("")
 
@@ -539,7 +641,11 @@ async function _kJson(url) {
   const res = await fetch(url)
   let json = null
   try { json = await res.json() } catch { /* upstream sent a non-JSON error body */ }
-  if (!res.ok) throw new Error((json && json.error) || `Gemini lookup failed (${res.status})`)
+  if (!res.ok) {
+    const err = new Error((json && json.error) || `Gemini lookup failed (${res.status})`)
+    err.status = res.status
+    throw err
+  }
   return json
 }
 
@@ -573,24 +679,37 @@ async function kyleOpen(ticker) {
   if (!ticker) return
   const seq = ++_kyleSeq
   _kBusy(true, `Loading ${ticker}…`)
+  let lastErr = null
   try {
-    const data = await _kJson(`/api/gemini?ticker=${encodeURIComponent(ticker)}`)
-    if (seq !== _kyleSeq) return
-    const event = (data && data.event) || data
-    _kyleBrief = kyleBrief(event)
-    _kSet(kyleBriefHtml(_kyleBrief))
-    const input = document.getElementById("kyleInput")
-    if (input) input.value = _kyleBrief.ticker || ticker
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  } catch (err) {
-    if (seq !== _kyleSeq) return
-    // A ticker that 404s is usually a customer paraphrasing, not a typo — fall
-    // back to the search that would have found it.
-    if (/not found/i.test(err.message)) {
-      _kSet(`<div class="k-empty"><div class="k-empty-title">No event with the ticker “${_kEsc(ticker)}”</div><div class="k-empty-body">Searching for it by name instead…</div></div>`)
-      return kyleSearch(ticker)
+    // An instrument symbol resolves through its event ticker, so try each
+    // candidate until one exists. Only a "no such event" answer moves on to the
+    // next; a timeout or a 500 is reported rather than hidden behind a retry.
+    for (const candidate of kyleTickerCandidates(ticker)) {
+      let data
+      try {
+        data = await _kJson(`/api/gemini?ticker=${encodeURIComponent(candidate)}`)
+      } catch (err) {
+        lastErr = err
+        if (err.status === 404 || /not found/i.test(err.message)) continue
+        throw err
+      }
+      if (seq !== _kyleSeq) return
+      const event = (data && data.event) || data
+      // When the agent pasted a contract symbol, that contract is the customer's
+      // position — mark it rather than leaving them to match it up by eye.
+      _kyleBrief = kyleBrief(event, Date.now(), { focusSymbol: ticker })
+      _kSet(kyleBriefHtml(_kyleBrief))
+      const input = document.getElementById("kyleInput")
+      if (input) input.value = _kyleBrief.ticker || candidate
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
     }
-    _kError(err.message)
+    if (seq !== _kyleSeq) return
+    // Nothing matched as an ID. It was probably a name, not a ticker.
+    _kSet(`<div class="k-empty"><div class="k-empty-title">No Gemini event with the ID “${_kEsc(ticker)}”</div><div class="k-empty-body">Searching for it by name instead…</div></div>`)
+    return kyleSearch(ticker)
+  } catch (err) {
+    if (seq === _kyleSeq) _kError((err && err.message) || (lastErr && lastErr.message) || "Lookup failed")
   } finally {
     if (seq === _kyleSeq) _kBusy(false)
   }
@@ -624,7 +743,7 @@ if (KYLE_HAS_DOM) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    kyleParseQuery, kyleStatus, kyleType, kyleDates, kyleSubject,
+    kyleParseQuery, kyleTickerCandidates, kyleStatus, kyleType, kyleExclusive, kyleDates, kyleSubject,
     kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleSummaryText,
     kyleResultsHtml, kyleBriefHtml,
   }

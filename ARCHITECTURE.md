@@ -21,6 +21,20 @@ support agent mid-ticket who has never traded a prediction market, so:
   something different in each. `kyleStatus()` takes the status string, the
   resolution timestamp and the per-contract `resolutionSide` as three votes,
   since Gemini spells the state differently across payloads.
+- **Resolve what the agent has, not what the API wants.** A customer sends the
+  link out of their browser (`/predictions/{TICKER}/{slug}?query`) or the
+  instrument symbol off their position (`GEMI-{EVENT}-{CONTRACT}`); neither is an
+  event ticker. `_kTickerFromUrl()` reads the segment after `predictions` rather
+  than the last one, and `kyleTickerCandidates()` unwraps a symbol to its event
+  ticker. Each candidate is a real lookup and the first that exists wins —
+  nothing is derived blindly. A pasted contract symbol is then tagged in the
+  outcome list, because that contract is the customer's position.
+- **Do not assume one winner.** A race-winner market has exactly one; a podium
+  market pays every driver who finishes top three. `kyleExclusive()` trusts an
+  explicit flag, then falls back to the price total (exclusive contracts are
+  priced as shares of one outcome and sum near 100%; independent top-N contracts
+  sum far past it), and returns null rather than guessing when neither is
+  available. `kyleWinner()` is therefore the *single* winner or null.
 - **Never guess on the agent's behalf.** An event marked settled with no winning
   contract published is an alert to escalate, not an inference from prices. A
   missing close date is stated as missing. An agent repeating an invented

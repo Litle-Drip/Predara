@@ -314,11 +314,14 @@
       padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; margin-top: 8px;
     }
     .k-outcome-won  { border-color: var(--confirmed-pill-bg); background: var(--rec-bg); }
+    /* The contract the agent actually pasted, so it is not lost in a 20-driver field. */
+    .k-outcome-focus { border-color: var(--orange); background: var(--orange-bg); opacity: 1; }
     .k-outcome-lost { opacity: 0.6; }
     .k-outcome-name { font-size: 13px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .k-outcome-pct { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-mid); }
     .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
     .k-tag-won { background: var(--confirmed-pill-bg); color: var(--confirmed-pill-text); border-color: transparent; }
+    .k-tag-focus { background: var(--orange); color: #fff; border-color: transparent; text-transform: none; letter-spacing: 0.02em; }
 
     .k-stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 11px; color: var(--muted); }
 
@@ -421,7 +424,7 @@
         id="kyleInput"
         type="text"
         aria-label="Event name, ticker, or Gemini link"
-        placeholder="e.g. “will the Fed cut rates in January”, FEDJAN26, or a gemini.com link"
+        placeholder="e.g. “italian grand prix podium”, F1-ITAGP-POD-20260906, a contract symbol, or a gemini.com link"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
