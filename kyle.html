@@ -12,47 +12,6 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg:          #0f0f11;
-      --card:        #18181c;
-      --border:      #27272e;
-      --border-hi:   #3a3a42;
-      --text:        #b4b4c0;
-      --text-mid:    #d0d0da;
-      --text-bright: #ededf2;
-      --muted:       #6b6b7a;
-      --orange:      #d94f20;
-      --orange-dim:  rgba(217,79,32,0.12);
-      --orange-bg:   rgba(217,79,32,0.08);
-      --bar-bg:      #222228;
-      --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25);
-      --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
-      --rec-bg:      rgba(255,255,255,0.03);
-      --confirmed-pill-bg:    #0f8a5e; --confirmed-pill-text:    #e2f7ee;
-      --discrepancy-pill-bg:  #c73a2f; --discrepancy-pill-text:  #fceceb;
-      --needs-pill-bg:        #a37012; --needs-pill-text:        #fdf3dc;
-      --error-pill-bg:        #333;    --error-pill-text:        #aaa;
-    }
-
-    body.light {
-      --bg:          #f7f7f5;
-      --card:        #ffffff;
-      --border:      #e6e6e4;
-      --border-hi:   #d0d0ce;
-      --text:        #4a4a52;
-      --text-mid:    #2e2e38;
-      --text-bright: #16161a;
-      --muted:       #8e8e9a;
-      --orange:      #c8421a;
-      --orange-dim:  rgba(200,66,26,0.1);
-      --orange-bg:   rgba(200,66,26,0.06);
-      --bar-bg:      #eeeeed;
-      --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
-      --shadow-sm:   0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
-      --rec-bg:      rgba(0,0,0,0.03);
-      --error-pill-bg: #ddd; --error-pill-text: #555;
-    }
-
     body {
       background: var(--bg);
       color: var(--text);
@@ -234,98 +193,236 @@
       color: var(--muted);
     }
 
-    /* ── Kyle ── support-agent brief. Status is the loudest thing on the page:
-       the reader's first question is always "is this still running?" ── */
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    /* ══ Kyle themes ══════════════════════════════════════════════════════════
+       Kyle only — the Analyze and Settlement pages keep the shared light/dark
+       toggle. Each theme sets the same token names the shared shell above
+       already reads, so switching one swaps the whole page.
+
+       The three illustrated themes each layer a background image over a
+       gradient sampled from that artwork. The gradient is not a placeholder: it
+       paints on its own if the image is missing or slow, so the page is never
+       unreadable while a 2MB illustration loads. Drop the artwork at the paths
+       named in --k-art to light them up.
+
+       Contrast rule for all four: cards stay near-opaque and text sits on the
+       card, never directly on the artwork. A support agent reads this page
+       under time pressure — the art is atmosphere, it never competes with the
+       answer. */
+
+    body[data-theme="gemini"] {
+      --bg:          #f4f7fd;
+      --card:        #ffffff;
+      --border:      #dde7f7;
+      --border-hi:   #bcd0ee;
+      --text:        #4a5a75;
+      --text-mid:    #2a3a55;
+      --text-bright: #0b1a33;
+      --muted:       #7b8aa5;
+      --orange:      #0057ff;   /* the accent token is named for Predara's brand; here it carries Gemini blue */
+      --orange-dim:  rgba(0,87,255,0.12);
+      --orange-bg:   rgba(0,87,255,0.06);
+      --bar-bg:      #eaf0fb;
+      --rec-bg:      rgba(0,87,255,0.04);
+      --k-art:       none;
+      --k-scrim:     none;
+    }
+
+    body[data-theme="mars"] {
+      --bg:          #2e0f07;
+      --card:        rgba(58,22,13,0.95);
+      --border:      rgba(255,150,110,0.22);
+      --border-hi:   rgba(255,150,110,0.42);
+      --text:        #e8b9a4;
+      --text-mid:    #f6d6c6;
+      --text-bright: #fff1e8;
+      --muted:       #c08a72;
+      --orange:      #ff6b35;
+      --orange-dim:  rgba(255,107,53,0.20);
+      --orange-bg:   rgba(255,107,53,0.10);
+      --bar-bg:      rgba(255,255,255,0.06);
+      --rec-bg:      rgba(255,255,255,0.05);
+      --shadow:      0 1px 2px rgba(0,0,0,0.5), 0 4px 24px rgba(0,0,0,0.35);
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+      --k-art:       url("/kyle-themes/mars.jpg");
+      --k-scrim:     linear-gradient(180deg, rgba(46,15,7,0.72) 0%, rgba(46,15,7,0.88) 55%, rgba(46,15,7,0.96) 100%);
+      --k-fallback:  linear-gradient(180deg, #e2683a 0%, #a8371a 42%, #2e0f07 100%);
+    }
+
+    body[data-theme="seas"] {
+      --bg:          #052b33;
+      --card:        rgba(7,45,54,0.95);
+      --border:      rgba(120,230,220,0.20);
+      --border-hi:   rgba(120,230,220,0.40);
+      --text:        #a8dfe2;
+      --text-mid:    #cdf2f2;
+      --text-bright: #eafcff;
+      --muted:       #74b3ba;
+      --orange:      #f2c14e;   /* the submersible's gold, against the teal */
+      --orange-dim:  rgba(242,193,78,0.20);
+      --orange-bg:   rgba(242,193,78,0.10);
+      --bar-bg:      rgba(255,255,255,0.06);
+      --rec-bg:      rgba(255,255,255,0.05);
+      --shadow:      0 1px 2px rgba(0,0,0,0.5), 0 4px 24px rgba(0,0,0,0.35);
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+      --k-art:       url("/kyle-themes/seas.jpg");
+      --k-scrim:     linear-gradient(180deg, rgba(5,43,51,0.70) 0%, rgba(5,43,51,0.88) 55%, rgba(5,43,51,0.96) 100%);
+      --k-fallback:  linear-gradient(180deg, #37d3cd 0%, #1a7fb8 45%, #052b33 100%);
+    }
+
+    body[data-theme="astro"] {
+      --bg:          #f2ece0;
+      --card:        #fffdf8;
+      --border:      #e2d8c5;
+      --border-hi:   #cdbfa4;
+      --text:        #5d5040;
+      --text-mid:    #3a3126;
+      --text-bright: #241d14;
+      --muted:       #93856f;
+      --orange:      #c07a1e;   /* the ski suit's gold */
+      --orange-dim:  rgba(192,122,30,0.14);
+      --orange-bg:   rgba(192,122,30,0.07);
+      --bar-bg:      #eae2d2;
+      --rec-bg:      rgba(0,0,0,0.03);
+      --k-art:       url("/kyle-themes/astro.jpg");
+      --k-scrim:     linear-gradient(180deg, rgba(242,236,224,0.62) 0%, rgba(242,236,224,0.88) 55%, rgba(242,236,224,0.97) 100%);
+      --k-fallback:  linear-gradient(180deg, #c9b795 0%, #ece3d0 55%, #f2ece0 100%);
+    }
+
+    /* The artwork sits in its own fixed layer behind everything, so scrolling a
+       long brief does not drag a 2000px illustration around with it. */
+    .k-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background-image: var(--k-scrim, none), var(--k-art, none), var(--k-fallback, none);
+      background-size: cover, cover, cover;
+      background-position: center top, center top, center top;
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+    body[data-theme="gemini"] .k-backdrop { display: none; }
+
+    /* ── Theme picker ── */
+    .k-themes { display: flex; align-items: center; gap: 4px; margin-left: 10px; }
+    .k-swatch {
+      width: 24px; height: 24px; padding: 0;
+      border-radius: 7px; cursor: pointer;
+      border: 1px solid var(--border);
+      outline-offset: 2px;
+      transition: transform 0.12s, border-color 0.12s;
+    }
+    .k-swatch:hover { transform: translateY(-1px); border-color: var(--border-hi); }
+    .k-swatch[aria-pressed="true"] { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-dim); }
+    .k-swatch-gemini { background: linear-gradient(135deg, #ffffff 0 50%, #0057ff 50% 100%); }
+    .k-swatch-mars   { background: linear-gradient(135deg, #ff8a4c 0 50%, #7d2b16 50% 100%); }
+    .k-swatch-seas   { background: linear-gradient(135deg, #35d6c4 0 50%, #1a6bd6 50% 100%); }
+    .k-swatch-astro  { background: linear-gradient(135deg, #f4efe2 0 50%, #c07a1e 50% 100%); }
+
+    /* ══ Kyle UI ══════════════════════════════════════════════════════════════
+       Layout rule: the answer is first and everything else is reference. An
+       agent mid-ticket reads the top card and replies; the cards under it exist
+       for the follow-up question, so they are dense rather than explanatory. */
+
     .k-pill {
       display: inline-block;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 4px 9px;
-      border-radius: 999px;
-      white-space: nowrap;
-      background: var(--bar-bg);
-      color: var(--muted);
-      border: 1px solid var(--border);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+      background: var(--bar-bg); color: var(--muted); border: 1px solid var(--border);
     }
-    .k-pill.k-good { background: var(--confirmed-pill-bg); color: var(--confirmed-pill-text); border-color: transparent; }
-    .k-pill.k-warn { background: var(--needs-pill-bg);     color: var(--needs-pill-text);     border-color: transparent; }
-    .k-pill.k-bad  { background: var(--discrepancy-pill-bg); color: var(--discrepancy-pill-text); border-color: transparent; }
+    .k-pill.k-good { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
+    .k-pill.k-warn { background: #a37012; color: #fdf3dc; border-color: transparent; }
+    .k-pill.k-bad  { background: #c73a2f; color: #fceceb; border-color: transparent; }
     .k-pill.k-done { background: var(--orange); color: #fff; border-color: transparent; }
 
-    .k-status {
+    /* ── The answer ── */
+    .k-answer {
       background: var(--card);
       border: 1px solid var(--border);
       border-left: 4px solid var(--muted);
       border-radius: 14px;
       padding: 22px 26px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       box-shadow: var(--shadow-sm);
     }
-    .k-status.k-good { border-left-color: var(--confirmed-pill-bg); }
-    .k-status.k-warn { border-left-color: var(--needs-pill-bg); }
-    .k-status.k-bad  { border-left-color: var(--discrepancy-pill-bg); }
-    .k-status.k-done { border-left-color: var(--orange); }
+    .k-answer.k-good { border-left-color: #0f8a5e; }
+    .k-answer.k-warn { border-left-color: #a37012; }
+    .k-answer.k-bad  { border-left-color: #c73a2f; }
+    .k-answer.k-done { border-left-color: var(--orange); }
 
-    .k-status-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .k-status-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+    .k-answer-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .k-answer-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
     .k-title { font-size: 21px; font-weight: 700; color: var(--text-bright); letter-spacing: -0.5px; margin: 10px 0 8px; line-height: 1.3; }
-    .k-status-plain { font-size: 14px; color: var(--text-mid); line-height: 1.65; }
+    .k-headline { font-size: 15px; color: var(--text-bright); line-height: 1.6; }
+    .k-desc { font-size: 13px; color: var(--text); line-height: 1.65; margin-top: 10px; }
 
+    /* Anything an agent needs only sometimes is one click away, not in the way. */
+    .k-explain { margin-top: 12px; }
+    .k-explain summary {
+      font-size: 12px; color: var(--muted); cursor: pointer; list-style: none;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .k-explain summary::-webkit-details-marker { display: none; }
+    .k-explain summary::before { content: "▸"; font-size: 9px; transition: transform 0.15s; }
+    .k-explain[open] summary::before { transform: rotate(90deg); }
+    .k-explain summary:hover { color: var(--text-mid); }
+    .k-explain > p { font-size: 13px; color: var(--text); line-height: 1.7; margin-top: 8px; }
+
+    /* ── Cards ── */
     .k-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 20px 26px;
-      margin-bottom: 16px;
+      padding: 18px 22px;
+      margin-bottom: 14px;
       box-shadow: var(--shadow-sm);
     }
-    .k-card-flag { border-color: var(--needs-pill-bg); }
-
+    .k-card-flag { border-color: #a37012; }
     .k-card-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 12px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
     }
+    .k-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 12px; }
 
-    .k-lede { font-size: 15px; color: var(--text-bright); line-height: 1.6; margin-bottom: 10px; }
-    .k-plain { font-size: 13px; color: var(--text); line-height: 1.7; }
+    /* ── Details grid ── two columns of short facts beat ten full-width rows. */
+    .k-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 24px; }
+    .k-fact-key { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .k-fact-val { font-size: 13px; color: var(--text-bright); overflow-wrap: anywhere; }
+    .k-fact-hint { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-    .k-row { display: flex; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .k-row:last-child { border-bottom: none; }
-    .k-row-key { flex: 0 0 148px; color: var(--muted); }
-    .k-row-val { flex: 1; color: var(--text-bright); min-width: 0; overflow-wrap: anywhere; }
-    .k-row-hint { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-    .k-issue { border-left: 3px solid var(--border-hi); padding: 2px 0 2px 12px; margin-bottom: 14px; }
+    /* ── Flags ── */
+    .k-issue { border-left: 3px solid var(--border-hi); padding: 1px 0 1px 12px; margin-bottom: 12px; }
     .k-issue:last-child { margin-bottom: 0; }
-    .k-issue-alert { border-left-color: var(--discrepancy-pill-bg); }
-    .k-issue-warn  { border-left-color: var(--needs-pill-bg); }
-    .k-issue-info  { border-left-color: var(--border-hi); }
-    .k-issue-title { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
-    .k-issue-body { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .k-issue-alert { border-left-color: #c73a2f; }
+    .k-issue-warn  { border-left-color: #a37012; }
+    .k-issue-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-bright); }
+    .k-issue-body  { display: block; font-size: 13px; color: var(--text); line-height: 1.6; margin-top: 2px; }
 
+    /* ── Outcomes ── */
     .k-outcome {
       display: flex; align-items: center; justify-content: space-between; gap: 14px;
-      padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; margin-top: 8px;
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px;
     }
-    .k-outcome-won  { border-color: var(--confirmed-pill-bg); background: var(--rec-bg); }
-    /* The contract the agent actually pasted, so it is not lost in a 20-driver field. */
+    .k-outcome-won   { border-color: #0f8a5e; background: var(--rec-bg); }
+    .k-outcome-lost  { opacity: 0.55; }
     .k-outcome-focus { border-color: var(--orange); background: var(--orange-bg); opacity: 1; }
-    .k-outcome-lost { opacity: 0.6; }
     .k-outcome-name { font-size: 13px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .k-outcome-pct { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-mid); }
+    .k-outcome-pct  { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-mid); }
     .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
-    .k-tag-won { background: var(--confirmed-pill-bg); color: var(--confirmed-pill-text); border-color: transparent; }
-    .k-tag-focus { background: var(--orange); color: #fff; border-color: transparent; text-transform: none; letter-spacing: 0.02em; }
+    .k-tag-won   { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
+    .k-tag-focus { background: var(--orange); color: #fff; border-color: transparent; }
 
-    .k-stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 11px; color: var(--muted); }
+    .k-link-btn {
+      background: none; border: none; padding: 4px 0; font: inherit; font-size: 12px;
+      color: var(--orange); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    }
 
-    .k-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    /* ── Actions ── */
+    .k-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .k-btn {
       background: var(--orange); color: #fff; border: none; border-radius: 9px;
       padding: 9px 15px; font: inherit; font-size: 12px; font-weight: 600;
@@ -335,16 +432,11 @@
     .k-btn-quiet { background: var(--bar-bg); color: var(--text-mid); border: 1px solid var(--border); }
 
     .k-summary {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11.5px;
-      line-height: 1.7;
-      color: var(--text);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 14px 16px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.7;
+      color: var(--text); background: var(--bg);
+      border: 1px solid var(--border); border-radius: 9px;
+      padding: 14px 16px; margin-top: 10px;
+      white-space: pre-wrap; overflow-wrap: anywhere;
     }
 
     /* ── Search results ── */
@@ -352,26 +444,24 @@
     .k-result {
       display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left;
       background: var(--card); border: 1px solid var(--border); border-radius: 11px;
-      padding: 13px 16px; margin-bottom: 8px; cursor: pointer; font: inherit;
+      padding: 12px 16px; margin-bottom: 8px; cursor: pointer; font: inherit;
       transition: border-color 0.15s, background 0.15s;
     }
     .k-result:hover { border-color: var(--orange); background: var(--rec-bg); }
-    /* Fixed pill column so a row of results reads as a column of titles, not a ragged edge. */
     .k-result .k-pill { flex: 0 0 74px; text-align: center; }
     .k-result-body { flex: 1; min-width: 0; }
-    .k-result-title { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-bright); margin-bottom: 4px; }
+    .k-result-title { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
     .k-result-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); }
 
-    /* ── Empty / error / first-run ── */
+    /* ── Empty / error / primer ── */
     .k-empty {
       background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-      padding: 24px 26px; box-shadow: var(--shadow-sm);
+      padding: 20px 22px; box-shadow: var(--shadow-sm);
     }
-    .k-empty-err { border-color: var(--discrepancy-pill-bg); }
-    .k-empty-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; }
+    .k-empty-err { border-color: #c73a2f; }
+    .k-empty-title { font-size: 14px; font-weight: 600; color: var(--text-bright); margin-bottom: 5px; }
     .k-empty-body { font-size: 13px; color: var(--text); line-height: 1.7; }
 
-    .k-primer { margin-top: 14px; }
     .k-primer dt { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-top: 12px; }
     .k-primer dd { font-size: 13px; color: var(--text); line-height: 1.7; margin-top: 2px; }
 
@@ -380,18 +470,19 @@
       .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
       .tab-nav { margin-left: 0; order: 2; flex: 1; }
       .tab-nav a { flex: 1; text-align: center; }
-      .theme-toggle { order: 2; margin-left: 0; }
-      .intake { padding: 22px 18px; }
+      .k-themes { order: 3; margin-left: 0; }
+      .intake { padding: 20px 16px; }
       .intake-row { flex-direction: column; }
       .btn-review { width: 100%; }
-      .k-status, .k-card { padding: 18px 16px; }
-      .k-row { flex-direction: column; gap: 2px; }
-      .k-row-key { flex: none; }
+      .k-answer, .k-card { padding: 16px; }
+      .k-facts { grid-template-columns: 1fr; }
       .footer { align-items: flex-start; flex-direction: column; }
     }
   </style>
 </head>
-<body class="light">
+<body data-theme="gemini">
+
+<div class="k-backdrop" aria-hidden="true"></div>
 
 <div class="app">
 
@@ -408,23 +499,23 @@
       <a href="/settlement.html">Settlement Desk</a>
       <a href="/kyle.html" class="active" aria-current="page">Kyle</a>
     </nav>
-    <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="k-themes" role="group" aria-label="Kyle theme">
+      <button class="k-swatch k-swatch-gemini" data-k-theme="gemini" onclick="kyleSetTheme('gemini')" aria-pressed="true"  title="Gemini — blue and white"><span class="sr-only">Gemini</span></button>
+      <button class="k-swatch k-swatch-mars"   data-k-theme="mars"   onclick="kyleSetTheme('mars')"   aria-pressed="false" title="Mars Safaris"><span class="sr-only">Mars Safaris</span></button>
+      <button class="k-swatch k-swatch-seas"   data-k-theme="seas"   onclick="kyleSetTheme('seas')"   aria-pressed="false" title="Other Seas, Other Suns"><span class="sr-only">Other Seas, Other Suns</span></button>
+      <button class="k-swatch k-swatch-astro"  data-k-theme="astro"  onclick="kyleSetTheme('astro')"  aria-pressed="false" title="Astro Mountain"><span class="sr-only">Astro Mountain</span></button>
+    </div>
   </div>
 
   <div class="intake">
-    <div class="intake-label">Kyle — support event lookup</div>
-    <div class="intake-desc">
-      A customer is asking about an event. Paste what they sent you — the event name in their own
-      words, the ticker, or the Gemini link — and Kyle explains in plain English what the event is,
-      whether it is still open, when it closes or closed, whether it has paid out, and anything
-      about it you should know before you reply.
-    </div>
+    <div class="intake-label">Kyle</div>
+    <div class="intake-desc">Paste what the customer sent you — the event in their words, a ticker, a contract symbol, or a Gemini link.</div>
     <div class="intake-row">
       <input
         id="kyleInput"
         type="text"
-        aria-label="Event name, ticker, or Gemini link"
-        placeholder="e.g. “italian grand prix podium”, F1-ITAGP-POD-20260906, a contract symbol, or a gemini.com link"
+        aria-label="Event name, ticker, contract symbol, or Gemini link"
+        placeholder="e.g. italian grand prix podium"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
@@ -432,29 +523,29 @@
       />
       <button class="btn-review" id="kyleBtn" onclick="kyleSubmit()">Look up ↗</button>
     </div>
-    <div class="shortcut-hint">Press Enter to look it up. Read-only — Kyle cannot change an event, a position, or a payout.</div>
+    <div class="shortcut-hint">Read-only — Kyle cannot change an event, a position, or a payout.</div>
   </div>
 
   <div id="kyleResult">
     <div class="k-empty">
-      <div class="k-empty-title">New here? Read this once.</div>
-      <div class="k-empty-body">
-        Gemini prediction markets let people buy contracts on whether something will happen.
-        Everything below follows from three ideas.
-      </div>
-      <dl class="k-primer">
-        <dt>An event is the question. A contract is one answer to it.</dt>
-        <dd>“Will the Fed cut rates in January?” is the event. YES and NO are its contracts. A customer never holds “the event” — they hold one specific contract, so always ask which one.</dd>
+      <div class="k-empty-title">Look up an event to get started.</div>
+      <div class="k-empty-body">Kyle tells you what it is, whether it is open or settled, when it resolves, and what to watch out for before you reply.</div>
+      <details class="k-explain">
+        <summary>New to prediction markets? Read this once.</summary>
+        <dl class="k-primer">
+          <dt>An event is the question. A contract is one answer to it.</dt>
+          <dd>“Who finishes on the podium?” is the event; each driver is a contract. A customer never holds “the event” — they hold one specific contract, so always ask which one.</dd>
 
-        <dt>Every winning contract pays exactly $1. Every losing one pays $0.</dt>
-        <dd>That is the whole payout rule. What a customer paid for the contract is what they risked; $1 per contract is what they collect if they were right.</dd>
+          <dt>Every winning contract pays exactly $1. Every losing one pays $0.</dt>
+          <dd>That is the whole payout rule. What the customer paid is what they risked; $1 per contract is what they collect if they were right.</dd>
 
-        <dt>An event is open, closed, or settled — and that decides your answer.</dt>
-        <dd><strong>Open:</strong> still trading, nothing decided, no payouts. <strong>Closed:</strong> trading stopped, result not published yet, nobody paid. <strong>Settled:</strong> finished, result final, winners paid. “Where is my money?” means something different in each of the three.</dd>
+          <dt>Open, closed, or settled — that decides your answer.</dt>
+          <dd><strong>Open:</strong> still trading, nothing decided, no payouts. <strong>Closed:</strong> trading stopped, result not published, nobody paid. <strong>Settled:</strong> finished, result final, winners paid. “Where is my money?” means something different in each.</dd>
 
-        <dt>A percentage is a price, not a fact.</dt>
-        <dd>A contract trading at 70% means people are paying 70¢ for a $1 payout. It is what traders think, not what Gemini predicts. Never quote it to a customer as the odds of something happening.</dd>
-      </dl>
+          <dt>A percentage is a price, not a fact.</dt>
+          <dd>70% means people are paying 70¢ for a $1 payout. It is what traders think, not what Gemini predicts. Never quote it to a customer as the odds of something happening.</dd>
+        </dl>
+      </details>
     </div>
   </div>
 
@@ -465,22 +556,31 @@
 
 </div>
 
-<script src="kyle.js?v=1"></script>
+<script src="kyle.js?v=2"></script>
 <script>
-  /* ── Theme ── (light by default, matching the Analyze and Settlement pages) */
-  ;(function() {
-    if (localStorage.getItem('predara-theme') === 'dark') {
-      document.body.classList.remove('light')
-      const btn = document.getElementById('themeToggle')
-      if (btn) btn.textContent = '☾'
-    }
-  })()
+  /* ── Kyle themes ──
+     Kyle keeps its own theme, separate from the shared light/dark setting the
+     Analyze and Settlement pages use, so picking "Mars" here does not turn the
+     rest of the app dark. Applied before first paint to avoid a flash of the
+     default theme. */
+  const KYLE_THEMES = ["gemini", "mars", "seas", "astro"]
+  const KYLE_THEME_KEY = "predara-kyle-theme"
 
-  function toggleTheme() {
-    const isLight = document.body.classList.toggle('light')
-    localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
-    document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
+  function kyleSetTheme(name) {
+    const theme = KYLE_THEMES.includes(name) ? name : "gemini"
+    document.body.setAttribute("data-theme", theme)
+    try { localStorage.setItem(KYLE_THEME_KEY, theme) } catch { /* private mode — the theme just will not persist */ }
+    document.querySelectorAll("[data-k-theme]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", btn.dataset.kTheme === theme ? "true" : "false")
+    })
   }
+
+  ;(function () {
+    let saved = ""
+    try { saved = localStorage.getItem(KYLE_THEME_KEY) || "" } catch { /* ignore */ }
+    if (saved && KYLE_THEMES.includes(saved)) document.body.setAttribute("data-theme", saved)
+    document.addEventListener("DOMContentLoaded", () => kyleSetTheme(saved || "gemini"))
+  })()
 </script>
 
 </body>

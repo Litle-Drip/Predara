@@ -42,6 +42,22 @@ support agent mid-ticket who has never traded a prediction market, so:
 - **No trading language.** No EV, Kelly, edge, spread or fee model. A percentage
   is labelled as a price traders are paying, with an explicit "do not quote this
   to a customer as odds".
+- **The answer is the first thing on the page.** `kyleHeadline()` writes one
+  sentence in the words the agent will use ("Finished — Verstappen, Norris and
+  Piastri won. Those paid $1 each; every other contract paid $0."), and the
+  ticket summary opens with the same sentence. Everything below it is reference
+  material for the follow-up question, so it is dense rather than explanatory:
+  a two-column fact grid, no row repeating the title or ticker already in the
+  header, the market-type explainer behind a disclosure, and a long outcome
+  field collapsed to six — with winners and any pasted contract pinned visible.
+- **Themes are Kyle's alone.** Four of them (`gemini` default, `mars`, `seas`,
+  `astro`) set the same token names the shared shell reads, stored under
+  `predara-kyle-theme` so picking one here does not change the Analyze or
+  Settlement pages. The three illustrated themes layer artwork from
+  `kyle-themes/` under a scrim in that theme's colour; each also carries a
+  `--k-fallback` gradient so the theme is complete and readable with the image
+  missing or still loading. Cards stay near-opaque: the art is atmosphere and
+  must never compete with the brief.
 - **Every number is either a fact or an identifier.** Tickers and instrument
   symbols are there to be pasted into a ticket; the hand-off card emits the whole
   brief as plain text for exactly that.

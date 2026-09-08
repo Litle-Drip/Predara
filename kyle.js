@@ -241,6 +241,15 @@ function kyleExclusive(event) {
   const contracts = _kContracts(e)
   if (e.type === "binary" || contracts.length === 1) return true
 
+  // A settled event has already answered the question: more than one contract
+  // settled YES means they were never mutually exclusive. This is fact, not
+  // inference, so it outranks the price reading below — which a settled book
+  // cannot supply anyway, since settled prices are all 1 or 0.
+  const sides = contracts.map((c) => String((c && c.resolutionSide) || "").toLowerCase())
+  const yes = sides.filter((v) => v === "yes").length
+  if (yes > 1) return false
+  if (yes === 1 && sides.every((v) => v === "yes" || v === "no")) return true
+
   const prices = contracts
     .map((c) => _kNum(_kFirst((c.prices || {}).lastTradePrice, (c.prices || {}).bestAsk, (c.prices || {}).bestBid)))
     .filter((p) => p !== null)
@@ -467,11 +476,43 @@ function kyleBrief(event, now = Date.now(), options = {}) {
   }
 }
 
+// ── The answer ────────────────────────────────────────────────────────────────
+// One sentence, written the way the agent will say it. A support agent should
+// not have to assemble this from a status pill and a date row: the whole point
+// of the page is that the answer is the first thing on it.
+function kyleHeadline(brief, now = Date.now()) {
+  const b = brief || {}
+  const dates = b.dates || {}
+  const code = (b.status && b.status.code) || "unknown"
+  const won = (b.outcomes || []).filter((o) => o.result === "won")
+
+  if (code === "voided") {
+    return "Gemini cancelled this event, so there is no result and no payout. Trades are unwound — this is a refund question, not a settlement question."
+  }
+  if (code === "settled") {
+    const when = dates.resolved ? ` It settled ${_kRelative(dates.resolved, now)}.` : ""
+    if (won.length === 1) return `Finished — ${won[0].name} won.${when} Those contracts paid $1 each; every other contract paid $0.`
+    if (won.length > 1) return `Finished — ${won.length} outcomes won: ${won.map((o) => o.name).join(", ")}.${when} Each of those paid $1 per contract; every other contract paid $0.`
+    return `Finished, but the data does not say which outcome won.${when} Confirm the result on the event page before telling the customer anything about their payout.`
+  }
+  if (code === "closed") {
+    const when = dates.tradingCloses ? ` Trading stopped ${_kRelative(dates.tradingCloses, now)}.` : ""
+    return `Trading is over and the result has not been published yet.${when} Nobody has been paid, and no position can be opened or closed.`
+  }
+  if (code === "open") {
+    const when = dates.tradingCloses ? ` Trading closes ${_kRelative(dates.tradingCloses, now)}.` : ""
+    return `Still trading — nothing has been decided and nothing has paid out.${when} The customer can still buy or sell.`
+  }
+  return "Gemini did not return a state Kyle recognises. Do not tell the customer whether this is open or settled — check the event page first."
+}
+
 // Plain text an agent pastes straight into the ticket. No markup, no emoji —
 // it gets read by the next agent and sometimes by the customer.
 function kyleSummaryText(brief) {
   const b = brief || {}
   const lines = [
+    kyleHeadline(b),
+    "",
     `EVENT: ${b.title}`,
     b.ticker ? `TICKER: ${b.ticker}` : "",
     `STATUS: ${b.status && b.status.label}`,
@@ -529,87 +570,124 @@ function kyleResultsHtml(events, query) {
   </div>`
 }
 
-function _kRow(label, value, hint) {
+function _kFact(label, value, hint) {
   if (!value) return ""
-  return `<div class="k-row">
-    <div class="k-row-key">${_kEsc(label)}</div>
-    <div class="k-row-val">${_kEsc(value)}${hint ? `<span class="k-row-hint">${_kEsc(hint)}</span>` : ""}</div>
+  return `<div class="k-fact">
+    <div class="k-fact-key">${_kEsc(label)}</div>
+    <div class="k-fact-val">${_kEsc(value)}${hint ? `<span class="k-fact-hint">${_kEsc(hint)}</span>` : ""}</div>
   </div>`
+}
+
+// Fields worth a row are the ones an agent would otherwise have to go and find.
+// The event title and ticker are already in the header, so repeating them in a
+// table is just more page between the reader and the answer.
+function kyleFactsHtml(b) {
+  const closedAlready = _kTense(b.dates.tradingCloses) === "closed"
+  return [
+    _kFact("Type", b.type.label),
+    _kFact("Sport", b.sport),
+    _kFact("Category", b.category),
+    _kFact("Listed", _kDate(b.dates.listed)),
+    _kFact("Event starts", _kDateTime(b.dates.eventStart)),
+    _kFact(closedAlready ? "Trading closed" : "Trading closes", _kDateTime(b.dates.tradingCloses), _kRelative(b.dates.tradingCloses)),
+    _kFact("Resolved", _kDateTime(b.dates.resolved), _kRelative(b.dates.resolved)),
+    _kFact("Contracts", String(b.stats.contracts || "")),
+    _kFact("Total traded", b.stats.volume),
+  ].filter(Boolean).join("")
+}
+
+// A 22-driver field should not push the answer off the screen. Winners, the
+// contract the agent pasted, and the leaders stay visible; the tail is one
+// click away.
+const KYLE_OUTCOMES_SHOWN = 6
+
+function _kOutcomeHtml(o) {
+  const cls = [
+    "k-outcome",
+    o.focus ? "k-outcome-focus" : "",
+    o.result === "won" ? "k-outcome-won" : "",
+    o.result === "lost" ? "k-outcome-lost" : "",
+  ].filter(Boolean).join(" ")
+  const tags = [
+    o.focus ? `<span class="k-tag k-tag-focus">pasted</span>` : "",
+    o.result === "won" ? `<span class="k-tag k-tag-won">WON</span>` : "",
+    o.result === "lost" ? `<span class="k-tag">lost</span>` : "",
+  ].join("")
+  return `<div class="${cls}">
+    <span class="k-outcome-name">${_kEsc(o.name)}${tags}</span>
+    <span class="k-outcome-pct">${o.result ? "" : o.pct === null ? "—" : _kEsc(o.pct + "%")}</span>
+  </div>`
+}
+
+function kyleOutcomesHtml(b) {
+  const all = b.outcomes || []
+  if (!all.length) return `<p class="k-note">No outcomes were returned for this event.</p>`
+  // Anything the agent is looking for stays above the fold regardless of price.
+  const pinned = all.filter((o) => o.focus || o.result === "won")
+  const rest = all.filter((o) => !pinned.includes(o))
+  const shown = pinned.concat(rest.slice(0, Math.max(0, KYLE_OUTCOMES_SHOWN - pinned.length)))
+  const hidden = all.filter((o) => !shown.includes(o))
+  return shown.map(_kOutcomeHtml).join("") + (hidden.length
+    ? `<div id="kyleMoreOutcomes" class="k-more" hidden>${hidden.map(_kOutcomeHtml).join("")}</div>
+       <button type="button" class="k-link-btn" id="kyleMoreBtn" onclick="kyleToggleOutcomes()">Show ${hidden.length} more</button>`
+    : "")
 }
 
 function kyleBriefHtml(brief) {
   const b = brief
   const issues = (b.issues || []).map((i) => `
     <div class="k-issue k-issue-${_kEsc(i.level)}">
-      <div class="k-issue-title">${_kEsc(i.title)}</div>
-      <div class="k-issue-body">${_kEsc(i.body)}</div>
+      <span class="k-issue-title">${_kEsc(i.title)}</span>
+      <span class="k-issue-body">${_kEsc(i.body)}</span>
     </div>`).join("")
 
-  const outcomes = (b.outcomes || []).map((o) => `
-    <div class="k-outcome${o.focus ? " k-outcome-focus" : ""}${o.result === "won" ? " k-outcome-won" : o.result === "lost" ? " k-outcome-lost" : ""}">
-      <div class="k-outcome-name">${_kEsc(o.name)}${o.focus ? `<span class="k-tag k-tag-focus">the contract you pasted</span>` : ""}${o.result === "won" ? `<span class="k-tag k-tag-won">WON</span>` : o.result === "lost" ? `<span class="k-tag">did not win</span>` : ""}</div>
-      <div class="k-outcome-pct">${o.result ? "" : o.pct === null ? "—" : _kEsc(o.pct + "%")}</div>
-    </div>`).join("")
-
-  const stats = [
-    b.stats.volume ? `Total traded ${b.stats.volume}` : "",
-    b.stats.liquidity ? `Liquidity ${b.stats.liquidity}` : "",
-    b.stats.openInterest ? `Open interest ${b.stats.openInterest}` : "",
-  ].filter(Boolean).map((s) => `<span>${_kEsc(s)}</span>`).join("")
+  const priceNote = b.status.code === "settled" || b.status.code === "voided"
+    ? ""
+    : `<p class="k-note">A percentage is the price traders are paying, not Gemini's prediction — do not quote it to a customer as the odds of anything.</p>`
 
   return `
   <div class="k-brief">
-    <div class="k-status k-${_kEsc(b.status.tone)}">
-      <div class="k-status-head">
+    <div class="k-answer k-${_kEsc(b.status.tone)}">
+      <div class="k-answer-head">
         <span class="k-pill k-${_kEsc(b.status.tone)}">${_kEsc(b.status.label)}</span>
-        <span class="k-status-ticker">${_kEsc(b.ticker)}</span>
+        <span class="k-answer-ticker">${_kEsc(b.ticker)}</span>
       </div>
       <h1 class="k-title">${_kEsc(b.title)}</h1>
-      <p class="k-status-plain">${_kEsc(b.status.plain)}</p>
+      <p class="k-headline">${_kEsc(kyleHeadline(b))}</p>
+      ${b.description && b.description !== b.title ? `<p class="k-desc">${_kEsc(b.description)}</p>` : ""}
+      <details class="k-explain">
+        <summary>What kind of market is this?</summary>
+        <p>${_kEsc(b.type.plain)}</p>
+      </details>
     </div>
 
-    <div class="k-card">
-      <div class="k-card-label">What this event is</div>
-      <p class="k-lede">${_kEsc(b.description || b.title)}</p>
-      <p class="k-plain">${_kEsc(b.type.plain)}</p>
-    </div>
-
-    ${issues ? `<div class="k-card k-card-flag">
-      <div class="k-card-label">Before you reply</div>
+    ${issues ? `<section class="k-card k-card-flag">
+      <h2 class="k-card-label">Before you reply</h2>
       ${issues}
-    </div>` : ""}
+    </section>` : ""}
 
-    <div class="k-card">
-      <div class="k-card-label">The facts</div>
-      ${_kRow("Event", b.title)}
-      ${_kRow("Ticker", b.ticker, "paste this into the ticket")}
-      ${_kRow("Type", b.type.label)}
-      ${_kRow("Sport", b.sport)}
-      ${_kRow("Category", b.category)}
-      ${_kRow("Listed", _kDate(b.dates.listed))}
-      ${_kRow("Event starts", _kDateTime(b.dates.eventStart))}
-      ${_kRow(_kTense(b.dates.tradingCloses) === "closed" ? "Trading closed" : "Trading closes", _kDateTime(b.dates.tradingCloses), _kRelative(b.dates.tradingCloses))}
-      ${_kRow("Resolved", _kDateTime(b.dates.resolved), _kRelative(b.dates.resolved))}
-      ${_kRow("Resolution", b.resolution.text)}
-      ${b.winner ? _kRow("Winning outcome", b.winner.name, "paid $1 per contract") : ""}
-    </div>
+    <section class="k-card">
+      <h2 class="k-card-label">Details</h2>
+      <div class="k-facts">${kyleFactsHtml(b)}</div>
+    </section>
 
-    <div class="k-card">
-      <div class="k-card-label">Outcomes ${b.status.code === "settled" ? "and result" : "and what the market currently thinks"}</div>
-      ${b.status.code === "settled" ? "" : `<p class="k-plain">A percentage here is the price traders are paying, read as a chance. It is not Gemini's prediction and it is not advice — do not quote it to a customer as the odds of anything.</p>`}
-      ${outcomes || `<p class="k-plain">No outcomes were returned for this event.</p>`}
-      ${stats ? `<div class="k-stats">${stats}</div>` : ""}
-    </div>
+    <section class="k-card">
+      <h2 class="k-card-label">${b.status.code === "settled" ? "Outcomes and result" : "Outcomes"}</h2>
+      ${kyleOutcomesHtml(b)}
+      ${priceNote}
+    </section>
 
-    <div class="k-card">
-      <div class="k-card-label">Hand-off</div>
+    <section class="k-card">
       <div class="k-actions">
-        <button class="k-btn" onclick="kyleCopySummary()">Copy summary for the ticket</button>
-        ${b.links.event ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.event)}" target="_blank" rel="noopener">Open event on Gemini ↗</a>` : ""}
+        <button class="k-btn" onclick="kyleCopySummary()">Copy for the ticket</button>
+        ${b.links.event ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.event)}" target="_blank" rel="noopener">Event on Gemini ↗</a>` : ""}
         ${b.links.terms ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.terms)}" target="_blank" rel="noopener">Contract terms ↗</a>` : ""}
       </div>
-      <pre class="k-summary" id="kyleSummary">${_kEsc(kyleSummaryText(b))}</pre>
-    </div>
+      <details class="k-explain">
+        <summary>Preview what gets copied</summary>
+        <pre class="k-summary" id="kyleSummary">${_kEsc(kyleSummaryText(b))}</pre>
+      </details>
+    </section>
   </div>`
 }
 
@@ -715,6 +793,14 @@ async function kyleOpen(ticker) {
   }
 }
 
+function kyleToggleOutcomes() {
+  const more = document.getElementById("kyleMoreOutcomes")
+  const btn = document.getElementById("kyleMoreBtn")
+  if (!more || !btn) return
+  more.hidden = !more.hidden
+  btn.textContent = more.hidden ? `Show ${more.children.length} more` : "Show fewer"
+}
+
 function kyleCopySummary() {
   if (!_kyleBrief) return
   const text = kyleSummaryText(_kyleBrief)
@@ -744,7 +830,7 @@ if (KYLE_HAS_DOM) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     kyleParseQuery, kyleTickerCandidates, kyleStatus, kyleType, kyleExclusive, kyleDates, kyleSubject,
-    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleSummaryText,
-    kyleResultsHtml, kyleBriefHtml,
+    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleSummaryText,
+    kyleResultsHtml, kyleBriefHtml, kyleFactsHtml, kyleOutcomesHtml,
   }
 }
