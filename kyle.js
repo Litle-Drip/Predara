@@ -298,6 +298,29 @@ function kyleExclusive(event) {
   if (yes > 1) return false
   if (yes === 1 && sides.every((v) => v === "yes" || v === "no")) return true
 
+  // `template` — NOT `type`. Both a race-winner market and a podium market
+  // carry type "categorical", so `type` cannot tell them apart and using it
+  // would reintroduce the exact error the price heuristic made. `template`
+  // does distinguish them:
+  //
+  //   winner market   template "categorical"   no strikes        1 winner
+  //   podium market   template "binary"        strike on each    3 winners
+  //
+  // "categorical" means one categorical answer, so exactly one contract can be
+  // it. That direction is taken on the template alone.
+  const template = String(e.template || "").toLowerCase()
+  if (template === "categorical") return true
+
+  // The other direction is held to a higher bar. A head-to-head market has not
+  // been observed, and if those also carry template "binary" then template
+  // alone would wrongly call a two-team market non-exclusive. So "binary" is
+  // only believed when every contract also carries its own strike — the
+  // threshold that makes each one an independent bet, which is the top-N
+  // signature and is not what a head-to-head would look like. With one signal
+  // and not the other, Kyle abstains.
+  const everyContractHasAStrike = contracts.every((c) => c && c.strike && c.strike.value != null)
+  if (template === "binary" && everyContractHasAStrike) return false
+
   return null
 }
 
@@ -475,18 +498,23 @@ function kyleOutcomes(event) {
   const type = kyleType(event)
   const rows = contracts.map((c, i) => {
     const p = (c && c.prices) || {}
-    // Live payloads nest the book under prices.buy / prices.sell (and older
-    // ones under prices.yes). Only known key names are read: picking an
-    // arbitrary number out of an unfamiliar object could show a bid where
-    // Gemini's own page shows an ask, and an agent would quote the difference.
+    // ASK FIRST, and this order is not cosmetic. A live book carries bestAsk,
+    // bestBid and lastTradePrice at once, and gemini.com displays the ask as
+    // the contract's "Yes %" — the cost to buy a YES contract. Reading
+    // lastTradePrice first showed 31% for a contract Gemini was showing at 37%,
+    // a six-point gap an agent would have quoted straight to a customer. The
+    // whole point of this page is that it agrees with what the customer is
+    // looking at. adapters.js makes the same choice for the same reason.
+    //
+    // prices.buy.yes is the same number as bestAsk in every observed payload
+    // and is kept as a fallback; prices.sell.yes is the bid side.
     const buy = p.buy || {}
     const sell = p.sell || {}
     const yes = p.yes || p.YES || {}
     const price = _kNum(_kFirst(
-      p.lastTradePrice, p.bestAsk, p.bestBid,
-      buy.bestAsk, buy.ask, buy.price, buy.lastTradePrice,
-      yes.bestAsk, yes.ask, yes.lastTradePrice,
-      sell.bestBid, sell.bid, sell.price,
+      p.bestAsk, buy.yes, buy.bestAsk, buy.ask, yes.bestAsk, yes.ask,
+      p.lastTradePrice, yes.lastTradePrice, buy.lastTradePrice,
+      p.bestBid, sell.yes, sell.bestBid, sell.bid,
       c.lastPrice, c.price,
     ))
     const side = String((c && c.resolutionSide) || "").toLowerCase()
