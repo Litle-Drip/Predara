@@ -125,6 +125,15 @@ support agent mid-ticket who has never traded a prediction market, so:
 - **No trading language.** No EV, Kelly, edge, spread or fee model. A percentage
   is labelled as a price traders are paying, with an explicit "do not quote this
   to a customer as odds".
+- **When a contract is named, that contract is the answer.** An agent pasting
+  an instrument symbol is holding a customer's position, so `kyleFocusAnswer()`
+  puts its verdict — won, lost, still trading at a price — in its own panel at
+  the top, and demotes the event's own result to a supporting line. On a
+  22-driver podium the pasted contract used to be the last row of a collapsed
+  list while the headline announced three winners the customer did not hold.
+  The event line goes `concise` in that case: saying "check the customer's
+  account" twice in two adjacent paragraphs gets neither read. The copied ticket
+  text keeps the full wording, because it travels without the page around it.
 - **The answer is the first thing on the page.** `kyleHeadline()` writes one
   sentence in the words the agent will use ("Finished — Verstappen, Norris and
   Piastri won. Those paid $1 each; every other contract paid $0."), and the

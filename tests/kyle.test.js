@@ -744,3 +744,66 @@ test("the settled podium still reports all three winners", () => {
   assert.match(kyle.kyleSummaryText(brief, Date.parse("2026-09-08T18:00:00Z")), /WINNING OUTCOMES \(3\)/)
   assert.match(kyle.kyleResolution(PODIUM_EVENT).text, /finishes on the podium \(top 3\)/)
 })
+
+// ══ The customer's contract is the answer ═════════════════════════════════════
+// An agent pasting a contract symbol is holding a customer's position. On a
+// 22-driver podium that contract was the last row of a collapsed list while the
+// headline talked about three winners the customer did not hold.
+
+test("a pasted losing contract is answered first, not buried in the list", () => {
+  const brief = kyle.kyleBrief(PODIUM_EVENT, REAL_NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-ALB" })
+  const answer = kyle.kyleFocusAnswer(brief, REAL_NOW)
+  assert.equal(answer.verdict, "lost")
+  assert.equal(answer.name, "Alexander Albon")
+  assert.match(answer.line, /did not win/i)
+  assert.match(answer.line, /settles at zero/i)
+
+  const html = kyle.kyleBriefHtml(brief)
+  // The contract's verdict must appear before the event's own result.
+  assert.ok(html.indexOf("Alexander Albon") < html.indexOf("Andrea Kimi Antonelli"),
+    "the customer's contract comes before the event's winners")
+  assert.match(html, /k-focus-lost/)
+})
+
+test("a pasted winning contract says so, and still defers on the credit", () => {
+  const brief = kyle.kyleBrief(PODIUM_EVENT, REAL_NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-ANT" })
+  const answer = kyle.kyleFocusAnswer(brief, REAL_NOW)
+  assert.equal(answer.verdict, "won")
+  assert.match(answer.line, /settles at/i)
+  assert.doesNotMatch(answer.line, /has been paid|was paid/i)
+  assert.match(answer.note, /confirm the credit/i)
+})
+
+test("a pasted contract on a live market reports its price, not a result", () => {
+  const brief = kyle.kyleBrief(LIVE_EVENT, REAL_NOW, { focusSymbol: "GEMI-F1-MADGP-WIN-20260913-ANT" })
+  const answer = kyle.kyleFocusAnswer(brief, REAL_NOW)
+  assert.equal(answer.verdict, "open")
+  assert.match(answer.line, /37%/, "the ask, matching gemini.com")
+  assert.match(answer.line, /Nothing has been decided/i)
+})
+
+test("with no contract pasted, the event's own result is the answer", () => {
+  const brief = kyle.kyleBrief(PODIUM_EVENT, REAL_NOW)
+  assert.equal(kyle.kyleFocusAnswer(brief, REAL_NOW), null)
+  const html = kyle.kyleBriefHtml(brief)
+  assert.doesNotMatch(html, /k-focus-label/, "no contract card without a pasted contract")
+  assert.match(html, /k-headline/)
+})
+
+test("the event line is not repeated at full length beside the contract card", () => {
+  const brief = kyle.kyleBrief(PODIUM_EVENT, REAL_NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-ALB" })
+  const concise = kyle.kyleHeadline(brief, REAL_NOW, { concise: true })
+  assert.doesNotMatch(concise, /Check the customer's account/i, "the contract card already says this")
+  assert.match(concise, /3 outcomes won/)
+  // The copied ticket text keeps the full wording — it travels without the page.
+  assert.match(kyle.kyleSummaryText(brief, REAL_NOW), /Check the customer's account/i)
+})
+
+test("type labels stay short enough to sit on one line", () => {
+  for (const event of [REAL_EVENT, PODIUM_EVENT, LIVE_EVENT, { type: "binary", contracts: [{ label: "Yes" }] }]) {
+    const label = kyle.kyleType(event).label
+    assert.ok(label.length <= 28, `"${label}" is too long for a fact cell`)
+  }
+  assert.equal(kyle.kyleType(PODIUM_EVENT).label, "Several can win")
+  assert.equal(kyle.kyleType(REAL_EVENT).label, "Pick one — only one can win")
+})
