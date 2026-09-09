@@ -134,6 +134,22 @@ support agent mid-ticket who has never traded a prediction market, so:
   The event line goes `concise` in that case: saying "check the customer's
   account" twice in two adjacent paragraphs gets neither read. The copied ticket
   text keeps the full wording, because it travels without the page around it.
+- **`settlementValue` is NOT a payout.** On a crypto market it carries the
+  measured price that decided the outcome, and reading it as the payout made
+  Kyle say "winning contracts settle at $64,493.48 per contract". The name
+  collides with a `settlementValue` parameter in `lib/gemini.js` that does mean
+  the $1 payout; the API field of the same name does not. `kyleSettlement()`
+  reads `payoutValue` only. The measured value belongs to
+  `kyleSettlementReading()`.
+- **A threshold market shows its arithmetic.** Crypto and weather events resolve
+  by comparing a measured value against a strike, and publish both plus the
+  index they were read from — the whole answer to "why did this resolve No?".
+  Kyle prints the threshold, the measured value and the gap, and stops there:
+  for a `reference` strike the contract terms, not the strike type, say which
+  direction wins, so no causal sentence is synthesised. A strike is not always
+  money — a podium market's is a finishing position — so whole numbers print
+  without decimals, and only the `source` field names an index worth quoting
+  (`sourceDetails.index` is a category on sports events).
 - **The answer is the first thing on the page.** `kyleHeadline()` writes one
   sentence in the words the agent will use ("Finished — Verstappen, Norris and
   Piastri won. Those paid $1 each; every other contract paid $0."), and the

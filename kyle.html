@@ -417,7 +417,7 @@
       background: var(--rec-bg);
     }
     .k-focus-won  { border-left-color: #0f8a5e; }
-    .k-focus-lost { border-left-color: var(--muted); }
+    .k-focus-lost { border-left-color: #c73a2f; }
     .k-focus-open { border-left-color: var(--orange); }
     .k-focus-unknown { border-left-color: #c73a2f; }
 
@@ -442,6 +442,34 @@
       font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--muted); margin-bottom: 4px;
     }
+
+    /* ── How a threshold market settled ──
+       Two numbers and the gap between them. This is the answer to "why did it
+       resolve that way?", so it is set as figures rather than prose. */
+    .k-reading {
+      margin-top: 18px; padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .k-reading-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 10px;
+    }
+    .k-reading-figures { display: flex; flex-wrap: wrap; gap: 10px; }
+    .k-figure {
+      flex: 1 1 130px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--rec-bg);
+    }
+    .k-figure-key { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    .k-figure-val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 17px; font-weight: 500; color: var(--text-bright);
+      letter-spacing: -0.3px;
+    }
+    .k-figure-dir { font-family: inherit; font-size: 12px; font-weight: 400; color: var(--muted); }
+    .k-reading .k-note { margin-top: 10px; }
 
     /* ── Freshness, demoted to a footnote on the answer ── */
     .k-meta {
@@ -518,12 +546,16 @@
       padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px;
     }
     .k-outcome-won   { border-color: #0f8a5e; background: var(--rec-bg); }
-    .k-outcome-lost  { opacity: 0.55; }
+    .k-outcome-lost  { opacity: 0.8; }
     .k-outcome-focus { border-color: var(--orange); background: var(--orange-bg); opacity: 1; }
     .k-outcome-name { font-size: 13px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .k-outcome-pct  { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--k-ink); }
     .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
     .k-tag-won   { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
+    /* A losing contract reads as a loss at a glance, not as a greyed-out row
+       an agent has to squint at. Green and red carry the verdict; the WON /
+       LOST wording carries it for anyone who cannot separate the two. */
+    .k-tag-lost  { background: #c73a2f; color: #fceceb; border-color: transparent; }
     .k-tag-focus { background: var(--k-fill); color: var(--k-on-fill); border-color: transparent; }
 
     .k-link-btn {
