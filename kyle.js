@@ -343,7 +343,7 @@ function kyleType(event) {
   const isBinary = (event && event.type === "binary") || n === 1
   if (isBinary) {
     return {
-      code: "binary", outcomeCount: 2, exclusive: true, label: "Yes / No question",
+      code: "binary", outcomeCount: 2, exclusive: true, label: "Yes / No",
       plain: `One question with two sides. A customer holding YES collects ${settle.each} if it happens; a customer holding NO collects ${settle.each} if it does not. Only one side can be right.`,
     }
   }
@@ -353,26 +353,26 @@ function kyleType(event) {
 
   if (n === 2 && exclusive === true) {
     return {
-      code: "head2head", outcomeCount: 2, exclusive: true, label: "Head-to-head (2 outcomes)",
+      code: "head2head", outcomeCount: 2, exclusive: true, label: "Head-to-head",
       plain: `Two possible results, and only one of them can happen. The one that does settles at ${settle.each}; the other settles at zero.`,
     }
   }
   if (exclusive === true) {
     return {
-      code: "multi", outcomeCount: n, exclusive: true, label: `Pick one of ${n} outcomes`,
+      code: "multi", outcomeCount: n, exclusive: true, label: "Pick one — only one can win",
       plain: `${n} possible results, and only one of them can happen. That one settles at ${settle.each}; every other one settles at zero.` + ask,
     }
   }
   if (exclusive === false) {
     return {
-      code: "multi", outcomeCount: n, exclusive: false, label: `${n} outcomes, more than one can win`,
+      code: "multi", outcomeCount: n, exclusive: false, label: "Several can win",
       plain: `${n} separate contracts on the same event, and this one settled with more than one of them winning — a podium or top-N market. Each winning contract settles at ${settle.each} independently of the others, so a customer can hold a losing contract on an event that had several winners.` + ask,
     }
   }
   // Nothing in the payload states whether these are mutually exclusive, and it
   // is not safe to infer from prices. Say so and point at the terms.
   return {
-    code: "multi", outcomeCount: n, exclusive: null, label: `${n} outcomes`,
+    code: "multi", outcomeCount: n, exclusive: null, label: "Multiple outcomes",
     plain: `${n} separate contracts, each settling at ${settle.each} if its outcome happens. Whether only one of them can win is set by the contract terms and this event's data does not state it — read the terms before telling a customer anything about the other outcomes.` + ask,
   }
 }
@@ -696,7 +696,7 @@ function kyleBrief(event, now = Date.now(), options = {}) {
 // of the page is that the answer is the first thing on it.
 // `relative` renders "3 hours ago" for the screen. Copied text must not use it:
 // "It settled 1 hour ago", pasted into an email sent tomorrow, is false.
-function kyleHeadline(brief, now = Date.now(), { relative = true } = {}) {
+function kyleHeadline(brief, now = Date.now(), { relative = true, concise = false } = {}) {
   const b = brief || {}
   const dates = b.dates || {}
   const code = (b.status && b.status.code) || "unknown"
@@ -714,8 +714,17 @@ function kyleHeadline(brief, now = Date.now(), { relative = true } = {}) {
     // Kyle reads a resolution state, never an account balance. It says what the
     // contract does, not that the customer has been credited.
     const at = when(dates.resolved, relative ? "It settled" : "Settled")
-    if (won.length === 1) return `Finished — ${won[0].name} won.${at} That contract settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
-    if (won.length > 1) return `Finished — ${won.length} outcomes won: ${won.map((o) => o.name).join(", ")}.${at} Each of those settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+    if (won.length === 1) {
+      return concise
+        ? `${won[0].name} won.${at}`
+        : `Finished — ${won[0].name} won.${at} That contract settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+    }
+    if (won.length > 1) {
+      const names = won.map((o) => o.name).join(", ")
+      return concise
+        ? `${won.length} outcomes won: ${names}.${at}`
+        : `Finished — ${won.length} outcomes won: ${names}.${at} Each of those settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+    }
     return `Finished, but the data does not say which outcome won.${at} Confirm the result on the event page before telling the customer anything about their payout.`
   }
   if (code === "conflict") {
@@ -726,10 +735,46 @@ function kyleHeadline(brief, now = Date.now(), { relative = true } = {}) {
     return `Gemini reports trading as closed, and no result has been published.${at} No contract has settled and no position can be opened or closed.`
   }
   if (code === "open") {
-    const at = when(dates.tradingCloses, relative ? "Trading closes" : "Trading closes")
-    return `Gemini reports this event as open — nothing has been decided and no contract has settled.${at}`
+    const at = when(dates.tradingCloses, "Trading closes")
+    return concise
+      ? `Open.${at}`.trim()
+      : `Gemini reports this event as open — nothing has been decided and no contract has settled.${at}`
   }
   return "Gemini did not return a state Kyle recognises. Do not tell the customer whether this is open or settled — check the event page first."
+}
+
+// ── The customer's contract ───────────────────────────────────────────────────
+// When the agent pastes a contract symbol, they are holding a customer's
+// position, and the answer is about THAT contract — not about the event. On a
+// 22-driver podium the pasted contract was the 22nd row of a collapsed list
+// while the headline talked about three winners the customer did not hold.
+function kyleFocusAnswer(brief, now = Date.now()) {
+  const b = brief || {}
+  const focus = (b.outcomes || []).find((o) => o.focus)
+  if (!focus) return null
+  const pay = (b.settlement && b.settlement.each) || "its full settlement value"
+  const code = (b.status && b.status.code) || "unknown"
+
+  if (focus.result === "won") {
+    return { verdict: "won", name: focus.name,
+      line: `This contract won. It settles at ${pay}.`,
+      note: "Confirm the credit in the customer's account before you tell them it has been paid." }
+  }
+  if (focus.result === "lost") {
+    return { verdict: "lost", name: focus.name,
+      line: "This contract did not win. It settles at zero.",
+      note: "The customer holding it receives nothing for it, whatever else happened on the event." }
+  }
+  if (code === "settled") {
+    return { verdict: "unknown", name: focus.name,
+      line: "The event has settled, but this contract's result is not published.",
+      note: "Do not tell the customer whether it won — confirm on the event page first." }
+  }
+  return { verdict: "open", name: focus.name,
+    line: focus.pctLabel && focus.pctLabel !== "—"
+      ? `Still trading at ${focus.pctLabel}. Nothing has been decided.`
+      : "Still trading. Nothing has been decided.",
+    note: "The customer can still buy or sell it until trading closes." }
 }
 
 // Plain text an agent pastes straight into the ticket. No markup, no emoji —
@@ -742,7 +787,9 @@ function kyleHeadline(brief, now = Date.now(), { relative = true } = {}) {
 function kyleSummaryText(brief, now = Date.now()) {
   const b = brief || {}
   const pay = (b.settlement && b.settlement.each) || "its full settlement value"
+  const focus = kyleFocusAnswer(b, now)
   const lines = [
+    focus ? `CONTRACT ASKED ABOUT: ${focus.name} — ${focus.line}` : "",
     `EVENT: ${b.title}`,
     b.ticker ? `TICKER: ${b.ticker}` : "",
     `STATUS: ${b.status && b.status.label} (as reported by Gemini)`,
@@ -759,9 +806,6 @@ function kyleSummaryText(brief, now = Date.now()) {
         ? `WINNING OUTCOME: ${won[0].name}`
         : `WINNING OUTCOMES (${won.length}): ${won.map((o) => o.name).join(", ")}`
     })(),
-    (b.outcomes || []).filter((o) => o.focus).map((o) => `CONTRACT ASKED ABOUT: ${o.name}${
-      o.result === "won" ? ` (won — settles at ${pay})` : o.result === "lost" ? " (did not win — settles at zero)" : ""
-    }`).join("\n"),
     b.links && b.links.event ? `EVENT PAGE: ${b.links.event}` : "",
     b.links && b.links.api ? `API: ${b.links.api}` : "",
   ].filter(Boolean)
@@ -833,7 +877,10 @@ function kyleFactsHtml(b) {
   // publishes UTC and that is what the customer sees on the event page, so an
   // agent reading local time alone will quote a different day than the customer
   // is looking at.
-  const stamp = (label, iso) => _kFact(label, _kDateTime(iso), iso ? `${_kDateTimeUtc(iso)} · ${_kRelative(iso)}` : "")
+  // UTC is the primary rendering: it is what the customer sees on gemini.com,
+  // and printing local time, UTC and a relative age for one moment was three
+  // ways of saying the same thing in a row.
+  const stamp = (label, iso) => _kFact(label, _kDateTimeUtc(iso), iso ? _kRelative(iso) : "")
   return [
     _kFact("Type", b.type.label),
     _kFact("Sport", b.sport),
@@ -890,6 +937,8 @@ function kyleOutcomesHtml(b) {
 
 function kyleBriefHtml(brief) {
   const b = brief
+  const focus = kyleFocusAnswer(b)
+
   const issues = (b.issues || []).map((i) => `
     <div class="k-issue k-issue-${_kEsc(i.level)}">
       <span class="k-issue-title">${_kEsc(i.title)}</span>
@@ -900,32 +949,38 @@ function kyleBriefHtml(brief) {
     ? ""
     : `<p class="k-note">A percentage is the price traders are paying, not Gemini's prediction — do not quote it to a customer as the odds of anything.</p>`
 
+  // The event sentence is the answer when no contract was named, and the
+  // supporting context when one was.
+  const eventLine = _kEsc(kyleHeadline(b, Date.now(), { concise: !!focus }))
+
   return `
   <div class="k-brief">
-    <div class="k-answer k-${_kEsc(b.status.tone)}">
+    <section class="k-answer k-${_kEsc(b.status.tone)}">
       <div class="k-answer-head">
         <span class="k-pill k-${_kEsc(b.status.tone)}">${_kEsc(b.status.label)}</span>
         <span class="k-answer-ticker">${_kEsc(b.ticker)}</span>
       </div>
       <h1 class="k-title">${_kEsc(b.title)}</h1>
-      <p class="k-headline">${_kEsc(kyleHeadline(b))}</p>
-      <div class="k-freshness" id="kyleFreshness" data-read="${_kEsc(b.retrievedAt)}">
-        <span id="kyleFreshnessText">Read from Gemini just now</span>
+
+      ${focus ? `
+      <div class="k-focus k-focus-${_kEsc(focus.verdict)}">
+        <div class="k-focus-label">The contract you asked about</div>
+        <div class="k-focus-name">${_kEsc(focus.name)}</div>
+        <p class="k-focus-line">${_kEsc(focus.line)}</p>
+        <p class="k-focus-note">${_kEsc(focus.note)}</p>
+      </div>
+      <p class="k-eventline"><span class="k-eventline-label">The event</span>${eventLine}</p>`
+      : `<p class="k-headline">${eventLine}</p>`}
+
+      ${b.description && b.description !== b.title ? `<p class="k-desc">${_kEsc(b.description)}</p>` : ""}
+
+      <div class="k-meta">
+        <span class="k-freshness" id="kyleFreshness" data-read="${_kEsc(b.retrievedAt)}">
+          <span id="kyleFreshnessText">Read from Gemini just now</span>
+        </span>
         <button type="button" class="k-copy" onclick="kyleRefresh()">Re-read</button>
       </div>
-      ${b.description && b.description !== b.title ? `<p class="k-desc">${_kEsc(b.description)}</p>` : ""}
-      <details class="k-explain">
-        <summary>What kind of market is this?</summary>
-        <p>${_kEsc(b.type.plain)}</p>
-      </details>
-      ${b.criteria ? `<details class="k-explain">
-        <summary>How this resolves${b.criteria.isExample ? ` (wording for ${_kEsc(b.criteria.contract)})` : ""}</summary>
-        <p>${_kEsc(b.criteria.text)}</p>
-        ${b.criteria.isExample ? `<p class="k-note">Every contract on this event carries its own wording naming its own outcome; the rest of the rule is the same. Read the customer's contract if they are disputing the result.</p>` : ""}
-        ${b.criteria.agency ? `<p class="k-note">Result feed: ${_kEsc(b.criteria.agency)}.</p>` : ""}
-      </details>` : ""}
-      <p class="k-disclaimer">Event data as published by Gemini. This is not a statement of any customer's account, position, or payout, and it is not advice — confirm balances and payouts in the customer's account before you write to them.</p>
-    </div>
+    </section>
 
     ${issues ? `<section class="k-card k-card-flag">
       <h2 class="k-card-label">Before you reply</h2>
@@ -935,9 +990,22 @@ function kyleBriefHtml(brief) {
     <section class="k-card">
       <h2 class="k-card-label">Details</h2>
       <div class="k-facts">${kyleFactsHtml(b)}</div>
+      <div class="k-disclosures">
+        <details class="k-explain">
+          <summary>What kind of market is this?</summary>
+          <p>${_kEsc(b.type.plain)}</p>
+        </details>
+        ${b.criteria ? `<details class="k-explain">
+          <summary>How this resolves${b.criteria.isExample ? ` — wording for ${_kEsc(b.criteria.contract)}` : ""}</summary>
+          <p>${_kEsc(b.criteria.text)}</p>
+          ${b.criteria.isExample ? `<p class="k-note">Every contract carries its own wording naming its own outcome; the rest of the rule is the same.</p>` : ""}
+          ${b.criteria.agency ? `<p class="k-note">Result feed: ${_kEsc(b.criteria.agency)}.</p>` : ""}
+        </details>` : ""}
+      </div>
     </section>
 
     <section class="k-card">
+      <h2 class="k-card-label">Hand-off</h2>
       <div class="k-actions">
         <button class="k-btn" onclick="kyleCopySummary()">Copy for the ticket</button>
         ${b.links.event ? `<a class="k-btn k-btn-quiet" href="${_kEsc(b.links.event)}" target="_blank" rel="noopener">Event on Gemini ↗</a>` : ""}
@@ -948,10 +1016,13 @@ function kyleBriefHtml(brief) {
         <code class="k-apiurl" id="kyleApiUrl">${_kEsc(b.links.api)}</code>
         <button type="button" class="k-copy" id="kyleApiCopy" onclick="kyleCopyApiUrl()" title="Copy the API URL">Copy</button>
       </div>` : ""}
-      <details class="k-explain">
-        <summary>Preview what gets copied</summary>
-        <pre class="k-summary" id="kyleSummary">${_kEsc(kyleSummaryText(b))}</pre>
-      </details>
+      <div class="k-disclosures">
+        <details class="k-explain">
+          <summary>Preview what gets copied</summary>
+          <pre class="k-summary" id="kyleSummary">${_kEsc(kyleSummaryText(b))}</pre>
+        </details>
+      </div>
+      <p class="k-disclaimer">Event data as published by Gemini. Not a statement of any customer's account, position, or payout, and not advice — confirm balances in the customer's account before you write to them.</p>
     </section>
 
     <section class="k-card">
@@ -959,7 +1030,6 @@ function kyleBriefHtml(brief) {
       ${kyleOutcomesHtml(b)}
       ${priceNote}
     </section>
-
   </div>`
 }
 
@@ -1140,7 +1210,7 @@ if (KYLE_HAS_DOM) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     kyleParseQuery, kyleTickerCandidates, kyleStatus, kyleType, kyleExclusive, kyleDates, kyleSubject,
-    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleSummaryText, kyleResolution,
+    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleFocusAnswer, kyleSummaryText, kyleResolution,
     kyleResultsHtml, kyleBriefHtml, kyleFactsHtml, kyleOutcomesHtml, kyleSettlement,
   }
 }
