@@ -509,7 +509,16 @@ function onInputChange() {
     }
     return
   }
-  if (lower.includes("polymarket.com")) {
+  if (lower.includes("polymarket.com") || lower.includes("polymarket.us")) {
+    // polymarket.us is a real venue the analyzer accepts — it just has no
+    // public API yet, so the lookup explains that rather than the hint calling
+    // a valid market URL unrecognized and the analyzer then accepting it.
+    if (lower.includes("polymarket.us")) {
+      hint.textContent = "polymarket.us detected — a separate US exchange Predara can't read yet"
+      hint.className = "input-hint hint-info"
+      input.classList.remove("input-invalid", "input-valid")
+      return
+    }
     if (!lower.includes("/event/") && !lower.includes("/sports/") && !lower.includes("/esports/")) {
       hint.textContent = "Polymarket URL needs /event/<slug> or a sports/esports market URL"
       hint.className = "input-hint hint-error"
@@ -563,6 +572,9 @@ function _isRecognizedMarketUrl(raw) {
     return pathname.startsWith("/markets/") || pathname.startsWith("/events/")
   if (hostname === "polymarket.com" || hostname === "www.polymarket.com")
     return pathname.startsWith("/event/") || pathname.startsWith("/sports/") || pathname.startsWith("/esports/")
+  // polymarket.us is deliberately absent: this gates paste-to-auto-analyze, and
+  // firing an analysis that can only report an unsupported venue is worse than
+  // leaving the reader to press the button. The hint above already says so.
   if (hostname === "gemini.com" || hostname === "www.gemini.com")
     return pathname.startsWith("/predictions/") || pathname.startsWith("/prediction-markets/")
   if (hostname === "coinbase.com" || hostname === "www.coinbase.com" || hostname === "predict.coinbase.com")

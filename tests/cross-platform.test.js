@@ -77,15 +77,27 @@ test("candidates come back ranked and labelled, never pre-selected", async () =>
   assert.ok(!("selected" in pm.candidates[0]))
 })
 
-test("a title with nothing searchable in it asks for nothing upstream", async () => {
+test("nothing searchable in the title or the outcomes asks for nothing upstream", async () => {
   let called = false
-  const { results } = await findCrossPlatform(source("the a of"), {
+  const { results } = await findCrossPlatform({ platform: "kalshi", title: "the a of", outcomes: [] }, {
     signedGet: null,
     searchPolymarket: async () => { called = true; return [] },
     searchGemini: async () => { called = true; return [] },
   })
   assert.equal(called, false)
   assert.ok(results.every(r => r.error))
+})
+
+test("a competitor's name is searchable even when the title is not", async () => {
+  // Competitor names are the one vocabulary that does not vary between venues,
+  // so they are worth a query on their own.
+  let searched = []
+  await findCrossPlatform({ platform: "kalshi", title: "the a of", outcomes: ["Max Verstappen"] }, {
+    signedGet: null,
+    searchPolymarket: async (terms) => { searched = terms; return [] },
+    searchGemini: async () => [],
+  })
+  assert.deepEqual(searched, ["verstappen"])
 })
 
 test("the query shell rejects an unknown platform and a missing title", () => {
@@ -241,4 +253,70 @@ test("a candidate that fails to enrich keeps the score it already had", async ()
   await enrichKalshi(candidates, async () => { throw new Error("upstream down") })
   assert.equal(candidates[0].date, "2026-09-13")
   assert.deepEqual(candidates[0].outcomes, [])
+})
+
+// ── The failure this retrieval design exists for ──────────────────────────────
+// Reported from production: analyzing the Kalshi 2026 Spanish Grand Prix showed
+// "No matching event found" on both other venues, for an event both of them
+// were listing. The scoring was never the problem — the search never returned
+// the candidate for it to score.
+
+// A venue that answers a query only when one of its own words is asked for,
+// which is what a real search box does and what the first implementation
+// assumed away.
+function fakeVenue(listings) {
+  const seen = []
+  const search = async (terms) => {
+    const results = []
+    for (const listing of listings) {
+      const words = new Set(require("../lib/match").searchTokens(listing.title))
+      if (terms.some(t => words.has(t))) results.push(listing)
+    }
+    seen.push([...terms])
+    return results
+  }
+  search.termsSeen = () => seen
+  return search
+}
+
+test("the Madrid listing is found for the Spanish Grand Prix", async () => {
+  const gemini = fakeVenue([{
+    platform: "gemini",
+    title: "Madrid Grand Prix Winner",
+    date: "2026-09-13",
+    outcomes: ["Kimi Antonelli", "Lando Norris"],
+    url: "https://www.gemini.com/predictions/F1-MADGP-WIN-20260913",
+    ref: "F1-MADGP-WIN-20260913",
+  }])
+
+  const { results } = await findCrossPlatform({
+    platform: "kalshi",
+    title: "Spanish Grand Prix Winner",
+    date: "2026-09-13",
+    outcomes: ["Andrea Kimi Antonelli", "Lando Norris"],
+  }, { signedGet: null, searchPolymarket: async () => [], searchGemini: gemini })
+
+  const found = results.find(r => r.platform === "gemini")
+  assert.equal(found.candidates.length, 1,
+    "the listing shares no city name with the source — it has to be found on the words they do share")
+  assert.equal(found.candidates[0].title, "Madrid Grand Prix Winner")
+  assert.equal(found.candidates[0].confidence, "strong")
+})
+
+test("the words the venues do not share cost nothing", async () => {
+  // "spanish" appears nowhere in the Madrid listing. Sent as part of one joined
+  // query it made the whole search unanswerable; sent on its own it simply
+  // returns nothing while the other terms do the work.
+  const gemini = fakeVenue([{
+    platform: "gemini", title: "Madrid Grand Prix Winner", date: "2026-09-13",
+    outcomes: ["Lando Norris"], url: "https://gemini.example/x", ref: "x",
+  }])
+  await findCrossPlatform({
+    platform: "kalshi", title: "Portuguese Grand Prix Winner",
+    date: "2026-09-13", outcomes: ["Lando Norris"],
+  }, { signedGet: null, searchPolymarket: async () => [], searchGemini: gemini })
+
+  const terms = gemini.termsSeen()[0]
+  assert.ok(terms.includes("portuguese"), "the distinctive word is still asked for")
+  assert.ok(terms.includes("grand") || terms.includes("prix"), "so are the shared ones")
 })
