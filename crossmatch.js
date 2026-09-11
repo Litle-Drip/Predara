@@ -109,8 +109,13 @@ function _xmatchWhyNothing(result, label) {
     return `Nothing on ${esc(label)} is listed under ${words ? `<em>${words}</em>` : "these words"}. ` +
       `It may be listed there under a different name.`
   }
+  const examples = (result.checkedTitles || []).slice(0, 3)
+  const shown = examples.length
+    ? `<div class="xmatch-checked">Including: ${examples.map(t => `<em>${esc(t)}</em>`).join(", ")}` +
+      `${seen > examples.length ? ` and ${seen - examples.length} more` : ""}.</div>`
+    : ""
   return `Checked ${seen} ${esc(label)} listing${seen === 1 ? "" : "s"} matching ` +
-    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.`
+    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.${shown}`
 }
 
 function _xmatchManualLinks(source) {

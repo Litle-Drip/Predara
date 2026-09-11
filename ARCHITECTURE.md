@@ -62,6 +62,19 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   `"spanish winner gp"` returned nothing while "Madrid Grand Prix Winner" sat
   there; `grand` on its own finds it. Terms a venue does not share cost nothing —
   they return nothing — and `scoreMatch()` discards whatever does not hold up.
+- **Ask for both spellings of anything venues abbreviate.** Kalshi writes
+  "Grand Prix"; another venue may write "GP", which shares no searchable word
+  with it. `SEARCH_ALIASES` adds the alternate form as an extra query behind the
+  words the source venue actually used, so whichever spelling the venue chose,
+  one query reaches it. The alias keys are also kept by `searchTokens()` despite
+  being two characters, because the fallback listing and the Kalshi index filter
+  titles in-process — a term sent upstream but discarded locally only works half
+  the time.
+- **A fallback that reads one page by volume is not a search.** The Polymarket
+  fallback listing asked whether the event was among the hundred biggest markets
+  on the venue. A motor race is not, so the race was never in the pool that got
+  rejected, and the card could only report having checked some listings and
+  found none of them. It pages.
 - **Search with the venues' words, compare with normalized ones.**
   `titleTokens()` aliases "grand prix" to "gp" so two titles can be compared;
   `searchTokens()` deliberately does not, because the listing being searched for
@@ -106,6 +119,10 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   result does not reliably carry an outcome list, and without one the rule above
   cannot fire — which is exactly how the cycling race was offered. The leading
   candidates are re-fetched in full first.
+- **An empty result names what it checked.** Counting rejections cannot
+  separate "the right event was never in the pool" from "it was there and the
+  scoring rejected it" — a retrieval bug and a scoring bug, with nothing in
+  common. The card lists a few of the titles it looked at, which says which.
 - **An empty result says which half came up short.** Each venue reports the
   words it searched and how many listings it inspected, so the card can say
   "nothing is listed under these words" or "checked 12 listings, none is this
