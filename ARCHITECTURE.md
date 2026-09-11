@@ -50,9 +50,21 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   Kalshi candidate. The leading Kalshi candidates are then re-fetched in full
   and ranked a second time, because a title alone cannot separate one Grand Prix
   from another.
-- **Venues fail independently.** Each search is isolated and reports its own
-  error; one venue being down, unconfigured or rate limited must leave the other
-  two answering, since a partial answer is the entire point.
+- **Venues fail independently, and so do the queries within a venue.** Each
+  search is isolated and reports its own error; one venue being down,
+  unconfigured or rate limited must leave the other two answering. The same
+  holds one level down: a venue is failed only when *every* one of its term
+  queries failed. `searchGemini` used to throw on the first, so a single
+  rejected query turned a working venue into "Gemini search returned 400" — a
+  partial answer is the entire point of searching term by term.
+- **Short terms are matched locally but never sent as queries.** "gp" and "f1"
+  earn their place in the term list for the Kalshi index and the Polymarket
+  fallback, which filter titles in-process, but a venue's own search may reject
+  a two-character query outright — Gemini answers 400. Before aliases were
+  added no term was ever that short, which is why this broke only once they
+  were. `MIN_QUERY_TERM_LEN` gates what goes upstream, with a fallback to
+  asking anyway when every term is short, so a search never asks nothing and
+  then reports a confident absence.
 - **Retrieval is broad; only scoring is strict.** Each search term is sent as
   its own query and the results are unioned. The first implementation joined
   them into one query and found nothing, which is obvious in hindsight: the
