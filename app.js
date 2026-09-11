@@ -238,8 +238,19 @@ function _currentTitle() {
 function _currentCloseIso() {
   return (typeof window !== "undefined" && window._lastCloseIso) || ""
 }
+// The URL analyze() actually resolved and fetched, which is not always what is
+// sitting in the input box.
 function _currentPlatform() {
-  const lower = (document.getElementById("urlInput")?.value || "").toLowerCase()
+  // Read the resolved URL, not the raw input. A bare Gemini ticker
+  // ("F1-MADGP-WIN-20260913") or an instrument symbol
+  // ("GEMI-F1-MADGP-WIN-20260913-ANT") contains no platform name at all — note
+  // that GEMI- is not "gemini" — so reading the input returned "" for a market
+  // that had loaded perfectly. That blanked the platform on every history entry
+  // made from a pasted ticker, and left the cross-platform match card unable to
+  // tell which venue it was matching away from, so it rendered nothing at all.
+  const lower = String(
+    (typeof window !== "undefined" && window._analyzedUrl) ||
+    document.getElementById("urlInput")?.value || "").toLowerCase()
   return lower.includes("kalshi") ? "kalshi" : lower.includes("polymarket") ? "polymarket"
     : lower.includes("coinbase") ? "coinbase" : lower.includes("gemini") ? "gemini" : ""
 }
@@ -430,6 +441,7 @@ function _rememberStartState() {
 
 function resetToHome() {
   _rememberStartState()
+  if (typeof window !== "undefined") window._analyzedUrl = ""
   const input = document.getElementById("urlInput")
   if (input) {
     input.value = ""
@@ -612,6 +624,9 @@ async function analyze() {
   // Expand a bare Gemini ticker or instrument symbol to a full URL.
   // Shared with the compare view — see geminiUrlFromTicker() in utils.js.
   url = geminiUrlFromTicker(url) || url
+  // Everything downstream that needs to know which venue this is reads the
+  // resolved URL rather than the input box, which may still hold a bare ticker.
+  if (typeof window !== "undefined") window._analyzedUrl = url
 
   const lowerUrl = url.toLowerCase()
   let platform = "unknown"

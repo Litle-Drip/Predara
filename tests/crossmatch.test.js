@@ -66,6 +66,55 @@ test("the compare view reports the upstream's own error rather than a bare statu
   assert.match(source, /e\.error \|\| `Polymarket API \$\{res\.status\}`/)
 })
 
+// app.js reaches for rather more of the browser than the pure UI files do.
+function loadAppContext(inputValue = "") {
+  // resetToHome() styles the input as well as clearing it.
+  const input = { value: inputValue, classList: { add() {}, remove() {} } }
+  const context = vm.createContext({
+    console, window: {}, Date, Math, Number, String, URL, Map, Set,
+    parseFloat, parseInt, isNaN, encodeURIComponent, URLSearchParams, setTimeout,
+    document: {
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      getElementById: (id) => (id === "urlInput" ? input : null),
+      addEventListener: () => {},
+    },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    location: { pathname: "/", search: "" },
+    history: { pushState: () => {} },
+    fetch: async () => ({ ok: true, json: async () => ({}) }),
+    navigator: {},
+  })
+  ;["utils.js", "app.js"].forEach((file) => {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context, { filename: file })
+  })
+  return context
+}
+
+test("an analyzed Gemini ticker still knows which venue it came from", () => {
+  // GEMI- is not "gemini", and a bare event ticker names no venue at all, so
+  // reading the input box returned "" for a market that had loaded fine — which
+  // blanked the platform on its history entry and stopped the match card from
+  // rendering at all. The resolved URL is what answers this.
+  const ctx = loadAppContext("GEMI-F1-MADGP-WIN-20260913-ANT")
+  assert.equal(ctx._currentPlatform(), "", "the raw symbol names no venue — this is the trap")
+
+  ctx.window._analyzedUrl = "https://www.gemini.com/predictions/F1-MADGP-WIN-20260913"
+  assert.equal(ctx._currentPlatform(), "gemini")
+})
+
+test("the input box is still read when nothing has been analyzed yet", () => {
+  const ctx = loadAppContext("https://kalshi.com/markets/kxf1race-spagp26")
+  assert.equal(ctx._currentPlatform(), "kalshi")
+})
+
+test("clearing the page forgets the analyzed venue", () => {
+  const ctx = loadAppContext("")
+  ctx.window._analyzedUrl = "https://www.gemini.com/predictions/F1-MADGP-WIN-20260913"
+  ctx.resetToHome()
+  assert.equal(ctx._currentPlatform(), "", "a stale venue would mislabel the next market")
+})
+
 test("the match card renders nothing when there is no analyzed market to match", () => {
   const ctx = loadUiContext(["utils.js", "crossmatch.js"])
   assert.equal(ctx.crossMatchCardHtml(), "")
