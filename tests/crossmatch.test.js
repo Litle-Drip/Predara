@@ -140,3 +140,17 @@ test("the card is published as a cached asset so returning readers get it", () =
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
   assert.match(html, /<script src="crossmatch\.js/)
 })
+
+test("a polymarket.us link is not called unrecognized by the input hint", () => {
+  // The hint matched "polymarket.com" while analyze() matches "polymarket", so
+  // the same URL was called an unsupported platform and then analyzed anyway.
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8")
+  assert.match(app, /lower\.includes\("polymarket\.com"\) \|\| lower\.includes\("polymarket\.us"\)/)
+})
+
+test("a polymarket.us paste does not auto-fire an analysis that cannot succeed", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8")
+  const gate = app.split("function _isRecognizedMarketUrl")[1].split("function onUrlPaste")[0]
+  assert.ok(!/polymarket\.us"/.test(gate),
+    "auto-analyzing a venue with no readable API only produces an error the reader did not ask for")
+})

@@ -1,10 +1,11 @@
 // Predara Service Worker — PWA offline shell
 //
 // Bump CACHE_NAME on any change that returning users must not miss. The
-// previous bump shipped the cross-platform event match card; this one goes with
-// the ?v= bump in index.html that actually delivers changed scripts to
-// returning readers — see tests/asset-versions.test.js.
-const CACHE_NAME = "predara-v5"
+// previous bump went with the ?v= fix that actually delivers changed scripts to
+// returning readers; this one carries the cross-venue search fix and the
+// polymarket.us copy. Bump this and the ?v= in index.html together, always —
+// see tests/asset-versions.test.js.
+const CACHE_NAME = "predara-v6"
 
 // Pages, cached so the app opens offline — but always fetched fresh first when
 // the network is there. See the navigation rule in the fetch handler.

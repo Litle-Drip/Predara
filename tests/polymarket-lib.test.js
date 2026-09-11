@@ -22,15 +22,18 @@ test("a slug that does not exist is a 404 that names it, not a 502", () => {
     })
 })
 
-test("a .us slug falls back to .com before giving up", async () => {
+test("a .us slug is looked up on .com, and no guessed host is probed", async () => {
+  // gamma-api.polymarket.us was tried in production and does not resolve.
+  // Keeping it in the list spends a failed DNS lookup per request and tells the
+  // reader nothing, so a .us link checks the one host that actually answers.
   const tried = []
   const res = await fetchEventBySlug("shared-slug", "us", {
     fetch: async (url) => {
       tried.push(new URL(url).hostname)
-      return url.includes("polymarket.us") ? ok([]) : ok([{ title: "Found on .com" }])
+      return ok([{ title: "Found on .com" }])
     },
   })
-  assert.deepEqual(tried, ["gamma-api.polymarket.us", "gamma-api.polymarket.com"])
+  assert.deepEqual(tried, ["gamma-api.polymarket.com"])
   assert.equal(res.status, 200)
   assert.match(res.body, /Found on \.com/)
 })
@@ -74,18 +77,17 @@ test("a timeout is a 504, not a 502 — the reader is told to retry, not that th
   assert.match(res.error, /timed out/)
 })
 
-test("a not-found on the US venue says what each host actually answered", async () => {
-  // "Not found" and "that host does not exist" need different fixes, and
-  // without the trail they read identically to whoever is debugging.
-  const res = await fetchEventBySlug("f1-thsgp-2026-09-13-w", "us", {
-    fetch: async (url) => {
-      if (url.includes("polymarket.us")) throw new Error("getaddrinfo ENOTFOUND")
-      return ok([])
-    },
-  })
+test("a .us link is told the venue is unsupported, not that its link is wrong", async () => {
+  // The reader pasted a perfectly valid market URL. "Event not found" invites
+  // them to check it and paste it again; the truth is that no amount of
+  // re-pasting will work, and the card that can find the event is one analyze
+  // away on any other venue.
+  const res = await fetchEventBySlug("f1-thsgp-2026-09-13-w", "us", { fetch: async () => ok([]) })
   assert.equal(res.status, 404)
-  assert.match(res.error, /gamma-api\.polymarket\.us: unreachable/)
-  assert.match(res.error, /gamma-api\.polymarket\.com: no such slug/)
+  assert.match(res.error, /aren't supported yet/)
+  assert.match(res.error, /no public API/)
+  assert.match(res.error, /cross-platform match card/)
+  assert.ok(!/gamma-api/.test(res.error), "the host trail was for diagnosing the guess, which is now settled")
 })
 
 test("the .com venue's not-found stays short — there is no second host to report on", async () => {

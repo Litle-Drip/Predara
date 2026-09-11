@@ -53,6 +53,23 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
 - **Venues fail independently.** Each search is isolated and reports its own
   error; one venue being down, unconfigured or rate limited must leave the other
   two answering, since a partial answer is the entire point.
+- **Retrieval is broad; only scoring is strict.** Each search term is sent as
+  its own query and the results are unioned. The first implementation joined
+  them into one query and found nothing, which is obvious in hindsight: the
+  premise of the feature is that venues describe the same event in *different
+  words*, so demanding a listing contain all of the source venue's words asks
+  for the one thing that cannot be assumed. Searching Gemini for
+  `"spanish winner gp"` returned nothing while "Madrid Grand Prix Winner" sat
+  there; `grand` on its own finds it. Terms a venue does not share cost nothing —
+  they return nothing — and `scoreMatch()` discards whatever does not hold up.
+- **Search with the venues' words, compare with normalized ones.**
+  `titleTokens()` aliases "grand prix" to "gp" so two titles can be compared;
+  `searchTokens()` deliberately does not, because the listing being searched for
+  says "Grand Prix" and contains no "gp" at all. Using the aliased form as a
+  query made the target literally unfindable.
+- **A competitor's name is the most portable search key there is.** Every book
+  listing a race lists Verstappen, whatever it calls the race, so the leading
+  outcome goes into the term list alongside the title's words.
 
 Kalshi publishes no text search, so `kalshiIndex()` pages its open events into a
 local index behind a page cap and a wall-clock budget. An index cut short by
@@ -73,16 +90,49 @@ are now fixed in shared code rather than at the call site:
   `200` with an empty array for a slug it has never heard of. Reporting that as a
   bad gateway told readers the exchange was down and had them retry a request
   that could never succeed. `lib/polymarket.js` names the slug instead.
-- **polymarket.us is a different exchange.** The US-regulated venue lists its own
-  events under its own slugs, which the `.com` gamma API does not serve. A `.us`
-  link is tried against the US venue first and falls back to `.com`; when neither
-  has it, the reader is told the venues are separate rather than left to conclude
-  their link was malformed.
+- **polymarket.us is a different exchange Predara cannot read.** The
+  US-regulated venue lists its own events under its own slugs, which the `.com`
+  gamma API does not serve. A `gamma-api.polymarket.us` host was guessed for it
+  and probed from production: it does not resolve. A `.us` link is therefore
+  looked up on `.com` only, in case the slug happens to exist on both, and
+  otherwise the reader is told plainly that the venue is unsupported and pointed
+  at the match card — not "event not found", which invites them to re-paste a
+  URL that can never work. Do not add a host to `VENUE_HOSTS` on a guess: a
+  hostname that does not exist costs every reader a failed DNS lookup and tells
+  them nothing.
+- **The input hint and the analyzer must agree on what is supported.** The hint
+  matched `polymarket.com` while `analyze()` matches `polymarket`, so a
+  polymarket.us URL was called an unrecognized platform and then analyzed
+  anyway. Paste-to-auto-analyze deliberately still excludes it: firing an
+  analysis that can only report an unsupported venue is worse than letting the
+  reader press the button.
 - **A Gemini instrument symbol is not an event ticker.** `GEMI-{event}-{contract}`
   is what a customer copies off their own position. `analyze()` unwrapped it and
   the compare view did not, so pasting one into compare 404'd on a market that
   was open and trading. `geminiUrlFromTicker()` in `utils.js` is now the single
   copy both use — the same unwrapping Kyle does in `kyleTickerCandidates()`.
+
+## Shipping a change to a reader who has been here before
+
+`index.html` busts client caches with a `?v=` on every `<script>`, and **every
+tag carries the same number**. Changing a file without bumping it ships
+nothing: the browser serves the copy it already has, and the reader runs a
+version of the app that no longer exists on the server.
+
+That is not hypothetical, and the symptom does not look like a caching problem.
+The cross-platform match release edited `compare.js` and left it requested as
+`compare.js?v=22`, so returning readers ran the old error handling against the
+new API and saw "Polymarket API 404" — the old client's string — while the new
+server was sending a full explanation. The old client also never sent the
+`venue` parameter, so the polymarket.us handling that same release added was
+never reached, and the thing the release existed to fix had not in fact been
+tested by anyone.
+
+One shared version makes this a single number to move rather than a per-file
+judgement about what a change "really" touched — the judgement that was got
+wrong. Bump it together with `CACHE_NAME` in `sw.js`.
+`tests/asset-versions.test.js` enforces the shared version and that every
+script is in the service worker's asset list.
 
 ## Service worker caching
 
