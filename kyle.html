@@ -95,6 +95,7 @@
 
     .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
     .tab-nav a.active { background: var(--k-fill); color: var(--k-on-fill); }
+    .tab-nav a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; }
 
     /* ── Theme toggle ── */
     .theme-toggle {
@@ -111,6 +112,15 @@
       flex-shrink: 0;
     }
     .theme-toggle:hover { color: var(--text-bright); border-color: var(--border-hi); }
+
+    .logo-link:focus-visible,
+    .tab-nav a:focus-visible,
+    .btn-review:focus-visible,
+    .k-swatch:focus-visible,
+    .k-explain summary:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 2px;
+    }
 
     /* ── Intake panel ── */
     .intake {
@@ -599,15 +609,20 @@
     @media (max-width: 560px) {
       .app { padding: 18px 14px 56px; }
       .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
-      .tab-nav { margin-left: 0; order: 2; flex: 1; }
+      .tab-nav { margin-left: 0; order: 2; flex: 1 0 100%; }
       .tab-nav a { flex: 1; text-align: center; }
-      .k-themes { order: 3; margin-left: 0; }
+      .k-themes { order: 1; margin-left: auto; }
       .intake { padding: 20px 16px; }
       .intake-row { flex-direction: column; }
-      .btn-review { width: 100%; }
+      .intake-row input { min-height: 48px; }
+      .btn-review { width: 100%; min-height: 44px; }
       .k-answer, .k-card { padding: 16px; }
       .k-facts { grid-template-columns: 1fr; }
       .footer { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 380px) {
+      .app-subtitle { display: none; }
     }
   </style>
 </head>

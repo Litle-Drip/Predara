@@ -135,6 +135,7 @@
 
     .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
     .tab-nav a.active { background: var(--orange); color: #fff; }
+    .tab-nav a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; }
 
     /* ── Theme toggle ── */
     .theme-toggle {
@@ -151,6 +152,18 @@
       flex-shrink: 0;
     }
     .theme-toggle:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .theme-toggle { min-width: 34px; min-height: 34px; }
+
+    .logo-link:focus-visible,
+    .tab-nav a:focus-visible,
+    .theme-toggle:focus-visible,
+    .btn-review:focus-visible,
+    .key-toggle:focus-visible,
+    .btn-key:focus-visible,
+    .btn-remove:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 2px;
+    }
 
     /* ── Intake panel ── */
     .intake {
@@ -524,20 +537,23 @@
       .app { padding: 18px 14px 56px; }
       .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
       .tab-nav {
-        position: static;
-        transform: none;
         margin-left: 0;
         order: 2;
-        flex: 1;
+        flex: 1 0 100%;
       }
       .tab-nav a { flex: 1; text-align: center; }
-      .theme-toggle { order: 2; margin-left: 0; }
+      .theme-toggle { order: 1; margin-left: auto; }
       .intake-row { flex-direction: column; }
-      .btn-review { width: 100%; }
+      .intake-row input { min-height: 48px; }
+      .btn-review { width: 100%; min-height: 44px; }
       .shortcut-hint { display: none; }
       .case-title { font-size: 13px; }
       .intake { padding: 22px 18px; }
       .footer { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 380px) {
+      .app-subtitle { display: none; }
     }
   </style>
 </head>

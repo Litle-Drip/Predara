@@ -923,10 +923,21 @@
     .mode-tab { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 11px; border-radius: 5px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
     .mode-tab:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
     .mode-tab.active { background: var(--orange); color: #fff; }
+    .mode-tab, .theme-toggle, .odds-toggle { min-height: 34px; }
+    .mode-tab:focus-visible,
+    .theme-toggle:focus-visible,
+    .odds-toggle:focus-visible,
+    .search-row button:focus-visible,
+    .tab-btn:focus-visible,
+    .panel-btn:focus-visible,
+    .compare-toggle-btn:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 2px;
+    }
     @media (max-width: 540px) {
       .app-header { flex-wrap: wrap; gap: 10px; }
-      .header-controls { order: 2; width: 100%; justify-content: space-between; margin-left: 0; }
-      .mode-tabs { flex: 1; }
+      .header-controls { order: 2; width: 100%; flex-wrap: wrap; justify-content: flex-end; margin-left: 0; }
+      .mode-tabs { order: 2; flex: 1 0 100%; }
       .mode-tab { flex: 1; text-align: center; }
     }
 
@@ -1702,13 +1713,14 @@
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
-      body { padding: 28px 16px 72px; }
+      body { padding: 20px 14px 64px; }
 
-      .app-header { margin-bottom: 28px; }
+      .app-header { margin-bottom: 24px; }
       .app-title  { font-size: 18px; }
 
       .search-row { flex-direction: column; }
-      .search-row button { width: 100%; text-align: center; }
+      .search-row button { width: 100%; min-height: 44px; text-align: center; }
+      .search-row input { min-height: 48px; }
 
       .event-head { padding: 20px 18px 22px; }
       .event-title { font-size: 19px; }
@@ -1784,6 +1796,7 @@
       .stats-grid   { grid-template-columns: 1fr; }
       .outcome-pct  { font-size: 30px; }
       .outcome-right { gap: 8px; }
+      .app-subtitle { display: none; }
     }
 
     /* ═══════════════════════════════════════════════════════════════════ */
