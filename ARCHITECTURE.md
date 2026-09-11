@@ -124,10 +124,17 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   Prix rather than the wrong ones. It is a separate exported function so it can
   be tested against `tests/fixtures/gemini-settled-categorical.json`, a real
   capture, instead of against what this repo believes Gemini returns.
-- **Candidates are enriched before the final ranking, on every venue.** A search
-  result does not reliably carry an outcome list, and without one the rule above
-  cannot fire — which is exactly how the cycling race was offered. The leading
-  candidates are re-fetched in full first.
+- **Listings are enriched before anything is scored, on every venue.** A search
+  result does not reliably carry an outcome list, and without one the rules
+  above cannot fire — which is exactly how the cycling race was offered. The
+  listings nearest by `closeness()` are re-fetched in full first, as references
+  rather than copies. The order matters in both directions: `rankCandidates()`
+  returns copies, so enriching its output never reached the listings
+  `closestTitles()` reads and left every Kalshi listing at `outcomes: []`; and
+  enriching only the survivors meant a correct match carrying neither a shared
+  title word nor a strike date was disqualified for lacking exactly the facts
+  enrichment supplies. It never survived, so it was never rescued. The data has
+  to arrive before the judgement.
 - **An empty result names what it checked, closest first.** Counting rejections
   cannot separate "the right event was never in the pool" from "it was there and
   the scoring rejected it" — a retrieval bug and a scoring bug, with nothing in

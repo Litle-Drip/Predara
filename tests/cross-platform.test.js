@@ -647,3 +647,74 @@ test("an empty venue row offers a way to check that venue by hand", () => {
   assert.match(source, /polymarket\.com\/search\?q=/)
   assert.match(source, /kalshi\.com\/markets\?search=/)
 })
+
+// ── Enrichment order ──────────────────────────────────────────────────────────
+
+test("enrichment reaches the listings the diagnostics read", async () => {
+  // Ranking returns copies. Enriching those left the originals at outcomes: []
+  // — so the "closest" sample for a Kalshi venue was ordered on titles alone,
+  // with every listing tied at zero outcome overlap.
+  const { topByCloseness, enrichKalshi } = require("../lib/cross-platform")
+  const listings = [
+    { title: "Alpha Winner", outcomes: [], ref: "A", date: "" },
+    { title: "Beta Winner", outcomes: [], ref: "B", date: "" },
+  ]
+  const picked = topByCloseness({ title: "Alpha Winner", outcomes: [] }, listings, 2)
+  assert.equal(picked[0], listings[0], "references, not copies")
+
+  await enrichKalshi(picked, async () => ({
+    status: 200,
+    body: JSON.stringify({ event: { strike_date: "2026-09-13T12:00:00Z", markets: [{ yes_sub_title: "Lando Norris" }] } }),
+  }))
+  assert.deepEqual(listings[0].outcomes, ["Lando Norris"], "the original listing carries it")
+})
+
+test("a listing already carrying outcomes is not re-fetched", async () => {
+  // Listings are cached and enriched in place, so a second search over the same
+  // terms would otherwise spend the signed calls again.
+  const { enrichKalshi } = require("../lib/cross-platform")
+  let calls = 0
+  const listing = [{ ref: "A", title: "Alpha Winner", outcomes: ["Lando Norris"], date: "2026-09-13" }]
+  await enrichKalshi(listing, async () => { calls++; return { status: 200, body: "{}" } })
+  assert.equal(calls, 0)
+})
+
+test("a match with no shared title word is enriched before it is judged, not after", async () => {
+  // Kalshi's listing index carries no outcome list and often no strike date, so
+  // a correct match naming neither was disqualified for lacking exactly the
+  // facts enrichment supplies. Enriching only the survivors could never rescue
+  // it, because it never survived.
+  const signedGet = async () => ({
+    status: 200,
+    body: JSON.stringify({
+      event: {
+        strike_date: "2026-09-13T12:00:00Z",
+        markets: [{ yes_sub_title: "Andrea Kimi Antonelli" }, { yes_sub_title: "Lando Norris" }],
+      },
+    }),
+  })
+
+  const { results } = await findCrossPlatform({
+    platform: "gemini", title: "Madrid Grand Prix Winner",
+    date: "2026-09-13", outcomes: ["Andrea Kimi Antonelli", "Lando Norris"],
+  }, {
+    signedGet,
+    searchGemini: async () => [],
+    searchPolymarket: async () => [],
+    // Titles share nothing and the listing carries no date: disqualified on
+    // sight, before enrichment, under the old order.
+    searchKalshi: async () => [{
+      platform: "kalshi", title: "KXF1RACE Espana", subtitle: "", date: "", outcomes: [],
+      url: "https://kalshi.com/markets/kxf1race-spagp26", ref: "KXF1RACE-SPAGP26",
+    }],
+  })
+
+  const kalshi = results.find(r => r.platform === "kalshi")
+  assert.equal(kalshi.candidates.length, 1, "the drivers and the date arrive in time to save it")
+  assert.equal(kalshi.candidates[0].ref, "KXF1RACE-SPAGP26")
+  // "likely" rather than "strong": the titles really do share nothing, so the
+  // date and the drivers carry it alone and the reader is told to look. What
+  // matters is that it is offered at all — before, it was discarded unseen.
+  assert.equal(kalshi.candidates[0].confidence, "likely")
+  assert.ok(kalshi.candidates[0].reasons.includes("same close date"))
+})
