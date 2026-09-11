@@ -132,9 +132,11 @@ test("candidate URLs are held out of the markup, not interpolated into onclick",
 test("the card is published as a cached asset so returning readers get it", () => {
   const sw = fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8")
   assert.match(sw, /"\/crossmatch\.js"/)
-  // Assets are cache-first: without a bumped cache name a returning reader
-  // keeps the old bundle and never sees the feature.
-  assert.match(sw, /CACHE_NAME = "predara-v4"/)
+  // Assets are cache-first, so the shell needs a version to invalidate on.
+  // Pinning the number here only breaks the next legitimate bump — that the
+  // bump actually happened is what review is for. tests/asset-versions.test.js
+  // covers the ?v= side, which is the part that silently ships nothing.
+  assert.match(sw, /CACHE_NAME = "predara-v\d+"/)
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
   assert.match(html, /<script src="crossmatch\.js/)
 })

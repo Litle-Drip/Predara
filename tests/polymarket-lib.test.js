@@ -73,3 +73,22 @@ test("a timeout is a 504, not a 502 — the reader is told to retry, not that th
   assert.equal(res.status, 504)
   assert.match(res.error, /timed out/)
 })
+
+test("a not-found on the US venue says what each host actually answered", async () => {
+  // "Not found" and "that host does not exist" need different fixes, and
+  // without the trail they read identically to whoever is debugging.
+  const res = await fetchEventBySlug("f1-thsgp-2026-09-13-w", "us", {
+    fetch: async (url) => {
+      if (url.includes("polymarket.us")) throw new Error("getaddrinfo ENOTFOUND")
+      return ok([])
+    },
+  })
+  assert.equal(res.status, 404)
+  assert.match(res.error, /gamma-api\.polymarket\.us: unreachable/)
+  assert.match(res.error, /gamma-api\.polymarket\.com: no such slug/)
+})
+
+test("the .com venue's not-found stays short — there is no second host to report on", async () => {
+  const res = await fetchEventBySlug("nope", "com", { fetch: async () => ok([]) })
+  assert.equal(res.error, 'No Polymarket event with slug "nope"')
+})
