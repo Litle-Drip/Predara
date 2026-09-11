@@ -13,6 +13,11 @@ if ("serviceWorker" in navigator) {
 // FEATURE 19: Smart Paste — auto-detect market URL from clipboard on focus
 // ════════════════════════════════════════════════════════════════════════════════
 let _smartPasteShown = false
+function _sameMarketUrl(a, b) {
+  const clean = (value) => String(value || "").trim().replace(/\/+$/, "").toLowerCase()
+  return Boolean(clean(a)) && clean(a) === clean(b)
+}
+
 function initSmartPaste() {
   const input = document.getElementById("urlInput")
   if (!input) return
@@ -37,6 +42,9 @@ function initSmartPaste() {
 }
 
 function _showSmartPasteBanner(url) {
+  const current = document.getElementById("urlInput")?.value
+  const analyzed = typeof window !== "undefined" ? window._analyzedUrl : ""
+  if (_sameMarketUrl(url, current) || _sameMarketUrl(url, analyzed)) return
   const existing = document.getElementById("smartPasteBanner")
   if (existing) existing.remove()
   const banner = document.createElement("div")

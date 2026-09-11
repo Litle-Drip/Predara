@@ -763,7 +763,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px 14px;
-      margin: 6px 0 16px;
+      margin: 2px 0 16px;
       font-size: 12px;
       color: var(--muted);
       flex-wrap: wrap;
@@ -774,13 +774,26 @@
     .market-toolbar .panel-btn,
     .market-toolbar .copy-link-btn,
     .market-toolbar .compare-toggle-btn {
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 500;
-      padding: 6px 12px;
+      padding: 5px 10px;
       border-radius: 8px;
       line-height: 1.5;
     }
     .market-toolbar .compare-toggle-btn { font-weight: 600; color: var(--text-mid); }
+    .market-toolbar .copy-link-btn,
+    .market-toolbar .panel-btn {
+      background: transparent;
+      border-color: transparent;
+    }
+    .market-toolbar .copy-link-btn:hover,
+    .market-toolbar .panel-btn:hover,
+    .market-toolbar .copy-link-btn:focus-visible,
+    .market-toolbar .panel-btn:focus-visible {
+      background: var(--card);
+      border-color: var(--border);
+    }
+    #shareControls { padding-left: 2px; }
     .copy-link-btn {
       background: none;
       border: 1px solid var(--border);
@@ -1097,17 +1110,16 @@
     .input-hint {
       font-size: 12px;
       line-height: 1.5;
-      margin-top: -6px;
-      margin-bottom: 12px;
       padding-left: 2px;
-      min-height: 18px;
+      min-height: 0;
       transition: color 0.15s;
     }
+    .input-hint:not(:empty) { margin: -4px 0 10px; }
     .hint-error { color: var(--red); }
-    .hint-ok    { color: var(--green); }
+    .hint-ok    { color: var(--muted); }
     .hint-info  { color: var(--muted); }
     .search-row input.input-invalid { border-color: var(--red); }
-    .search-row input.input-valid   { border-color: var(--green); }
+    .search-row input.input-valid   { border-color: var(--border-hi, var(--border)); }
 
     /* ── Empty state ── */
     .empty-state {
@@ -1848,6 +1860,13 @@
       font-size: 13px;
       color: var(--text);
       flex-wrap: wrap;
+    }
+    .smart-paste-banner span:first-child {
+      flex: 1;
+      min-width: min(100%, 260px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .smart-paste-banner button {
       background: var(--orange);
@@ -2746,7 +2765,6 @@
         <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link ↗</button>
         <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">Share card ↓</button>
         <button class="panel-btn" id="bookmarkBtn">☆ Save</button>
-        <span class="toolbar-divider"></span>
       </div>
       <span class="shortcut-hint">Press <kbd>?</kbd> for shortcuts</span>
     </div>
@@ -2839,15 +2857,15 @@
 
 </div>
 
-<script src="utils.js?v=34"></script>
-<script src="components.js?v=34"></script>
-<script src="adapters.js?v=34"></script>
-<script src="renderers.js?v=34"></script>
-<script src="compare.js?v=34"></script>
-<script src="crossmatch.js?v=34"></script>
-<script src="gemini-live.js?v=34"></script>
-<script src="app.js?v=34"></script>
-<script src="features.js?v=34"></script>
+<script src="utils.js?v=35"></script>
+<script src="components.js?v=35"></script>
+<script src="adapters.js?v=35"></script>
+<script src="renderers.js?v=35"></script>
+<script src="compare.js?v=35"></script>
+<script src="crossmatch.js?v=35"></script>
+<script src="gemini-live.js?v=35"></script>
+<script src="app.js?v=35"></script>
+<script src="features.js?v=35"></script>
 <script>
   (function () {
     // Theme

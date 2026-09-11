@@ -106,3 +106,15 @@ test("Rewards uses a structured dashboard and collapses long live-program tables
   assert.ok(features.includes('class="rewards-extra-row" hidden'))
   assert.ok(features.includes("toggleRewardsRows"))
 })
+
+test("Analyze input does not keep a duplicate clipboard prompt or empty hint gap", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8")
+  const features = fs.readFileSync(path.join(__dirname, "..", "features.js"), "utf8")
+
+  assert.ok(features.includes("_sameMarketUrl(url, current)"))
+  assert.ok(features.includes("_sameMarketUrl(url, analyzed)"))
+  assert.ok(app.includes('document.getElementById("smartPasteBanner")'))
+  assert.ok(html.includes(".input-hint:not(:empty)"))
+  assert.ok(html.includes("min-height: 0"))
+})

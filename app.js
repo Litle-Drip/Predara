@@ -474,6 +474,8 @@ function onInputChange() {
   const raw = document.getElementById("urlInput").value.trim()
   const hint = document.getElementById("inputHint")
   const input = document.getElementById("urlInput")
+  const smartPasteBanner = document.getElementById("smartPasteBanner")
+  if (smartPasteBanner) smartPasteBanner.remove()
   if (!hint) return
 
   if (!raw) {
