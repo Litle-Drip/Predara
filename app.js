@@ -238,8 +238,19 @@ function _currentTitle() {
 function _currentCloseIso() {
   return (typeof window !== "undefined" && window._lastCloseIso) || ""
 }
+// The URL analyze() actually resolved and fetched, which is not always what is
+// sitting in the input box.
 function _currentPlatform() {
-  const lower = (document.getElementById("urlInput")?.value || "").toLowerCase()
+  // Read the resolved URL, not the raw input. A bare Gemini ticker
+  // ("F1-MADGP-WIN-20260913") or an instrument symbol
+  // ("GEMI-F1-MADGP-WIN-20260913-ANT") contains no platform name at all — note
+  // that GEMI- is not "gemini" — so reading the input returned "" for a market
+  // that had loaded perfectly. That blanked the platform on every history entry
+  // made from a pasted ticker, and left the cross-platform match card unable to
+  // tell which venue it was matching away from, so it rendered nothing at all.
+  const lower = String(
+    (typeof window !== "undefined" && window._analyzedUrl) ||
+    document.getElementById("urlInput")?.value || "").toLowerCase()
   return lower.includes("kalshi") ? "kalshi" : lower.includes("polymarket") ? "polymarket"
     : lower.includes("coinbase") ? "coinbase" : lower.includes("gemini") ? "gemini" : ""
 }
@@ -430,6 +441,7 @@ function _rememberStartState() {
 
 function resetToHome() {
   _rememberStartState()
+  if (typeof window !== "undefined") window._analyzedUrl = ""
   const input = document.getElementById("urlInput")
   if (input) {
     input.value = ""
@@ -610,15 +622,11 @@ async function analyze() {
   }
 
   // Expand a bare Gemini ticker or instrument symbol to a full URL.
-  // GEMI-{eventTicker}-{contract} instrument symbols need the GEMI- prefix
-  // and trailing contract segment stripped to recover the event ticker.
-  const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
-  if (geminiTickerRe.test(url)) {
-    const eventTicker = /^GEMI-/i.test(url)
-      ? url.slice(5).replace(/-[^-]+$/, "").toUpperCase()
-      : url.toUpperCase()
-    url = `https://www.gemini.com/predictions/${eventTicker}`
-  }
+  // Shared with the compare view — see geminiUrlFromTicker() in utils.js.
+  url = geminiUrlFromTicker(url) || url
+  // Everything downstream that needs to know which venue this is reads the
+  // resolved URL rather than the input box, which may still hold a bare ticker.
+  if (typeof window !== "undefined") window._analyzedUrl = url
 
   const lowerUrl = url.toLowerCase()
   let platform = "unknown"
@@ -682,13 +690,18 @@ async function analyze() {
         }
       }
 
-      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
+      // polymarket.us is a separate, US-regulated exchange with its own slugs;
+      // the server tries that venue first for a .us link before falling back.
+      const pmVenue = /polymarket\.us/i.test(url) ? "us" : "com"
+      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}&venue=${pmVenue}`)
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
         if (res.status === 404) {
+          // The server's message names the slug and, for a .us link, says the
+          // two venues are separate — better than anything guessable here.
           showError(
             "Event not found on Polymarket",
-            "The market slug may have changed or the event may have closed. Copy the URL directly from polymarket.com/event/…"
+            errData.error || "The market slug may have changed or the event may have closed. Copy the URL directly from polymarket.com/event/…"
           )
           return
         }

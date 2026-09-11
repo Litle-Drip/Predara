@@ -1621,6 +1621,37 @@
     .arb-profit { font-weight: 600; color: var(--green); }
     .arb-disclaimer { padding: 6px 30px 16px; font-size: 11px; color: var(--muted); }
 
+    /* ── Same event on other platforms ── */
+    .xmatch-card { border-left: 2px solid var(--orange); }
+    .xmatch-body { padding: 4px 30px 20px; }
+    .xmatch-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 8px 0; }
+    .xmatch-failed { color: var(--red); }
+    .xmatch-venue { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .xmatch-venue:last-child { border-bottom: none; }
+    .xmatch-platform { font-size: 9px; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
+    .xmatch-none { font-size: 12px; color: var(--muted); }
+    .xmatch-row { padding: 8px 0; }
+    .xmatch-row + .xmatch-row { border-top: 1px dashed var(--border); }
+    .xmatch-row-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .xmatch-title { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+    .xmatch-conf { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; flex-shrink: 0; }
+    .xmatch-reasons { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+    .xmatch-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+    .xmatch-add-btn {
+      font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+      background: var(--orange); border: none; color: #fff; font-family: inherit;
+    }
+    .xmatch-add-btn:hover { opacity: 0.88; }
+    .xmatch-open-link, .xmatch-manual-link { font-size: 11px; color: var(--muted); text-decoration: none; }
+    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--orange); }
+    .xmatch-all-btn {
+      font-size: 11px; font-weight: 600; padding: 7px 14px; border-radius: 7px; cursor: pointer;
+      background: transparent; border: 1px solid var(--orange); color: var(--orange);
+      font-family: inherit; margin: 8px 0 4px;
+    }
+    .xmatch-all-btn:hover { background: var(--orange); color: #fff; }
+    .xmatch-manual { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+
     /* ── Round 3: Platform footnotes in compare ── */
     .platform-footnote { font-size: 11px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); line-height: 1.5; }
 
@@ -1740,6 +1771,10 @@
       .empty-state { padding: 36px 18px; }
 
       .market-notice { padding: 12px 18px; }
+
+      .xmatch-body { padding: 4px 18px 16px; }
+      .xmatch-actions { gap: 10px; }
+      .xmatch-add-btn { flex: 1; min-width: 140px; }
     }
 
     /* ── Small phones (< 400px) ── */
@@ -2794,6 +2829,7 @@
 <script src="adapters.js?v=22"></script>
 <script src="renderers.js?v=22"></script>
 <script src="compare.js?v=22"></script>
+<script src="crossmatch.js?v=24"></script>
 <script src="gemini-live.js?v=23"></script>
 <script src="app.js?v=23"></script>
 <script src="features.js?v=23"></script>

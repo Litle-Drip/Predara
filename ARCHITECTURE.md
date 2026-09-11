@@ -4,12 +4,85 @@
 Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase prediction markets. Users paste a market URL and get a full breakdown of what they're betting on, resolution rules in plain English, a bet calculator, odds, volume, liquidity, and trader analytics. Gemini URLs route through Gemini's own public Prediction Markets REST API (`api.gemini.com/v1/prediction-markets`). Coinbase has two product surfaces: `predict.coinbase.com/markets/<slug>` (lowercase slugs) routes through the Polymarket gamma API, while `www.coinbase.com/predictions/event/<TICKER>` (uppercase tickers) routes through the Kalshi API.
 
 ## Architecture
-- **lib/** — Shared platform logic, imported by both `api/` and `server.js` so the two entrypoints cannot drift. `lib/guard.js` gates every `/api/*` route; `lib/history.js` fetches real price history; `lib/notify.js` relays alert webhooks; `lib/kalshi-auth.js` is the shared Kalshi request signer. `lib/gemini.js` is the single source of truth for the Gemini Prediction Markets API; `lib/serverless.js` is the CORS/JSON shell for the read-only Vercel functions.
+- **lib/** — Shared platform logic, imported by both `api/` and `server.js` so the two entrypoints cannot drift. `lib/guard.js` gates every `/api/*` route; `lib/history.js` fetches real price history; `lib/notify.js` relays alert webhooks; `lib/kalshi-auth.js` is the shared Kalshi request signer. `lib/gemini.js` is the single source of truth for the Gemini Prediction Markets API; `lib/serverless.js` is the CORS/JSON shell for the read-only Vercel functions. `lib/polymarket.js` is the Polymarket event lookup, including the polymarket.us venue fallback; `lib/match.js` and `lib/cross-platform.js` answer "where else is this event listed?".
 - **server.js** — Local dev HTTP server on port 5000 / 0.0.0.0. Proxies API calls to Kalshi (authenticated via RSA-signed JWT), Polymarket (public gamma API) and Gemini (public, unauthenticated). Serves static files.
 - **app.js** — Client-side rendering. Detects platform from URL, fetches data via `/api/kalshi` or `/api/polymarket`, renders: "WHAT'S THE BET?" explainer, outcomes, bet simulator, resolution rules, timeline, trader analytics, glossary tooltips, and volume stats.
 - **index.html** — Single-page app shell with all CSS inline.
 - **kyle.html / kyle.js** — "Kyle", the customer-support event brief (third tab, after Analyze and Settlement Desk). A Gemini CS agent pastes what a customer sent them — an event name in their own words, a ticker, or a gemini.com link — and gets a plain-English brief: what the event is, whether it is open / closed-awaiting-result / settled / voided, the dates, the winning outcome once it settles, and the things to check before replying. It reads the existing read-only routes (`/api/gemini` for one event, `/api/gemini-markets?resource=events&search=` for a name search) and adds no upstream surface. Everything above the DOM section of `kyle.js` is pure and covered by `tests/kyle.test.js`.
-- **api/*.js** — Vercel serverless functions for predara.org production. Keep these as thin HTTP shells: put the logic in `lib/` so `server.js` runs the same code path locally. `api/kalshi.js` and `api/polymarket.js` have not been migrated to `lib/` yet — change them only with care, since production deploys directly from this directory.
+- **api/*.js** — Vercel serverless functions for predara.org production. Keep these as thin HTTP shells: put the logic in `lib/` so `server.js` runs the same code path locally. `api/kalshi.js` has not been migrated to `lib/` yet — change it only with care, since production deploys directly from this directory. `api/polymarket.js` was migrated when the venue fallback landed; its logic is in `lib/polymarket.js`.
+
+## Finding the same event on another venue
+
+The compare view holds three markets, and until `/api/match` existed the reader
+had to find all three URLs by hand. That is harder than it sounds. The 2026
+Spanish Grand Prix is listed as:
+
+| Venue | Identifier | Title |
+| --- | --- | --- |
+| Kalshi | `KXF1RACE-SPAGP26` | Spanish Grand Prix Winner |
+| Gemini | `F1-MADGP-WIN-20260913` | Madrid Grand Prix Winner |
+| Polymarket | `f1-thsgp-2026-09-13-w` | F1 Spanish GP Winner |
+
+No two of those identifiers share a substring, and two of the three titles name
+different cities — the race moved to Madrid but kept the Spanish GP slot. Ticker
+matching cannot work here, so `lib/match.js` scores three signals instead and
+`lib/cross-platform.js` does the fetching. The rules that keep it honest:
+
+- **Nothing is auto-selected.** Candidates are returned ranked, with a
+  confidence band and the reasons behind it, and the reader clicks one. A wrong
+  fuzzy match would put two different events side by side and label the gap
+  between them an arbitrage, which is worse than finding nothing.
+- **A shared date alone is not evidence.** Hundreds of unrelated markets close
+  on any given day, so a candidate agreeing on neither the words nor the outcomes
+  is rejected rather than scored.
+- **A date the venues disagree about caps the result at "weak".** Every F1 race
+  of the season shares a driver list and most of a title, so outcome and title
+  overlap alone rank *last* week's race as a confident match for this week's.
+  The cap rather than a rejection is deliberate: long-horizon markets genuinely
+  carry different end dates on different venues.
+- **The market kind is disqualifying, not a deduction.** A race winner and a
+  podium market share a date, a sport and twenty drivers, and are completely
+  different bets. `marketKind()` reads both titles; when both declare a kind and
+  the kinds differ, the candidate is dropped.
+- **Only signals both sides published get a vote.** Kalshi's event listing
+  carries no outcome list, so weights are renormalized over the signals that
+  exist — otherwise an absent list would score as a disagreement and bury every
+  Kalshi candidate. The leading Kalshi candidates are then re-fetched in full
+  and ranked a second time, because a title alone cannot separate one Grand Prix
+  from another.
+- **Venues fail independently.** Each search is isolated and reports its own
+  error; one venue being down, unconfigured or rate limited must leave the other
+  two answering, since a partial answer is the entire point.
+
+Kalshi publishes no text search, so `kalshiIndex()` pages its open events into a
+local index behind a page cap and a wall-clock budget. An index cut short by
+either is cached for 30 seconds instead of 5 minutes — it is missing events, and
+a reader searching for one of them should not be told "not found" for the next
+five minutes.
+
+`tests/match.test.js` covers the scoring (including the Spanish/Madrid case, the
+podium market and last week's race) and `tests/cross-platform.test.js` covers
+the orchestration, paging and caching. Neither needs a network.
+
+## Reading a venue's "not found"
+
+Two error paths used to describe a working exchange as a broken one, and both
+are now fixed in shared code rather than at the call site:
+
+- **A Polymarket slug that does not exist is a 404, not a 502.** gamma answers
+  `200` with an empty array for a slug it has never heard of. Reporting that as a
+  bad gateway told readers the exchange was down and had them retry a request
+  that could never succeed. `lib/polymarket.js` names the slug instead.
+- **polymarket.us is a different exchange.** The US-regulated venue lists its own
+  events under its own slugs, which the `.com` gamma API does not serve. A `.us`
+  link is tried against the US venue first and falls back to `.com`; when neither
+  has it, the reader is told the venues are separate rather than left to conclude
+  their link was malformed.
+- **A Gemini instrument symbol is not an event ticker.** `GEMI-{event}-{contract}`
+  is what a customer copies off their own position. `analyze()` unwrapped it and
+  the compare view did not, so pasting one into compare 404'd on a market that
+  was open and trading. `geminiUrlFromTicker()` in `utils.js` is now the single
+  copy both use — the same unwrapping Kyle does in `kyleTickerCandidates()`.
 
 ## Service worker caching
 
@@ -184,11 +257,12 @@ support agent mid-ticket who has never traded a prediction market, so:
 1. Event title + urgency banner
 2. "WHAT'S THE BET?" card — plain-English explanation of what you're betting on
 3. Outcomes & probability
-4. Bet calculator — interactive "$X bet → win $Y / lose $X" simulator
-5. "HOW IT RESOLVES" — resolution rules in plain English (contract jargon removed)
-6. Timeline
-7. Trader Analytics (EV, Kelly, Break-even, Spread)
-8. Volume/Liquidity stats
+4. "SAME EVENT ON OTHER PLATFORMS" — where else this event is listed, one click from a comparison (sits under the odds it invites you to compare, not at the foot of the page where a cross-venue price gap would go unseen)
+5. Bet calculator — interactive "$X bet → win $Y / lose $X" simulator
+6. "HOW IT RESOLVES" — resolution rules in plain English (contract jargon removed)
+7. Timeline
+8. Trader Analytics (EV, Kelly, Break-even, Spread)
+9. Volume/Liquidity stats
 
 ## Key Features
 - **"WHAT'S THE BET?" card**: Derives a plain-English summary from rules_primary (Kalshi) or market.description (Polymarket). Binary markets get "You win if..." / "You lose if...". Multi-outcome markets get "Pick which outcome you think will happen."
@@ -200,6 +274,7 @@ support agent mid-ticket who has never traded a prediction market, so:
 - **Trader Analytics** (both platforms): Break-even %, Expected Value %, Kelly Criterion %, Spread Quality %
 - **Urgency Banner**: Time remaining until market close, color-coded (muted >7d, amber 1-7d, red <24h)
 - **Glossary Tooltips**: Hover any stat label to see a plain-English definition
+- **Same event on other platforms**: `crossmatch.js` asks `/api/match` where else the analyzed event is listed and offers each candidate one click from the compare view. Ranked, never auto-selected — see "Finding the same event on another venue" above.
 
 ## Important Conventions
 - `volume_fp` and `open_interest_fp` are in **cents** (divide by 100 for dollars)

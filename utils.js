@@ -5,6 +5,33 @@ const PLATFORMS = {
   coinbase:   { label: "COINBASE",   accent: "#1652F0" },
 }
 
+// ── Gemini ticker input ───────────────────────────────────────────────────────
+// Readers paste three different things and expect all three to work:
+//
+//   F1-MADGP-WIN-20260913           the event ticker, what the API wants
+//   GEMI-F1-MADGP-WIN-20260913-ANT  the instrument symbol off a position
+//   https://www.gemini.com/…        the link out of the browser
+//
+// Only the first is a valid lookup key. An instrument symbol is
+// GEMI-{event}-{contract}: the prefix and the trailing contract segment both
+// have to come off, or the lookup 404s on a market that is perfectly alive —
+// which is exactly what the compare view did until this became shared code
+// rather than a copy living only in analyze().
+function geminiEventTicker(raw) {
+  const input = String(raw || "").trim()
+  if (!/^[A-Z][A-Z0-9\-]{2,}$/i.test(input)) return ""
+  return /^GEMI-/i.test(input)
+    ? input.slice(5).replace(/-[^-]+$/, "").toUpperCase()
+    : input.toUpperCase()
+}
+
+// "" when the input is not a bare ticker, so callers can fall through to their
+// own URL handling instead of guessing.
+function geminiUrlFromTicker(raw) {
+  const ticker = geminiEventTicker(raw)
+  return ticker ? `https://www.gemini.com/predictions/${ticker}` : ""
+}
+
 const GLOSSARY = {
   "VOLUME TRADED":    "Total dollars that have changed hands since this market opened.",
   "24H VOLUME":       "Dollars traded in the last 24 hours — measures current activity.",

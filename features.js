@@ -1794,6 +1794,20 @@ function afterAnalysisHook(url) {
   // them from a saved estimate if one exists for this market.
   if (typeof window.initEdgeCalc === "function") window.initEdgeCalc()
 
+  // "Same event on other platforms" — sits directly under the odds it invites
+  // the reader to compare, rather than at the foot of the page where a
+  // cross-venue price gap would go unseen.
+  if (typeof crossMatchCardHtml === "function") {
+    const xHtml = crossMatchCardHtml()
+    if (xHtml) {
+      const oddsCard = Array.from(result.querySelectorAll(".mi-card")).find(card =>
+        (card.querySelector(".section-label") || {}).textContent === "CURRENT ODDS")
+      if (oddsCard) oddsCard.insertAdjacentHTML("afterend", xHtml)
+      else result.insertAdjacentHTML("beforeend", xHtml)
+      loadCrossMatches()
+    }
+  }
+
   // Price history chart
   const chartHtml = priceHistoryChartHtml(url)
   if (chartHtml) {

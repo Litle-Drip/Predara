@@ -163,10 +163,11 @@ function extractTopOutcomes(platform, data) {
 async function fetchOneMarket(url) {
   let expandedUrl = (url || "").trim()
   if (!expandedUrl) return null
-  const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
-  if (geminiTickerRe.test(expandedUrl) && !expandedUrl.startsWith("http")) {
-    expandedUrl = `https://www.gemini.com/predictions/${expandedUrl.toUpperCase()}`
-  }
+  // A bare Gemini ticker or instrument symbol becomes a URL. This used to
+  // uppercase the input and stop there, so the instrument symbol a reader
+  // copies off their own position (GEMI-{event}-{contract}) was sent to the API
+  // verbatim and came back 404 — on a market that was open and trading.
+  if (!expandedUrl.startsWith("http")) expandedUrl = geminiUrlFromTicker(expandedUrl) || expandedUrl
   const lowerUrl = expandedUrl.toLowerCase()
   let platform = "unknown"
   if      (lowerUrl.includes("kalshi"))     platform = "kalshi"
@@ -219,8 +220,14 @@ async function fetchOneMarket(url) {
           // Fall through to Polymarket on unexpected errors
         }
       }
-      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
-      if (!res.ok) return { error: `Polymarket API ${res.status}`, platform, accent }
+      const pmVenue = /polymarket\.us/i.test(expandedUrl) ? "us" : "com"
+      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}&venue=${pmVenue}`)
+      if (!res.ok) {
+        // The upstream's own message says what actually went wrong — a slug
+        // that does not exist reads as "Polymarket API 502" without it.
+        const e = await res.json().catch(() => ({}))
+        return { error: e.error || `Polymarket API ${res.status}`, platform, accent }
+      }
       const data = await res.json()
       const event = Array.isArray(data) ? data[0] : data
       if (!event) return { error: "Event not found", platform, accent }

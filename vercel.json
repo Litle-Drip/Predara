@@ -9,6 +9,10 @@
     {
       "source": "/api/discover",
       "destination": "/api/gemini-events?view=discover"
+    },
+    {
+      "source": "/api/match",
+      "destination": "/api/gemini-events?view=match"
     }
   ]
 }
