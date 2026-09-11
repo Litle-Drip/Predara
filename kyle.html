@@ -21,19 +21,31 @@
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      padding: 52px 32px 96px;
+    }
+
+    @view-transition { navigation: auto; }
+    ::view-transition-old(root) { animation: page-out 90ms ease both; }
+    ::view-transition-new(root) { animation: page-in 160ms ease-out both; }
+    @keyframes page-out { to { opacity: 0.94; } }
+    @keyframes page-in {
+      from { opacity: 0.94; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .app {
-      max-width: 800px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 32px 20px 72px;
     }
+    .app > :not(.app-header) { width: min(800px, 100%); margin-left: auto; margin-right: auto; }
 
     /* ── Header ── */
     .app-header {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto 126px;
       align-items: center;
-      margin-bottom: 36px;
+      gap: 10px;
+      margin-bottom: 32px;
       position: relative;
     }
 
@@ -47,9 +59,9 @@
     }
 
     .app-logo {
-      width: 38px;
-      height: 38px;
-      border-radius: 9px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -57,7 +69,7 @@
     .app-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
     .app-title {
-      font-size: 19px;
+      font-size: 20px;
       font-weight: 600;
       color: var(--text-bright);
       letter-spacing: -0.4px;
@@ -75,7 +87,6 @@
       display: flex;
       align-items: center;
       gap: 3px;
-      margin-left: auto;
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -352,7 +363,7 @@
     body[data-theme="gemini"] .k-backdrop { background-image: var(--k-fallback); }
 
     /* ── Theme picker ── */
-    .k-themes { display: flex; align-items: center; gap: 4px; margin-left: 10px; }
+    .k-themes { width: 126px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
     .k-swatch {
       width: 24px; height: 24px; padding: 0;
       border-radius: 7px; cursor: pointer;
@@ -606,12 +617,23 @@
     .k-primer dt { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-top: 12px; }
     .k-primer dd { font-size: 13px; color: var(--text); line-height: 1.7; margin-top: 2px; }
 
-    @media (max-width: 560px) {
-      .app { padding: 18px 14px 56px; }
-      .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
-      .tab-nav { margin-left: 0; order: 2; flex: 1 0 100%; }
+    @media (max-width: 760px) {
+      .app-header {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+      }
+      .tab-nav { grid-column: 1 / -1; grid-row: 2; width: 100%; }
       .tab-nav a { flex: 1; text-align: center; }
-      .k-themes { order: 1; margin-left: auto; }
+      .k-themes { grid-column: 2; grid-row: 1; width: auto; margin-left: auto; }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 20px 14px 64px; }
+      .app-header { margin-bottom: 24px; }
+      .app-title { font-size: 18px; }
+    }
+
+    @media (max-width: 560px) {
       .intake { padding: 20px 16px; }
       .intake-row { flex-direction: column; }
       .intake-row input { min-height: 48px; }
@@ -624,9 +646,23 @@
     @media (max-width: 380px) {
       .app-subtitle { display: none; }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-old(root),
+      ::view-transition-new(root) { animation: none; }
+      .k-swatch { transition: none; }
+    }
   </style>
 </head>
 <body data-theme="gemini">
+<script>
+  try {
+    const savedKyleTheme = localStorage.getItem("predara-kyle-theme")
+    if (["gemini", "mars", "seas", "astro"].includes(savedKyleTheme)) {
+      document.body.setAttribute("data-theme", savedKyleTheme)
+    }
+  } catch { /* private mode — use the default theme */ }
+</script>
 
 <div class="k-backdrop" aria-hidden="true"></div>
 

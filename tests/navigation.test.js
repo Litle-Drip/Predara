@@ -32,6 +32,52 @@ test("the current page is the one marked active in its own nav", () => {
   }
 })
 
+test("the shared header stays anchored while narrow pages keep readable content", () => {
+  const analyze = read("index.html")
+  assert.ok(analyze.includes(".app { max-width: 1200px; margin: 0 auto; }"))
+
+  for (const page of ["settlement.html", "kyle.html"]) {
+    const html = read(page)
+    assert.match(html, /\.app\s*\{\s*max-width:\s*1200px/)
+    assert.ok(html.includes(".app > :not(.app-header) { width: min(800px, 100%)"))
+    assert.ok(html.includes("padding: 52px 32px 96px"))
+  }
+})
+
+test("page switching is softened and respects reduced-motion preferences", () => {
+  for (const page of PAGES) {
+    const html = read(page)
+    assert.ok(html.includes("@view-transition { navigation: auto; }"), `${page} does not opt into cross-page transitions`)
+    assert.ok(html.includes("@media (prefers-reduced-motion: reduce)"), `${page} has no reduced-motion override`)
+  }
+})
+
+test("all page headers switch to the same non-overlapping two-row layout", () => {
+  for (const page of PAGES) {
+    const html = read(page)
+    assert.ok(html.includes("@media (max-width: 760px)"), `${page} does not use the shared header breakpoint`)
+    const responsiveHeader = html.slice(html.indexOf("@media (max-width: 760px)"), html.indexOf("@media (max-width: 760px)") + 900)
+    assert.ok(responsiveHeader.includes("grid-template-columns: minmax(0, 1fr) auto"), `${page} can collapse its brand into its tools`)
+    assert.match(responsiveHeader, /grid-column:\s*1\s*\/\s*-1/, `${page} does not move its page tabs to a full-width row`)
+  }
+})
+
+test("all page shells keep identical geometry through the phone breakpoint", () => {
+  for (const page of PAGES) {
+    const html = read(page)
+    const phone = html.slice(html.indexOf("@media (max-width: 640px)"), html.indexOf("@media (max-width: 640px)") + 500)
+    assert.ok(phone.includes("body { padding: 20px 14px 64px; }"), `${page} uses different phone page bounds`)
+    assert.ok(phone.includes(".app-header { margin-bottom: 24px; }"), `${page} uses different phone header spacing`)
+    assert.ok(phone.includes(".app-title") && phone.includes("font-size: 18px"), `${page} uses different phone branding size`)
+  }
+
+  for (const page of ["settlement.html", "kyle.html"]) {
+    const html = read(page)
+    const header = html.slice(html.indexOf(".app-header {"), html.indexOf(".app-header {") + 240)
+    assert.ok(header.includes("gap: 10px"), `${page} uses a different desktop nav/tool gap`)
+  }
+})
+
 // ── Service worker ────────────────────────────────────────────────────────────
 // A page carries the site's navigation, so a cache-first service worker strands
 // returning users on an old version of the app: that is exactly how the Kyle

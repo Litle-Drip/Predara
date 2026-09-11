@@ -83,7 +83,21 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
+    @view-transition { navigation: auto; }
+    ::view-transition-old(root) { animation: page-out 90ms ease both; }
+    ::view-transition-new(root) { animation: page-in 160ms ease-out both; }
+    @keyframes page-out { to { opacity: 0.94; } }
+    @keyframes page-in {
+      from { opacity: 0.94; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .app { max-width: 1200px; margin: 0 auto; }
+
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-old(root),
+      ::view-transition-new(root) { animation: none; }
+    }
 
     /* ── App header ── */
     .app-header {
@@ -931,7 +945,15 @@
       transition: border-color 0.18s, color 0.18s;
     }
     .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
-    .header-controls { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .header-controls {
+      margin-left: auto;
+      display: grid;
+      grid-template-columns: auto 126px;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .page-tools { width: 126px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
     .mode-tabs { display: flex; align-items: center; gap: 3px; background: var(--bar-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; flex-shrink: 0; }
     .mode-tab { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 11px; border-radius: 5px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
     .mode-tab:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
@@ -947,11 +969,18 @@
       outline: 2px solid var(--orange);
       outline-offset: 2px;
     }
-    @media (max-width: 540px) {
-      .app-header { flex-wrap: wrap; gap: 10px; }
-      .header-controls { order: 2; width: 100%; flex-wrap: wrap; justify-content: flex-end; margin-left: 0; }
-      .mode-tabs { order: 2; flex: 1 0 100%; }
+    @media (max-width: 760px) {
+      .app-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+      }
+      .header-controls {
+        display: contents;
+      }
+      .mode-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; }
       .mode-tab { flex: 1; text-align: center; }
+      .page-tools { grid-column: 2; grid-row: 1; width: auto; margin-left: auto; }
     }
 
     /* ── Footer ── */
@@ -2722,8 +2751,10 @@
         <a class="mode-tab" href="/settlement.html">Settlement Desk</a>
         <a class="mode-tab" href="/kyle.html">Kyle</a>
       </nav>
-      <button class="odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+      <div class="page-tools">
+        <button class="odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+      </div>
     </div>
   </div>
 
