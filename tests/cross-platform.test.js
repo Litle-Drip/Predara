@@ -458,7 +458,7 @@ test("a season championship is not a match for one race in that season", async (
   assert.equal(pm.listingsFound, 2, "they were found and then judged, and the card can say so")
 })
 
-test("agreeing on the exact day is enough when the titles share nothing", () => {
+test("agreeing on the day is enough when the titles share nothing", () => {
   // The rule above must not reject two venues that genuinely name one event
   // differently. Sharing no word is survivable; sharing no word AND no date is
   // not.
@@ -467,6 +467,24 @@ test("agreeing on the exact day is enough when the titles share nothing", () => 
     { title: "NYC Mayoral Race", date: "2026-11-03", outcomes: ["Mamdani", "Cuomo"] },
     { title: "Who becomes New York City mayor?", date: "2026-11-03", outcomes: ["Mamdani", "Cuomo"] })
   assert.notEqual(scored.confidence, "none")
+})
+
+test("the day is the same day within the tolerance the matcher already grants", () => {
+  // dateScore absorbs a one-day skew on purpose: a close timestamp is UTC and
+  // an event date is local, so one venue can land either side of midnight.
+  // Requiring an exact match in the title-shares-nothing rule contradicted that
+  // and rejected genuine pairs.
+  const m = require("../lib/match")
+  const sameEventNextDay = m.scoreMatch(
+    { title: "NYC Mayoral Race", date: "2026-11-03", outcomes: ["Mamdani", "Cuomo"] },
+    { title: "Who becomes New York City mayor?", date: "2026-11-04", outcomes: ["Mamdani", "Cuomo"] })
+  assert.notEqual(sameEventNextDay.confidence, "none", "one day apart is the same day here")
+
+  // And the season-long market it exists to reject is months away, not a day.
+  const seasonAward = m.scoreMatch(
+    { title: "Spanish Grand Prix Winner", date: "2026-09-13", outcomes: ["Norris", "Verstappen"] },
+    { title: "F1 Drivers' Champion", date: "2026-12-06", outcomes: ["Norris", "Verstappen"] })
+  assert.equal(seasonAward.confidence, "none")
 })
 
 test("the search term list is not truncated a second time by its caller", () => {
