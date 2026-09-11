@@ -1,5 +1,7 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
+const fs = require("node:fs")
+const path = require("node:path")
 
 const { findCrossPlatform, parseMatchQuery, handleMatchRequest } = require("../lib/cross-platform")
 
@@ -398,4 +400,79 @@ test("a competitor's name leads the search rather than being cut off by the cap"
     outcomes: ["Max Verstappen"],
   })
   assert.equal(terms[0], "verstappen")
+})
+
+// ── Reading Gemini's own payload ──────────────────────────────────────────────
+
+test("a Gemini listing is read with competitors' names, not their three-letter codes", () => {
+  // Checked against a real capture rather than against assumptions. Gemini
+  // carries both `label` ("Andrea Kimi Antonelli") and `abbreviatedName`
+  // ("ANT"); reading the code first left every Gemini listing sharing no name
+  // with any other venue, so the rule meant to reject a cycling race threw away
+  // the correct Grand Prix instead.
+  const { geminiEventToCandidate } = require("../lib/cross-platform")
+  const payload = require("./fixtures/gemini-settled-categorical.json")
+  const event = Array.isArray(payload) ? payload[0] : payload
+
+  const candidate = geminiEventToCandidate(event)
+  assert.ok(candidate.outcomes.includes("Andrea Kimi Antonelli"))
+  assert.ok(!candidate.outcomes.includes("ANT"), "the code is not a name anything can be matched on")
+  assert.equal(candidate.date, "2026-09-06", "the date comes off the event, not the ticker guess")
+
+  // And the whole point: it now matches a Kalshi listing of the same race.
+  const m = require("../lib/match")
+  const scored = m.scoreMatch({
+    title: "Italian Grand Prix Winner",
+    date: "2026-09-06",
+    outcomes: ["Andrea Kimi Antonelli", "Max Verstappen", "Lando Norris"],
+  }, candidate)
+  assert.equal(scored.confidence, "strong")
+})
+
+// ── Same sport, different market ──────────────────────────────────────────────
+
+test("a season championship is not a match for one race in that season", async () => {
+  // Reported from production against the Spanish Grand Prix: "F1 Drivers'
+  // Champion" and "F1: Action of the Year" were both offered, each matching
+  // 90-100% of the drivers. Every market in a sport lists that sport's
+  // entrants, so a full outcome overlap says "same sport", not "same event".
+  // A race no other test in this file generates the same search terms for —
+  // searches are cached by their terms.
+  const drivers = ["Andrea Kimi Antonelli", "Lando Norris", "Lewis Hamilton", "Max Verstappen"]
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Brazilian Grand Prix Winner",
+    date: "2026-11-08", outcomes: drivers,
+  }, {
+    signedGet: null,
+    searchGemini: async () => [],
+    searchPolymarket: async () => [
+      { platform: "polymarket", title: "F1 Drivers' Champion", date: "2026-12-06",
+        outcomes: drivers, url: "https://polymarket.com/event/f1-champ", ref: "f1-champ" },
+      { platform: "polymarket", title: "F1: Action of the Year", date: "2026-12-31",
+        outcomes: drivers, url: "https://polymarket.com/event/f1-action", ref: "f1-action" },
+    ],
+  })
+
+  const pm = results.find(r => r.platform === "polymarket")
+  assert.deepEqual(pm.candidates, [])
+  assert.equal(pm.listingsFound, 2, "they were found and then judged, and the card can say so")
+})
+
+test("agreeing on the exact day is enough when the titles share nothing", () => {
+  // The rule above must not reject two venues that genuinely name one event
+  // differently. Sharing no word is survivable; sharing no word AND no date is
+  // not.
+  const m = require("../lib/match")
+  const scored = m.scoreMatch(
+    { title: "NYC Mayoral Race", date: "2026-11-03", outcomes: ["Mamdani", "Cuomo"] },
+    { title: "Who becomes New York City mayor?", date: "2026-11-03", outcomes: ["Mamdani", "Cuomo"] })
+  assert.notEqual(scored.confidence, "none")
+})
+
+test("the search term list is not truncated a second time by its caller", () => {
+  // searchTerms() decides how many terms are worth sending; a second cap at the
+  // call site silently dropped the last one once the competitor's name was
+  // added at the front.
+  const source = fs.readFileSync(path.join(__dirname, "..", "lib", "cross-platform.js"), "utf8")
+  assert.match(source, /match\.searchTerms\(source\)/)
 })

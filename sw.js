@@ -5,7 +5,7 @@
 // returning readers; this one carries the cross-venue search fix and the
 // polymarket.us copy. Bump this and the ?v= in index.html together, always —
 // see tests/asset-versions.test.js.
-const CACHE_NAME = "predara-v7"
+const CACHE_NAME = "predara-v8"
 
 // Pages, cached so the app opens offline — but always fetched fresh first when
 // the network is there. See the navigation rule in the fetch handler.

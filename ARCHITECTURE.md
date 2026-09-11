@@ -81,6 +81,22 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   the titles could have. Generic names (Yes, No, Other, Field, Tie) are excluded
   from this entirely: every binary market has a Yes and a No, so counting those
   as agreement made unrelated questions look alike.
+- **Every competitor in common and no word of the title is a different market
+  about the same sport.** Every market a sport has lists that sport's entrants —
+  the race, the season championship, the award for action of the year — so a
+  full outcome overlap says "same sport", not "same event". Asked for the
+  Spanish Grand Prix, this is what offered "F1 Drivers' Champion" and "F1:
+  Action of the Year". Two listings of one event agree on the words or on the
+  exact day; sharing neither is disqualifying. Sharing no word is survivable on
+  its own, because venues do name one event differently — that is the premise
+  of the whole feature — so the exact date is what carries it.
+- **Read the venue's payload, not an assumption about it.** Gemini carries both
+  `label` ("Andrea Kimi Antonelli") and `abbreviatedName` ("ANT").
+  `geminiEventToCandidate()` read the code first, so every Gemini listing shared
+  no name with any other venue's and the rule above threw away the correct Grand
+  Prix rather than the wrong ones. It is a separate exported function so it can
+  be tested against `tests/fixtures/gemini-settled-categorical.json`, a real
+  capture, instead of against what this repo believes Gemini returns.
 - **Candidates are enriched before the final ranking, on every venue.** A search
   result does not reliably carry an outcome list, and without one the rule above
   cannot fire — which is exactly how the cycling race was offered. The leading
