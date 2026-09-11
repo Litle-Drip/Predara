@@ -320,3 +320,82 @@ test("the words the venues do not share cost nothing", async () => {
   assert.ok(terms.includes("portuguese"), "the distinctive word is still asked for")
   assert.ok(terms.includes("grand") || terms.includes("prix"), "so are the shared ones")
 })
+
+// ── Not offering the wrong event ──────────────────────────────────────────────
+
+test("a cycling race is not offered as a match for a Formula 1 Grand Prix", async () => {
+  // Reported from production. "Grand Prix Cycliste de Montreal 2026: Winner"
+  // finishes the same day as the Spanish GP and shares "grand", "prix" and
+  // "winner" — enough to score LIKELY on the titles alone. The riders and the
+  // drivers share no name, which settles it.
+  const { results } = await findCrossPlatform({
+    platform: "kalshi",
+    title: "Spanish Grand Prix Winner",
+    date: "2026-09-13",
+    outcomes: ["Lando Norris", "Max Verstappen", "Lewis Hamilton"],
+  }, {
+    signedGet: null,
+    searchGemini: async () => [],
+    searchPolymarket: async () => [{
+      platform: "polymarket",
+      title: "Grand Prix Cycliste de Montreal 2026: Winner",
+      date: "2026-09-13",
+      outcomes: ["Tadej Pogacar", "Remco Evenepoel"],
+      url: "https://polymarket.com/event/gp-montreal",
+      ref: "gp-montreal",
+    }],
+  })
+
+  const pm = results.find(r => r.platform === "polymarket")
+  assert.deepEqual(pm.candidates, [], "shared words and a shared date are not a shared event")
+})
+
+test("a Yes and a No are not two events agreeing about anything", async () => {
+  // Every binary market ever written has both, so counting them as overlap made
+  // unrelated questions look alike.
+  const m = require("../lib/match")
+  assert.equal(m.outcomeKeys(["Yes", "No"]).size, 0)
+  assert.equal(m.outcomeKeys(["Lando Norris", "Other"]).size, 1)
+})
+
+test("an empty result says which half of the search came up short", async () => {
+  // "No matching event found" cannot tell "nothing is listed under these words"
+  // from "plenty is, none of it this event" — and whoever reports the problem
+  // should not need to know the difference to describe it.
+  // Searches are cached by their terms, so this uses a fixture no other test
+  // produces the same terms for.
+  const nothingListed = await findCrossPlatform({
+    platform: "kalshi", title: "Interlagos Grand Prix Winner",
+    date: "2026-07-26", outcomes: ["Gabriel Bortoleto"],
+  }, { signedGet: null, searchGemini: async () => [], searchPolymarket: async () => [] })
+
+  const empty = nothingListed.results.find(r => r.platform === "gemini")
+  assert.equal(empty.listingsFound, 0)
+  assert.ok(empty.searched.includes("bortoleto"), "the card can name the words it tried")
+
+  const allRejected = await findCrossPlatform({
+    platform: "kalshi", title: "Hungarian Grand Prix Winner",
+    date: "2026-08-02", outcomes: ["Lando Norris", "Max Verstappen"],
+  }, {
+    signedGet: null,
+    searchGemini: async () => [{
+      platform: "gemini", title: "Grand Prix Cycliste Winner", date: "2026-08-02",
+      outcomes: ["Tadej Pogacar", "Remco Evenepoel"], url: "https://g.example/x", ref: "x",
+    }],
+    searchPolymarket: async () => [],
+  })
+  const rejected = allRejected.results.find(r => r.platform === "gemini")
+  assert.equal(rejected.listingsFound, 1, "something was found, and then judged")
+  assert.deepEqual(rejected.candidates, [])
+})
+
+test("a competitor's name leads the search rather than being cut off by the cap", async () => {
+  // It was sorted in behind the title's words and dropped by the limit on
+  // exactly the markets it helps most: the ones with long descriptive titles.
+  const m = require("../lib/match")
+  const terms = m.searchTerms({
+    title: "Who will win the Spanish Grand Prix Formula One race",
+    outcomes: ["Max Verstappen"],
+  })
+  assert.equal(terms[0], "verstappen")
+})
