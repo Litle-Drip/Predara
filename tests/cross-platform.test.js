@@ -822,3 +822,23 @@ test("a sponsor's name in the title does not stop the race matching", () => {
       outcomes: ["Andrea Kimi Antonelli", "Lando Norris"] })
   assert.equal(scored.confidence, "strong")
 })
+
+test("an undocumented endpoint that is not there falls through to the documented one", async () => {
+  // public-search is not part of gamma's documented surface. Every query
+  // against it failing is exactly the case the fallback listing was written
+  // for — and letting that failure throw made the fallback unreachable in
+  // precisely that situation.
+  const source = fs.readFileSync(path.join(__dirname, "..", "lib", "cross-platform.js"), "utf8")
+  const fn = source.split("async function searchPolymarket")[1].split("\n}")[0]
+  assert.match(fn, /catch \{ events = \[\] \}/,
+    "a dead public-search must not prevent the documented listing being read")
+  assert.ok(fn.indexOf("events?closed=false") > fn.indexOf("catch"),
+    "the fallback comes after, and is reachable from, the failure")
+})
+
+test("unionSearches asked nothing returns nothing rather than throwing on an empty array", async () => {
+  // The all-failed branch reads failures[0]; with no terms there is no
+  // failures[0], and it would throw a TypeError instead of an answer.
+  const { unionSearches } = require("../lib/cross-platform")
+  assert.deepEqual(await unionSearches([], async () => [], x => x), [])
+})
