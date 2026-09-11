@@ -6,6 +6,8 @@ const path = require("path")
 const url = require("url")
 const gemini = require("./lib/gemini")
 const { getGeminiPublic } = require("./lib/gemini-public")
+const { handleMatchRequest } = require("./lib/cross-platform")
+const polymarket = require("./lib/polymarket")
 const { getDiscoveryFeed } = require("./lib/discover")
 const { fetchPolymarketSeries, fetchKalshiSeries, normalizeWindow } = require("./lib/history")
 const { makeSignedGet } = require("./lib/kalshi-auth")
@@ -204,33 +206,35 @@ const server = http.createServer((req, res) => {
   }
 
   // ── Polymarket proxy ──
+  // Same code path as api/polymarket.js in production — see lib/polymarket.js
+  // for the venue fallback and why a missing slug is a 404 and not a 502.
   if (parsed.pathname === "/api/polymarket") {
-    const slug = parsed.query.slug
-    if (!slug || !isSafeParam(slug)) {
-      res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
-      return res.end(JSON.stringify({ error: "Missing or invalid slug" }))
-    }
-
-    const target = `https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}`
-
-    httpsGetWithTimeout(target, REQUEST_TIMEOUT_MS)
-      .then(({ status, body }) => {
-        if (status === 200) {
-          let parsed
-          try { parsed = JSON.parse(body) } catch (_) { parsed = null }
-          if (!Array.isArray(parsed) || parsed.length === 0) {
-            res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
-            return res.end(JSON.stringify({ error: "Upstream returned an empty or invalid payload" }))
-          }
-        }
+    const venue = polymarket.venueFor(parsed.query.venue)
+    polymarket.fetchEventBySlug(parsed.query.slug, venue)
+      .then(({ status, body, error }) => {
         res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
-        res.end(body)
+        res.end(error ? JSON.stringify({ error }) : body)
       })
       .catch((err) => {
         res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify({ error: err.message }))
       })
+    return
+  }
 
+  // ── Cross-platform event match ──
+  // Same code path as api/match.js in production. Answers "where else is this
+  // event listed?" for the event the reader already has open.
+  if (parsed.pathname === "/api/match") {
+    handleMatchRequest(parsed.query)
+      .then(({ status, data, error }) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(error ? { error } : data))
+      })
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
     return
   }
 

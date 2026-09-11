@@ -610,15 +610,8 @@ async function analyze() {
   }
 
   // Expand a bare Gemini ticker or instrument symbol to a full URL.
-  // GEMI-{eventTicker}-{contract} instrument symbols need the GEMI- prefix
-  // and trailing contract segment stripped to recover the event ticker.
-  const geminiTickerRe = /^[A-Z][A-Z0-9\-]{2,}$/i
-  if (geminiTickerRe.test(url)) {
-    const eventTicker = /^GEMI-/i.test(url)
-      ? url.slice(5).replace(/-[^-]+$/, "").toUpperCase()
-      : url.toUpperCase()
-    url = `https://www.gemini.com/predictions/${eventTicker}`
-  }
+  // Shared with the compare view — see geminiUrlFromTicker() in utils.js.
+  url = geminiUrlFromTicker(url) || url
 
   const lowerUrl = url.toLowerCase()
   let platform = "unknown"
@@ -682,13 +675,18 @@ async function analyze() {
         }
       }
 
-      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}`)
+      // polymarket.us is a separate, US-regulated exchange with its own slugs;
+      // the server tries that venue first for a .us link before falling back.
+      const pmVenue = /polymarket\.us/i.test(url) ? "us" : "com"
+      const res = await fetch(`/api/polymarket?slug=${encodeURIComponent(slug)}&venue=${pmVenue}`)
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
         if (res.status === 404) {
+          // The server's message names the slug and, for a .us link, says the
+          // two venues are separate — better than anything guessable here.
           showError(
             "Event not found on Polymarket",
-            "The market slug may have changed or the event may have closed. Copy the URL directly from polymarket.com/event/…"
+            errData.error || "The market slug may have changed or the event may have closed. Copy the URL directly from polymarket.com/event/…"
           )
           return
         }
