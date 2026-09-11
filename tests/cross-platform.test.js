@@ -597,3 +597,124 @@ test("a complete search carries no incompleteness marker", async () => {
 
   assert.ok(results.every(r => r.incomplete === null))
 })
+
+test("the listings named in an empty result are the closest ones, not an arbitrary sample", async () => {
+  // Reported from production: a Formula 1 race reported checking "F1 Drivers'
+  // Champion, F1: Action of the Year, Saanich, BC Mayoral Election Winner".
+  // The mayoral election matched the word "winner" and told the reader nothing;
+  // the two F1 markets are what say the venue carries the sport but not the
+  // race. Order the sample by how near it came.
+  const drivers = ["Lando Norris", "Max Verstappen", "Lewis Hamilton"]
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Mexican Grand Prix Winner",
+    date: "2026-10-25", outcomes: drivers,
+  }, {
+    signedGet: null,
+    searchGemini: async () => [],
+    // More listings than the sample size, which is the situation that makes
+    // ordering matter — the production case checked 43.
+    searchPolymarket: async () => [
+      { platform: "polymarket", title: "Saanich, BC Mayoral Election Winner", date: "2026-11-15",
+        outcomes: ["Dean Murdock", "Teale Phelps Bondaroff"], url: "https://p.example/s", ref: "s" },
+      { platform: "polymarket", title: "Eurovision Winner", date: "2026-05-16",
+        outcomes: ["Sweden", "Italy"], url: "https://p.example/e", ref: "e" },
+      { platform: "polymarket", title: "F1 Drivers' Champion", date: "2026-12-06",
+        outcomes: drivers, url: "https://p.example/c", ref: "c" },
+      { platform: "polymarket", title: "Best Picture Winner", date: "2027-03-14",
+        outcomes: ["Sinners", "One Battle After Another"], url: "https://p.example/b", ref: "b" },
+      { platform: "polymarket", title: "F1: Action of the Year", date: "2026-12-31",
+        outcomes: drivers, url: "https://p.example/a", ref: "a" },
+    ],
+  })
+
+  const pm = results.find(r => r.platform === "polymarket")
+  assert.deepEqual(pm.candidates, [], "none of them is the race")
+  assert.equal(pm.checkedTitles.length, 3)
+  // The two markets about this sport come first; the coincidental "winner"
+  // matches do not displace them. Every one of these is disqualified and so
+  // scores zero, which is why closeness() ranks them instead of the score.
+  assert.ok(pm.checkedTitles.includes("F1 Drivers' Champion"))
+  assert.ok(pm.checkedTitles.includes("F1: Action of the Year"))
+  assert.ok(!pm.checkedTitles.includes("Best Picture Winner"),
+    "a coincidental word match does not outrank a market about the same sport")
+})
+
+test("an empty venue row offers a way to check that venue by hand", () => {
+  // A venue genuinely not listing an event is an answer, not a fault. The
+  // reader should be one click from confirming it rather than stuck.
+  const source = fs.readFileSync(path.join(__dirname, "..", "crossmatch.js"), "utf8")
+  assert.match(source, /_xmatchVenueSearch/)
+  assert.match(source, /polymarket\.com\/search\?q=/)
+  assert.match(source, /kalshi\.com\/markets\?search=/)
+})
+
+// ── Enrichment order ──────────────────────────────────────────────────────────
+
+test("enrichment reaches the listings the diagnostics read", async () => {
+  // Ranking returns copies. Enriching those left the originals at outcomes: []
+  // — so the "closest" sample for a Kalshi venue was ordered on titles alone,
+  // with every listing tied at zero outcome overlap.
+  const { topByCloseness, enrichKalshi } = require("../lib/cross-platform")
+  const listings = [
+    { title: "Alpha Winner", outcomes: [], ref: "A", date: "" },
+    { title: "Beta Winner", outcomes: [], ref: "B", date: "" },
+  ]
+  const picked = topByCloseness({ title: "Alpha Winner", outcomes: [] }, listings, 2)
+  assert.equal(picked[0], listings[0], "references, not copies")
+
+  await enrichKalshi(picked, async () => ({
+    status: 200,
+    body: JSON.stringify({ event: { strike_date: "2026-09-13T12:00:00Z", markets: [{ yes_sub_title: "Lando Norris" }] } }),
+  }))
+  assert.deepEqual(listings[0].outcomes, ["Lando Norris"], "the original listing carries it")
+})
+
+test("a listing already carrying outcomes is not re-fetched", async () => {
+  // Listings are cached and enriched in place, so a second search over the same
+  // terms would otherwise spend the signed calls again.
+  const { enrichKalshi } = require("../lib/cross-platform")
+  let calls = 0
+  const listing = [{ ref: "A", title: "Alpha Winner", outcomes: ["Lando Norris"], date: "2026-09-13" }]
+  await enrichKalshi(listing, async () => { calls++; return { status: 200, body: "{}" } })
+  assert.equal(calls, 0)
+})
+
+test("a match with no shared title word is enriched before it is judged, not after", async () => {
+  // Kalshi's listing index carries no outcome list and often no strike date, so
+  // a correct match naming neither was disqualified for lacking exactly the
+  // facts enrichment supplies. Enriching only the survivors could never rescue
+  // it, because it never survived.
+  const signedGet = async () => ({
+    status: 200,
+    body: JSON.stringify({
+      event: {
+        strike_date: "2026-09-13T12:00:00Z",
+        markets: [{ yes_sub_title: "Andrea Kimi Antonelli" }, { yes_sub_title: "Lando Norris" }],
+      },
+    }),
+  })
+
+  const { results } = await findCrossPlatform({
+    platform: "gemini", title: "Madrid Grand Prix Winner",
+    date: "2026-09-13", outcomes: ["Andrea Kimi Antonelli", "Lando Norris"],
+  }, {
+    signedGet,
+    searchGemini: async () => [],
+    searchPolymarket: async () => [],
+    // Titles share nothing and the listing carries no date: disqualified on
+    // sight, before enrichment, under the old order.
+    searchKalshi: async () => [{
+      platform: "kalshi", title: "KXF1RACE Espana", subtitle: "", date: "", outcomes: [],
+      url: "https://kalshi.com/markets/kxf1race-spagp26", ref: "KXF1RACE-SPAGP26",
+    }],
+  })
+
+  const kalshi = results.find(r => r.platform === "kalshi")
+  assert.equal(kalshi.candidates.length, 1, "the drivers and the date arrive in time to save it")
+  assert.equal(kalshi.candidates[0].ref, "KXF1RACE-SPAGP26")
+  // "likely" rather than "strong": the titles really do share nothing, so the
+  // date and the drivers carry it alone and the reader is told to look. What
+  // matters is that it is offered at all — before, it was discarded unseen.
+  assert.equal(kalshi.candidates[0].confidence, "likely")
+  assert.ok(kalshi.candidates[0].reasons.includes("same close date"))
+})

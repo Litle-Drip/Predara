@@ -124,14 +124,34 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   Prix rather than the wrong ones. It is a separate exported function so it can
   be tested against `tests/fixtures/gemini-settled-categorical.json`, a real
   capture, instead of against what this repo believes Gemini returns.
-- **Candidates are enriched before the final ranking, on every venue.** A search
-  result does not reliably carry an outcome list, and without one the rule above
-  cannot fire — which is exactly how the cycling race was offered. The leading
-  candidates are re-fetched in full first.
-- **An empty result names what it checked.** Counting rejections cannot
-  separate "the right event was never in the pool" from "it was there and the
-  scoring rejected it" — a retrieval bug and a scoring bug, with nothing in
+- **Listings are enriched before anything is scored, on every venue.** A search
+  result does not reliably carry an outcome list, and without one the rules
+  above cannot fire — which is exactly how the cycling race was offered. The
+  listings nearest by `closeness()` are re-fetched in full first, as references
+  rather than copies. The order matters in both directions: `rankCandidates()`
+  returns copies, so enriching its output never reached the listings
+  `closestTitles()` reads and left every Kalshi listing at `outcomes: []`; and
+  enriching only the survivors meant a correct match carrying neither a shared
+  title word nor a strike date was disqualified for lacking exactly the facts
+  enrichment supplies. It never survived, so it was never rescued. The data has
+  to arrive before the judgement.
+- **An empty result names what it checked, closest first.** Counting rejections
+  cannot separate "the right event was never in the pool" from "it was there and
+  the scoring rejected it" — a retrieval bug and a scoring bug, with nothing in
   common. The card lists a few of the titles it looked at, which says which.
+  They are ranked by `closeness()`, a raw title-and-outcome similarity that
+  ignores every disqualifier, because ranking rejects by their *score* cannot
+  order them at all: a disqualified candidate scores zero whether it was the
+  season championship for the right sport or a municipal election containing the
+  word "winner". Both read as equally close, which is how "Saanich, BC Mayoral
+  Election Winner" ended up named beside a Formula 1 race. Shared competitors
+  weigh heaviest — a listing naming the same people is about the same subject
+  even when it is a different market about it, and that is what a reader needs
+  to see.
+- **Every dead end offers a way out.** A venue that genuinely does not list an
+  event is a real answer, not a fault to fix, so each empty row carries a link
+  to search that venue by hand rather than leaving the reader with a card that
+  only says no.
 - **An empty result says which half came up short.** Each venue reports the
   words it searched and how many listings it inspected, so the card can say
   "nothing is listed under these words" or "checked 12 listings, none is this

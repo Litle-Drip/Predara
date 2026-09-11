@@ -111,15 +111,34 @@ function _xmatchWhyNothing(result, label) {
   }
   if (!seen) {
     return `Nothing on ${esc(label)} is listed under ${words ? `<em>${words}</em>` : "these words"}. ` +
-      `It may be listed there under a different name.`
+      `It may be listed there under a different name.` +
+      _xmatchVenueSearch(result.platform, label)
   }
   const examples = (result.checkedTitles || []).slice(0, 3)
   const shown = examples.length
-    ? `<div class="xmatch-checked">Including: ${examples.map(t => `<em>${esc(t)}</em>`).join(", ")}` +
-      `${seen > examples.length ? ` and ${seen - examples.length} more` : ""}.</div>`
+    ? `<div class="xmatch-checked">Closest: ${examples.map(t => `<em>${esc(t)}</em>`).join(", ")}` +
+      `${seen > examples.length ? `, and ${seen - examples.length} more` : ""}.</div>`
     : ""
   return `Checked ${seen} ${esc(label)} listing${seen === 1 ? "" : "s"} matching ` +
-    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.${shown}`
+    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.` +
+    `${shown}${_xmatchVenueSearch(result.platform, label)}`
+}
+
+// Every dead end gets a way out. A venue that does not list an event is a real
+// answer, not a fault to fix, and the reader should be one click from checking
+// it rather than left with a card that only says no.
+function _xmatchVenueSearch(platform, label) {
+  const source = _xmatchSource()
+  const q = encodeURIComponent((source ? source.title : "").split(/\s+/).slice(0, 5).join(" "))
+  const urls = {
+    kalshi: `https://kalshi.com/markets?search=${q}`,
+    polymarket: `https://polymarket.com/search?q=${q}`,
+    gemini: "https://www.gemini.com/predictions",
+  }
+  const url = urls[platform]
+  if (!url) return ""
+  return `<div class="xmatch-checked"><a href="${esc(url)}" target="_blank" rel="noopener" ` +
+    `class="xmatch-manual-link">Search ${esc(label)} yourself ↗</a></div>`
 }
 
 function _xmatchManualLinks(source) {
