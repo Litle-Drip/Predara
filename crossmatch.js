@@ -105,6 +105,10 @@ async function _xmatchFetch(params) {
 function _xmatchWhyNothing(result, label) {
   const words = (result.searched || []).map(esc).join(", ")
   const seen = result.listingsFound || 0
+  // A search that did not finish cannot be reported as an absence.
+  if (result.incomplete) {
+    return `${esc(result.incomplete)}. This is not a confident "not listed" — try again in a moment.`
+  }
   if (!seen) {
     return `Nothing on ${esc(label)} is listed under ${words ? `<em>${words}</em>` : "these words"}. ` +
       `It may be listed there under a different name.`

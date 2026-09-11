@@ -69,7 +69,16 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   one query reaches it. The alias keys are also kept by `searchTokens()` despite
   being two characters, because the fallback listing and the Kalshi index filter
   titles in-process — a term sent upstream but discarded locally only works half
-  the time.
+  the time. Aliases get reserved room rather than the leftovers: appending them
+  and then truncating dropped every one as soon as a title had enough words to
+  fill the cap by itself, silently disabling the abbreviation search on long
+  descriptive titles — the ones most likely to need it.
+- **A search that did not finish is not an absence.** A fallback page failing
+  part-way leaves the rest of the venue unread, and reporting "none of them is
+  this event" for an event that may sit on a page never fetched states a wrong
+  answer confidently. The first page failing means there is no search and
+  raises; a later one marks the result incomplete, says so on the card, and is
+  cached for seconds rather than the full window.
 - **A fallback that reads one page by volume is not a search.** The Polymarket
   fallback listing asked whether the event was among the hundred biggest markets
   on the venue. A motor race is not, so the race was never in the pool that got

@@ -546,3 +546,54 @@ test("the Polymarket fallback pages instead of reading only the biggest markets"
   assert.match(source, /offset=\$\{page \* POLYMARKET_PAGE_SIZE\}/)
   assert.match(source, /POLYMARKET_FALLBACK_PAGES = [2-9]/)
 })
+
+test("a long title does not lose its abbreviation queries to the cap", () => {
+  // Aliases were appended and then truncated, so a title with enough words to
+  // fill the cap on its own silently disabled the abbreviation search — on
+  // exactly the long descriptive titles most likely to need it.
+  const m = require("../lib/match")
+  const terms = m.searchTerms({
+    title: "Formula One Spanish Grand Prix Race Winner Market",
+    outcomes: ["Andrea Kimi Antonelli"],
+  })
+  assert.ok(terms.includes("gp"), "the abbreviation another venue may have used")
+  assert.ok(terms.includes("antonelli"), "and the competitor's name is still first")
+  assert.equal(terms[0], "antonelli")
+})
+
+test("aliases never crowd out the source venue's own words entirely", () => {
+  const m = require("../lib/match")
+  const terms = m.searchTerms({ title: "Grand Prix", outcomes: [] })
+  const raw = terms.filter(t => ["grand", "prix"].includes(t))
+  assert.ok(raw.length >= 2, "the words actually used come first and stay")
+})
+
+test("a search cut short reports that, rather than a confident absence", async () => {
+  // A rate limit partway through leaves the rest of the venue unread. Reporting
+  // "none of them is this event" for an event that may sit on a page never
+  // fetched is a wrong answer stated confidently.
+  const partial = []
+  partial.incomplete = "Polymarket returned 429 partway through — some listings were not checked"
+
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Zandvoort Grand Prix Winner",
+    date: "2026-08-30", outcomes: ["Nico Hulkenberg"],
+  }, {
+    signedGet: null,
+    searchGemini: async () => [],
+    searchPolymarket: async () => partial,
+  })
+
+  const pm = results.find(r => r.platform === "polymarket")
+  assert.match(pm.incomplete, /429/)
+  assert.deepEqual(pm.candidates, [])
+})
+
+test("a complete search carries no incompleteness marker", async () => {
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Imola Grand Prix Winner",
+    date: "2026-05-17", outcomes: ["Kimi Raikkonen"],
+  }, { signedGet: null, searchGemini: async () => [], searchPolymarket: async () => [] })
+
+  assert.ok(results.every(r => r.incomplete === null))
+})
