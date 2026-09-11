@@ -87,9 +87,14 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   full outcome overlap says "same sport", not "same event". Asked for the
   Spanish Grand Prix, this is what offered "F1 Drivers' Champion" and "F1:
   Action of the Year". Two listings of one event agree on the words or on the
-  exact day; sharing neither is disqualifying. Sharing no word is survivable on
-  its own, because venues do name one event differently — that is the premise
-  of the whole feature — so the exact date is what carries it.
+  day; sharing neither is disqualifying. Sharing no word is survivable on its
+  own, because venues do name one event differently — that is the premise of
+  the whole feature — so the date is what carries it. "The day" means the same
+  one-day tolerance `dateScore` already grants: a close timestamp is UTC and an
+  event date is local, so one venue can land either side of midnight. Requiring
+  an exact match here contradicted that tolerance, and would have rejected
+  precisely the pairs least able to survive it — the ones with no shared title
+  words to fall back on.
 - **Read the venue's payload, not an assumption about it.** Gemini carries both
   `label` ("Andrea Kimi Antonelli") and `abbreviatedName` ("ANT").
   `geminiEventToCandidate()` read the code first, so every Gemini listing shared
