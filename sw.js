@@ -1,9 +1,10 @@
 // Predara Service Worker — PWA offline shell
 //
 // Bump CACHE_NAME on any change that returning users must not miss. The
-// previous bump was for the page navigation fix below; this one ships the
-// cross-platform event match card, which adds a script the shell must carry.
-const CACHE_NAME = "predara-v4"
+// previous bump shipped the cross-platform event match card; this one goes with
+// the ?v= bump in index.html that actually delivers changed scripts to
+// returning readers — see tests/asset-versions.test.js.
+const CACHE_NAME = "predara-v5"
 
 // Pages, cached so the app opens offline — but always fetched fresh first when
 // the network is there. See the navigation rule in the fetch handler.
@@ -21,6 +22,7 @@ const ASSET_URLS = [
   "/renderers.js",
   "/compare.js",
   "/crossmatch.js",
+  "/gemini-live.js",
   "/app.js",
   "/features.js",
   "/kyle.js",
