@@ -597,3 +597,53 @@ test("a complete search carries no incompleteness marker", async () => {
 
   assert.ok(results.every(r => r.incomplete === null))
 })
+
+test("the listings named in an empty result are the closest ones, not an arbitrary sample", async () => {
+  // Reported from production: a Formula 1 race reported checking "F1 Drivers'
+  // Champion, F1: Action of the Year, Saanich, BC Mayoral Election Winner".
+  // The mayoral election matched the word "winner" and told the reader nothing;
+  // the two F1 markets are what say the venue carries the sport but not the
+  // race. Order the sample by how near it came.
+  const drivers = ["Lando Norris", "Max Verstappen", "Lewis Hamilton"]
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Mexican Grand Prix Winner",
+    date: "2026-10-25", outcomes: drivers,
+  }, {
+    signedGet: null,
+    searchGemini: async () => [],
+    // More listings than the sample size, which is the situation that makes
+    // ordering matter — the production case checked 43.
+    searchPolymarket: async () => [
+      { platform: "polymarket", title: "Saanich, BC Mayoral Election Winner", date: "2026-11-15",
+        outcomes: ["Dean Murdock", "Teale Phelps Bondaroff"], url: "https://p.example/s", ref: "s" },
+      { platform: "polymarket", title: "Eurovision Winner", date: "2026-05-16",
+        outcomes: ["Sweden", "Italy"], url: "https://p.example/e", ref: "e" },
+      { platform: "polymarket", title: "F1 Drivers' Champion", date: "2026-12-06",
+        outcomes: drivers, url: "https://p.example/c", ref: "c" },
+      { platform: "polymarket", title: "Best Picture Winner", date: "2027-03-14",
+        outcomes: ["Sinners", "One Battle After Another"], url: "https://p.example/b", ref: "b" },
+      { platform: "polymarket", title: "F1: Action of the Year", date: "2026-12-31",
+        outcomes: drivers, url: "https://p.example/a", ref: "a" },
+    ],
+  })
+
+  const pm = results.find(r => r.platform === "polymarket")
+  assert.deepEqual(pm.candidates, [], "none of them is the race")
+  assert.equal(pm.checkedTitles.length, 3)
+  // The two markets about this sport come first; the coincidental "winner"
+  // matches do not displace them. Every one of these is disqualified and so
+  // scores zero, which is why closeness() ranks them instead of the score.
+  assert.ok(pm.checkedTitles.includes("F1 Drivers' Champion"))
+  assert.ok(pm.checkedTitles.includes("F1: Action of the Year"))
+  assert.ok(!pm.checkedTitles.includes("Best Picture Winner"),
+    "a coincidental word match does not outrank a market about the same sport")
+})
+
+test("an empty venue row offers a way to check that venue by hand", () => {
+  // A venue genuinely not listing an event is an answer, not a fault. The
+  // reader should be one click from confirming it rather than stuck.
+  const source = fs.readFileSync(path.join(__dirname, "..", "crossmatch.js"), "utf8")
+  assert.match(source, /_xmatchVenueSearch/)
+  assert.match(source, /polymarket\.com\/search\?q=/)
+  assert.match(source, /kalshi\.com\/markets\?search=/)
+})
