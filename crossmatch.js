@@ -98,6 +98,21 @@ async function _xmatchFetch(params) {
   return res.body
 }
 
+// "No matching event found" is true and useless: it cannot distinguish a search
+// that returned nothing from a search that returned plenty and rejected all of
+// it. Those have completely different causes, and someone reporting the problem
+// should not have to know that to describe it. So the card says which happened.
+function _xmatchWhyNothing(result, label) {
+  const words = (result.searched || []).map(esc).join(", ")
+  const seen = result.listingsFound || 0
+  if (!seen) {
+    return `Nothing on ${esc(label)} is listed under ${words ? `<em>${words}</em>` : "these words"}. ` +
+      `It may be listed there under a different name.`
+  }
+  return `Checked ${seen} ${esc(label)} listing${seen === 1 ? "" : "s"} matching ` +
+    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.`
+}
+
 function _xmatchManualLinks(source) {
   const q = encodeURIComponent(source.title.split(/\s+/).slice(0, 5).join(" "))
   const links = []
@@ -122,7 +137,7 @@ function _xmatchResultsHtml(source, results) {
       return `<div class="xmatch-venue">${head}<div class="xmatch-none">${esc(r.error)}</div></div>`
     }
     if (!r.candidates || !r.candidates.length) {
-      return `<div class="xmatch-venue">${head}<div class="xmatch-none">No matching event found</div></div>`
+      return `<div class="xmatch-venue">${head}<div class="xmatch-none">${_xmatchWhyNothing(r, label)}</div></div>`
     }
 
     const rows = r.candidates.map((c, i) => {

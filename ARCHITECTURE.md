@@ -69,7 +69,29 @@ matching cannot work here, so `lib/match.js` scores three signals instead and
   query made the target literally unfindable.
 - **A competitor's name is the most portable search key there is.** Every book
   listing a race lists Verstappen, whatever it calls the race, so the leading
-  outcome goes into the term list alongside the title's words.
+  outcome goes *first* in the term list. Sorted in behind the title's words it
+  was cut off by the term cap on exactly the markets it helps most — the ones
+  with long descriptive titles.
+- **No shared competitor means no shared event.** When both venues publish real
+  outcome names and not one is shared, the candidate is rejected outright.
+  "Grand Prix Cycliste de Montreal 2026: Winner" finishes the same day as the
+  Spanish Grand Prix and shares "grand", "prix" and "winner" — enough to score
+  LIKELY against a Formula 1 race on the titles alone. Its riders and the
+  drivers have no name in common, which settles it instantly, and nothing in
+  the titles could have. Generic names (Yes, No, Other, Field, Tie) are excluded
+  from this entirely: every binary market has a Yes and a No, so counting those
+  as agreement made unrelated questions look alike.
+- **Candidates are enriched before the final ranking, on every venue.** A search
+  result does not reliably carry an outcome list, and without one the rule above
+  cannot fire — which is exactly how the cycling race was offered. The leading
+  candidates are re-fetched in full first.
+- **An empty result says which half came up short.** Each venue reports the
+  words it searched and how many listings it inspected, so the card can say
+  "nothing is listed under these words" or "checked 12 listings, none is this
+  event". Those have different causes and different fixes, and "no matching
+  event found" renders them identically — which cost three rounds of reporting
+  before anyone could tell them apart. Whoever hits the problem should not need
+  to know the difference in order to describe it.
 
 Kalshi publishes no text search, so `kalshiIndex()` pages its open events into a
 local index behind a page cap and a wall-clock budget. An index cut short by
