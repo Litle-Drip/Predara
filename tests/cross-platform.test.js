@@ -494,3 +494,106 @@ test("the search term list is not truncated a second time by its caller", () => 
   const source = fs.readFileSync(path.join(__dirname, "..", "lib", "cross-platform.js"), "utf8")
   assert.match(source, /match\.searchTerms\(source\)/)
 })
+
+test("an empty result names some of what it checked, not just how much", async () => {
+  // Counting rejections cannot separate "the right event was never in the pool"
+  // from "it was there and the scoring rejected it", which is the difference
+  // between a retrieval bug and a scoring bug. The titles say which.
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Suzuka Grand Prix Winner",
+    date: "2026-04-12", outcomes: ["Yuki Tsunoda"],
+  }, {
+    signedGet: null,
+    searchPolymarket: async () => [],
+    searchGemini: async () => [
+      { platform: "gemini", title: "Tour de France Winner", date: "2026-07-26",
+        outcomes: ["Tadej Pogacar", "Jonas Vingegaard"], url: "https://g.example/a", ref: "a" },
+      { platform: "gemini", title: "Giro d'Italia Winner", date: "2026-06-01",
+        outcomes: ["Primoz Roglic", "Juan Ayuso"], url: "https://g.example/b", ref: "b" },
+    ],
+  })
+
+  const gem = results.find(r => r.platform === "gemini")
+  assert.deepEqual(gem.candidates, [])
+  assert.deepEqual(gem.checkedTitles, ["Tour de France Winner", "Giro d'Italia Winner"])
+})
+
+test("both spellings of an abbreviated name are asked for", async () => {
+  // Kalshi writes "Grand Prix"; another venue may write "GP", which shares no
+  // searchable word with it. Whichever spelling the venue uses, one of the
+  // queries reaches it.
+  const m = require("../lib/match")
+  const terms = m.searchTerms({ title: "Spanish Grand Prix Winner", outcomes: ["Andrea Kimi Antonelli"] })
+  assert.ok(terms.includes("grand"))
+  assert.ok(terms.includes("gp"), "the abbreviation the other venue may have used")
+  assert.ok(terms.indexOf("antonelli") < terms.indexOf("gp"),
+    "alternates go behind the words the source venue actually used")
+})
+
+test("a listing titled with the abbreviation is recognised locally too", () => {
+  // The fallback path and the Kalshi index filter titles in-process, so a term
+  // that is sent upstream but discarded locally only works half the time.
+  const m = require("../lib/match")
+  assert.ok(m.searchTokens("F1: Madrid GP").includes("gp"))
+  assert.ok(!m.searchTokens("Grand Prix Cycliste de Montreal").includes("de"), "real noise still goes")
+})
+
+test("the Polymarket fallback pages instead of reading only the biggest markets", () => {
+  // One page ordered by volume asks whether the event is among the hundred
+  // biggest markets on the venue, which for a motor race it is not — so the
+  // race was never in the pool that got rejected.
+  const source = fs.readFileSync(path.join(__dirname, "..", "lib", "cross-platform.js"), "utf8")
+  assert.match(source, /offset=\$\{page \* POLYMARKET_PAGE_SIZE\}/)
+  assert.match(source, /POLYMARKET_FALLBACK_PAGES = [2-9]/)
+})
+
+test("a long title does not lose its abbreviation queries to the cap", () => {
+  // Aliases were appended and then truncated, so a title with enough words to
+  // fill the cap on its own silently disabled the abbreviation search — on
+  // exactly the long descriptive titles most likely to need it.
+  const m = require("../lib/match")
+  const terms = m.searchTerms({
+    title: "Formula One Spanish Grand Prix Race Winner Market",
+    outcomes: ["Andrea Kimi Antonelli"],
+  })
+  assert.ok(terms.includes("gp"), "the abbreviation another venue may have used")
+  assert.ok(terms.includes("antonelli"), "and the competitor's name is still first")
+  assert.equal(terms[0], "antonelli")
+})
+
+test("aliases never crowd out the source venue's own words entirely", () => {
+  const m = require("../lib/match")
+  const terms = m.searchTerms({ title: "Grand Prix", outcomes: [] })
+  const raw = terms.filter(t => ["grand", "prix"].includes(t))
+  assert.ok(raw.length >= 2, "the words actually used come first and stay")
+})
+
+test("a search cut short reports that, rather than a confident absence", async () => {
+  // A rate limit partway through leaves the rest of the venue unread. Reporting
+  // "none of them is this event" for an event that may sit on a page never
+  // fetched is a wrong answer stated confidently.
+  const partial = []
+  partial.incomplete = "Polymarket returned 429 partway through — some listings were not checked"
+
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Zandvoort Grand Prix Winner",
+    date: "2026-08-30", outcomes: ["Nico Hulkenberg"],
+  }, {
+    signedGet: null,
+    searchGemini: async () => [],
+    searchPolymarket: async () => partial,
+  })
+
+  const pm = results.find(r => r.platform === "polymarket")
+  assert.match(pm.incomplete, /429/)
+  assert.deepEqual(pm.candidates, [])
+})
+
+test("a complete search carries no incompleteness marker", async () => {
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Imola Grand Prix Winner",
+    date: "2026-05-17", outcomes: ["Kimi Raikkonen"],
+  }, { signedGet: null, searchGemini: async () => [], searchPolymarket: async () => [] })
+
+  assert.ok(results.every(r => r.incomplete === null))
+})

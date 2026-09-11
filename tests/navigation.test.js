@@ -65,7 +65,12 @@ test("every page is precached, so the app opens offline", () => {
 })
 
 test("the cache name is bumped, so poisoned caches are cleared on this deploy", () => {
+  // Compare the version as a number, not as a digit pattern. This was written
+  // as /predara-v[3-9]\d*/ when v3 was current, which stopped matching at v10 —
+  // the assertion failed on a correct bump, for no reason but its own spelling.
   const sw = read("sw.js")
-  assert.ok(!sw.includes('CACHE_NAME = "predara-v2"'), "CACHE_NAME must change or old HTML survives the fix")
-  assert.match(sw, /CACHE_NAME = "predara-v[3-9]\d*"/)
+  const found = sw.match(/CACHE_NAME = "predara-v(\d+)"/)
+  assert.ok(found, "sw.js must declare a versioned CACHE_NAME")
+  assert.ok(Number(found[1]) >= 3,
+    `CACHE_NAME is at v${found[1]}; it must move past the version that served poisoned HTML`)
 })

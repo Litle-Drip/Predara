@@ -105,12 +105,21 @@ async function _xmatchFetch(params) {
 function _xmatchWhyNothing(result, label) {
   const words = (result.searched || []).map(esc).join(", ")
   const seen = result.listingsFound || 0
+  // A search that did not finish cannot be reported as an absence.
+  if (result.incomplete) {
+    return `${esc(result.incomplete)}. This is not a confident "not listed" — try again in a moment.`
+  }
   if (!seen) {
     return `Nothing on ${esc(label)} is listed under ${words ? `<em>${words}</em>` : "these words"}. ` +
       `It may be listed there under a different name.`
   }
+  const examples = (result.checkedTitles || []).slice(0, 3)
+  const shown = examples.length
+    ? `<div class="xmatch-checked">Including: ${examples.map(t => `<em>${esc(t)}</em>`).join(", ")}` +
+      `${seen > examples.length ? ` and ${seen - examples.length} more` : ""}.</div>`
+    : ""
   return `Checked ${seen} ${esc(label)} listing${seen === 1 ? "" : "s"} matching ` +
-    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.`
+    `${words ? `<em>${words}</em>` : "these words"} — none of them is this event.${shown}`
 }
 
 function _xmatchManualLinks(source) {
