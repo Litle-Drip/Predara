@@ -66,9 +66,7 @@ async function loadCrossMatches() {
 
   let payload
   try {
-    const res = await fetch(`/api/match?${params}`)
-    payload = await res.json()
-    if (!res.ok) throw new Error(payload.error || `Match API ${res.status}`)
+    payload = await _xmatchFetch(params)
   } catch (err) {
     if (token !== _xmatchToken) return
     body.innerHTML = `<div class="xmatch-status xmatch-failed">Couldn't search the other venues: ${esc(err.message)}</div>
@@ -77,6 +75,27 @@ async function loadCrossMatches() {
   }
   if (token !== _xmatchToken) return
   body.innerHTML = _xmatchResultsHtml(source, payload.results || [])
+}
+
+// /api/match is a rewrite onto the one function that carries the cross-venue
+// reads (see vercel.json — `api/` is at the platform's 12-function cap). The
+// rewrite is expected to carry the request's own query string through to the
+// destination; if a platform ever stops doing that, the call arrives with no
+// title and comes back 400. Rather than show the reader a "missing title" they
+// can do nothing about, that one case retries the destination directly.
+async function _xmatchFetch(params) {
+  const read = async (path) => {
+    const res = await fetch(path)
+    const body = await res.json()
+    return { ok: res.ok, status: res.status, body }
+  }
+
+  let res = await read(`/api/match?${params}`)
+  if (!res.ok && res.status === 400) {
+    res = await read(`/api/gemini-events?view=match&${params}`)
+  }
+  if (!res.ok) throw new Error(res.body.error || `Match API ${res.status}`)
+  return res.body
 }
 
 function _xmatchManualLinks(source) {

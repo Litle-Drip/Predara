@@ -242,7 +242,16 @@ const server = http.createServer((req, res) => {
   // Shared with the Vercel functions via lib/gemini.js — see api/gemini*.js.
   const geminiRoutes = {
     "/api/gemini":        (q) => gemini.getEvent(q.ticker, q.pageUrl),
-    "/api/gemini-events": (q) => gemini.listEvents(q),
+    // Production folds the cross-venue reads into this one function to stay
+    // under Vercel's 12-function cap and publishes them as /api/discover and
+    // /api/match via rewrites (see vercel.json). Both spellings are answered
+    // here too, so a client that falls back to the destination path behaves the
+    // same locally as it does in production.
+    "/api/gemini-events": (q) => {
+      if (q.view === "discover") return getDiscoveryFeed({ limit: q.limit }).then((data) => ({ status: 200, data }))
+      if (q.view === "match") return handleMatchRequest(q)
+      return gemini.listEvents(q)
+    },
     "/api/gemini-strike": (q) => gemini.getEventStrike(q.ticker),
     "/api/gemini-combos": (q) => q.symbol ? gemini.getCombo(q.symbol) : gemini.listCombos(q),
     // One browsable entrypoint for the resources the UI picks by name (event
