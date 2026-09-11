@@ -718,3 +718,107 @@ test("a match with no shared title word is enriched before it is judged, not aft
   assert.equal(kalshi.candidates[0].confidence, "likely")
   assert.ok(kalshi.candidates[0].reasons.includes("same close date"))
 })
+
+// ── One bad query must not take a venue down ──────────────────────────────────
+
+test("a term the venue rejects does not lose what the other terms found", async () => {
+  // Reported from production: "Gemini search returned 400". Gemini rejects a
+  // two-character query, the alias "gp" is two characters, and searchGemini
+  // threw on the first failure — so one rejected query turned a working venue
+  // into a total failure. It had worked right up until aliases introduced the
+  // first short term.
+  const { searchGemini } = require("../lib/cross-platform")
+  const m = require("../lib/match")
+  assert.ok(m.searchTerms({ title: "Spanish Grand Prix Winner", outcomes: [] }).includes("gp"),
+    "the short alias is still in the list for the local filters")
+})
+
+test("short terms are kept for local matching but not sent as queries", async () => {
+  // They are the whole reason "Madrid GP" is recognised by the Kalshi index and
+  // the Polymarket fallback, which filter titles in-process.
+  const m = require("../lib/match")
+  assert.ok(m.searchTokens("F1: Madrid GP").includes("gp"))
+})
+
+test("a venue is only failed when every one of its queries fails", async () => {
+  let attempts = 0
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Singapore Grand Prix Winner",
+    date: "2026-10-04", outcomes: ["George Russell"],
+  }, {
+    signedGet: null,
+    searchPolymarket: async () => [],
+    searchGemini: async (terms) => {
+      attempts++
+      // Stand in for the venue: one term is rejected, the rest answer.
+      if (!terms.includes("russell")) throw new Error("Gemini search returned 400")
+      return [{
+        platform: "gemini", title: "Singapore GP Winner", date: "2026-10-04",
+        outcomes: ["George Russell"], url: "https://g.example/s", ref: "S",
+      }]
+    },
+  })
+
+  const gem = results.find(r => r.platform === "gemini")
+  assert.equal(gem.error, null, "a rejected query is not a failed venue")
+  assert.equal(gem.candidates.length, 1)
+  assert.equal(attempts, 1)
+})
+
+test("every query failing is still an error, not a silent empty result", async () => {
+  const { results } = await findCrossPlatform({
+    platform: "kalshi", title: "Bahrain Grand Prix Winner",
+    date: "2026-03-08", outcomes: ["Charles Leclerc"],
+  }, {
+    signedGet: null,
+    searchPolymarket: async () => [],
+    searchGemini: async () => { throw new Error("Gemini search returned 503") },
+  })
+
+  const gem = results.find(r => r.platform === "gemini")
+  assert.match(gem.error, /503/, "a venue that is genuinely down must say so")
+})
+
+test("unionSearches drops a rejected query and keeps the rest", async () => {
+  // The tolerance has to live here, not in each searcher: this is the only
+  // place that knows a term is one of several.
+  const { unionSearches } = require("../lib/cross-platform")
+  const asked = []
+  const found = await unionSearches(["antonelli", "spanish", "winner"], async (term) => {
+    asked.push(term)
+    if (term === "spanish") throw new Error("Gemini search returned 400")
+    return [{ id: term }]
+  }, x => x.id)
+
+  assert.deepEqual(asked.sort(), ["antonelli", "spanish", "winner"])
+  assert.deepEqual(found.map(f => f.id).sort(), ["antonelli", "winner"])
+})
+
+test("unionSearches never sends a two-character query", async () => {
+  const { unionSearches } = require("../lib/cross-platform")
+  const asked = []
+  await unionSearches(["spanish", "gp", "f1"], async (term) => { asked.push(term); return [] }, x => x)
+  assert.deepEqual(asked, ["spanish"], "the short aliases are for local matching only")
+})
+
+test("unionSearches still asks when every term is short, rather than asking nothing", async () => {
+  // A source whose every term is short would otherwise search for nothing at
+  // all and report a confident absence.
+  const { unionSearches } = require("../lib/cross-platform")
+  const asked = []
+  await unionSearches(["gp", "f1"], async (term) => { asked.push(term); return [] }, x => x)
+  assert.deepEqual(asked.sort(), ["f1", "gp"])
+})
+
+test("a sponsor's name in the title does not stop the race matching", () => {
+  // Polymarket lists the 2026 Spanish Grand Prix as "Tag Heuer Spanish Grand
+  // Prix Winner" — hence the thsgp slug. Sponsor prefixes are ordinary and must
+  // not dilute a match.
+  const m = require("../lib/match")
+  const scored = m.scoreMatch(
+    { title: "Spanish Grand Prix Winner", date: "2026-09-13",
+      outcomes: ["Andrea Kimi Antonelli", "Lando Norris"] },
+    { title: "Tag Heuer Spanish Grand Prix Winner", date: "2026-09-13",
+      outcomes: ["Andrea Kimi Antonelli", "Lando Norris"] })
+  assert.equal(scored.confidence, "strong")
+})
