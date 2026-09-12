@@ -403,16 +403,74 @@ function kyleDates(event) {
 function kyleSettlement(event) {
   const e = event || {}
   const c0 = _kContracts(e)[0] || {}
-  const raw = _kFirst(
-    e.settlementValue, e.settlement_value, e.payoutValue,
-    c0.settlementValue, c0.settlement_value, c0.payoutValue,
-  )
-  const value = _kNum(raw)
+  // `payoutValue` only. NOT `settlementValue`, and not `settlement.value`.
+  //
+  // Those two look like the payout and are not. On a crypto market they carry
+  // the measured value of the underlying — the BTC price that decided the
+  // outcome — so reading them as the payout made Kyle tell an agent "winning
+  // contracts settle at $64,493.48 per contract". The name collision is with
+  // lib/gemini.js, where a `settlementValue` PARAMETER does mean the $1 payout;
+  // the API field of the same name means something else entirely. They are read
+  // as the settlement reading instead, by kyleSettlementReading() below.
+  const value = _kNum(_kFirst(e.payoutValue, c0.payoutValue))
   if (value === null) {
     return { value: null, known: false, amount: "its full settlement value", each: "its full settlement value" }
   }
   const amount = "$" + (Number.isInteger(value) ? value.toFixed(2) : String(value))
   return { value, known: true, amount, each: amount + " per contract" }
+}
+
+// ── How a threshold market actually settled ───────────────────────────────────
+// Crypto and weather markets resolve by comparing a measured value against a
+// threshold, and both numbers are published along with the index they came
+// from. That is the whole answer to "why did this resolve No?" — the question a
+// customer disputing a result is really asking — so it is surfaced as figures
+// rather than left in the API response.
+const KYLE_STRIKE_TYPES = {
+  reference: "reference price captured at the start of the observation window",
+  above: "settles Yes above the threshold",
+  over: "settles Yes strictly over the line — an exact tie loses",
+  over_or_equal: "settles Yes at or over the line — an exact tie wins",
+  under: "settles Yes strictly under the line — an exact tie loses",
+  under_or_equal: "settles Yes at or under the line — an exact tie wins",
+  spread: "handicap spread line",
+}
+
+function _kFigure(n) {
+  if (n === null) return ""
+  // Prices arrive with float noise ("64493.48440000002"), and two decimals is
+  // what the venue quotes. But a threshold is not always a price: a podium
+  // market's strike is a finishing position, and "3.00" reads as money.
+  const decimals = Number.isInteger(n) ? 0 : 2
+  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+
+function kyleSettlementReading(event) {
+  const e = event || {}
+  const c0 = _kContracts(e)[0] || {}
+  const strike = c0.strike || e.strike || null
+  const threshold = _kNum(strike && strike.value)
+  const measured = _kNum(_kFirst((e.settlement || {}).value, c0.settlementValue, e.settlementValue))
+  const details = e.sourceDetails || {}
+  const index = String(_kFirst(e.source, c0.source) || "")
+  const agency = String(details.agency || "")
+  const strikeType = String((strike && strike.type) || "").toLowerCase()
+  const pendingAt = strike && threshold === null ? String(strike.availableAt || "") : ""
+
+  if (threshold === null && measured === null && !index) return null
+  return {
+    threshold, measured, index, agency,
+    thresholdText: _kFigure(threshold),
+    measuredText: _kFigure(measured),
+    // Arithmetic only. The direction that decides the outcome is set by the
+    // contract terms, and for a "reference" strike the terms — not the strike
+    // type — say which way it runs, so Kyle states the gap and stops there.
+    difference: threshold !== null && measured !== null
+      ? { amount: _kFigure(Math.abs(measured - threshold)), direction: measured >= threshold ? "above" : "below" }
+      : null,
+    rule: KYLE_STRIKE_TYPES[strikeType] || "",
+    pendingAt,
+  }
 }
 
 // Sports events carry a league; everything else carries a category. Agents
@@ -671,6 +729,7 @@ function kyleBrief(event, now = Date.now(), options = {}) {
           ? { known: false, text: `Not resolved yet. Trading ${_kTense(dates.tradingCloses, now)} ${_kDateTimeUtc(dates.tradingCloses)} and the result is published after that.` }
           : { known: false, text: "Not resolved yet, and no close date is published — Kyle cannot say when it will resolve." },
     criteria: kyleResolution(e, options.focusSymbol || ""),
+    reading: kyleSettlementReading(e),
     outcomes: kyleOutcomes(e).map((o) => (
       focusSymbol && o.symbol && o.symbol.toUpperCase() === focusSymbol ? { ...o, focus: true } : o
     )),
@@ -799,6 +858,9 @@ function kyleSummaryText(brief, now = Date.now()) {
       : "",
     b.dates && b.dates.resolved ? `RESOLVED: ${_kDateTimeUtc(b.dates.resolved)}` : "",
     b.resolution ? `RESOLUTION: ${b.resolution.text}` : "",
+    b.reading && b.reading.thresholdText ? `THRESHOLD: ${b.reading.thresholdText}` : "",
+    b.reading && b.reading.measuredText ? `MEASURED: ${b.reading.measuredText}${b.reading.difference ? ` (${b.reading.difference.amount} ${b.reading.difference.direction} the threshold)` : ""}` : "",
+    b.reading && b.reading.index ? `PRICE SOURCE: ${b.reading.index}${b.reading.agency ? ` (${b.reading.agency})` : ""}` : "",
     (() => {
       const won = (b.outcomes || []).filter((o) => o.result === "won")
       if (!won.length) return ""
@@ -912,7 +974,7 @@ function _kOutcomeHtml(o) {
   const tags = [
     o.focus ? `<span class="k-tag k-tag-focus">pasted</span>` : "",
     o.result === "won" ? `<span class="k-tag k-tag-won">WON</span>` : "",
-    o.result === "lost" ? `<span class="k-tag">lost</span>` : "",
+    o.result === "lost" ? `<span class="k-tag k-tag-lost">LOST</span>` : "",
     o.derived && !o.result ? `<span class="k-tag" title="Calculated as 100% minus the YES price, not quoted off a NO book">calculated</span>` : "",
   ].join("")
   return `<div class="${cls}">
@@ -973,6 +1035,26 @@ function kyleBriefHtml(brief) {
       : `<p class="k-headline">${eventLine}</p>`}
 
       ${b.description && b.description !== b.title ? `<p class="k-desc">${_kEsc(b.description)}</p>` : ""}
+
+      ${b.reading ? `<div class="k-reading">
+        <div class="k-reading-label">How it settled</div>
+        <div class="k-reading-figures">
+          ${b.reading.thresholdText ? `<div class="k-figure">
+            <div class="k-figure-key">Threshold</div>
+            <div class="k-figure-val">${_kEsc(b.reading.thresholdText)}</div>
+          </div>` : ""}
+          ${b.reading.measuredText ? `<div class="k-figure">
+            <div class="k-figure-key">Measured</div>
+            <div class="k-figure-val">${_kEsc(b.reading.measuredText)}</div>
+          </div>` : ""}
+          ${b.reading.difference ? `<div class="k-figure">
+            <div class="k-figure-key">Difference</div>
+            <div class="k-figure-val">${_kEsc(b.reading.difference.amount)} <span class="k-figure-dir">${_kEsc(b.reading.difference.direction)}</span></div>
+          </div>` : ""}
+        </div>
+        ${b.reading.pendingAt ? `<p class="k-note">The threshold is captured at ${_kEsc(_kDateTimeUtc(b.reading.pendingAt))} and has not been published yet.</p>` : ""}
+        ${b.reading.index ? `<p class="k-note">Measured against ${_kEsc(b.reading.index)}${b.reading.agency ? ` (${_kEsc(b.reading.agency)})` : ""}.${b.reading.rule ? ` Threshold is a ${_kEsc(b.reading.rule)}.` : ""} Which side of the threshold wins is set by the contract terms.</p>` : ""}
+      </div>` : ""}
 
       <div class="k-meta">
         <span class="k-freshness" id="kyleFreshness" data-read="${_kEsc(b.retrievedAt)}">
@@ -1210,7 +1292,7 @@ if (KYLE_HAS_DOM) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     kyleParseQuery, kyleTickerCandidates, kyleStatus, kyleType, kyleExclusive, kyleDates, kyleSubject,
-    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleFocusAnswer, kyleSummaryText, kyleResolution,
+    kyleOutcomes, kyleWinner, kyleIssues, kyleBrief, kyleHeadline, kyleFocusAnswer, kyleSettlementReading, kyleSummaryText, kyleResolution,
     kyleResultsHtml, kyleBriefHtml, kyleFactsHtml, kyleOutcomesHtml, kyleSettlement,
   }
 }

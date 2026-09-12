@@ -1,0 +1,77 @@
+{
+  "id": "202300",
+  "title": "BTC price today at 8:55pm EDT",
+  "type": "binary",
+  "category": "Crypto",
+  "ticker": "BTC05M2608190055",
+  "status": "settled",
+  "createdAt": "2026-08-18T23:45:51.701Z",
+  "contracts": [
+    {
+      "id": "202300-485253",
+      "label": "Up",
+      "description": {
+        "content": [
+          {
+            "value": "If the price of Bitcoin (BTC) is greater than or equal to the price specified in the title on August 18, 2026 at 8:55pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. Outcome verified against the GRR-KAIKO_RFR_BTCUSD_60S index.",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {},
+        "sell": {}
+      },
+      "status": "settled",
+      "termsAndConditionsUrl": "https://assets.gemini.com/x.pdf",
+      "ticker": "UP",
+      "instrumentSymbol": "GEMI-BTC05M2608190055-UP",
+      "marketState": "closed",
+      "abbreviatedName": "Up",
+      "expiryDate": "2026-08-19T00:55:00.000Z",
+      "resolutionSide": "no",
+      "resolvedAt": "2026-08-19T00:55:06.781Z",
+      "effectiveDate": "2026-08-19T00:50:00.000Z",
+      "strike": {
+        "type": "reference",
+        "value": "64527.43",
+        "availableAt": "2026-08-19T00:50:00.000Z"
+      },
+      "source": "GRR-KAIKO_RFR_BTCUSD_60S",
+      "settlementValue": "64493.48440000002",
+      "priceIncrement": "0.01"
+    }
+  ],
+  "effectiveDate": "2026-08-18T23:45:51.701Z",
+  "isLive": false,
+  "description": "Interval BTC price prediction event expiring on August 18, 2026 at 8:55pm ET",
+  "series": "BTC05M",
+  "resolvedAt": "2026-08-19T00:55:06.781Z",
+  "volume": "0",
+  "tags": [
+    "Bitcoin"
+  ],
+  "expiryDate": "2026-08-19T00:55:00.000Z",
+  "startTime": "2026-08-19T00:50:00.000Z",
+  "termsLink": "https://assets.gemini.com/x.pdf",
+  "subcategory": {
+    "id": 32,
+    "slug": "crypto_bitcoin",
+    "name": "Bitcoin",
+    "path": [
+      "Crypto",
+      "Bitcoin"
+    ]
+  },
+  "template": "crypto-up-down",
+  "source": "GRR-KAIKO_RFR_BTCUSD_60S",
+  "settlement": {
+    "value": "64493.48440000002"
+  },
+  "sourceDetails": {
+    "agency": "Kaiko",
+    "index": "GRR-KAIKO_RFR_BTCUSD_60S"
+  },
+  "_note": "Trimmed but verbatim capture of BTC05M2608190055, a settled crypto up/down market. Carries the fields no sports event has: a contract strike (the threshold), settlementValue / settlement.value (the MEASURED price, not a payout), and the price index it was read from. Do not hand-edit it to make a test pass."
+}
