@@ -331,3 +331,116 @@ test("a price difference is never presented as guaranteed profit", () => {
   assert.match(html, /CROSS-VENUE PRICE GAP/)
   assert.match(html, /priced 1 point apart/)
 })
+
+// ── Second pass: quotes, sides, and claims left over from the first review ────
+
+test("a contract quoting only an ask shows no bid rather than a fake one", () => {
+  // geminiExtractPrice prefers the ASK, so falling back to it for the bid
+  // rendered "Bid 64¢ · Ask 64¢" — a zero spread, and a bid nobody is
+  // offering. The Kalshi path refuses the same thing for the derived NO side.
+  const ctx = loadBrowser(["utils.js", "components.js", "renderers.js", "adapters.js"])
+  const askOnly = ctx.normalizeGemini({
+    title: "T", ticker: "T", status: "active", type: "binary",
+    contracts: [{ label: "Up", prices: { bestAsk: "0.64" } }],
+  })
+  const yes = askOnly.outcomes[0]
+  assert.equal(yes.bid, undefined, "a spread must not be shown without a real bid")
+  assert.equal(yes.ask, undefined)
+
+  // A real two-sided book is still reported.
+  const real = ctx.normalizeGemini({
+    title: "T", ticker: "T", status: "active", type: "binary",
+    contracts: [{ label: "Up", prices: { bestAsk: "0.64", bestBid: "0.61" } }],
+  })
+  assert.equal(real.outcomes[0].bid, 0.61)
+  assert.equal(real.outcomes[0].ask, 0.64)
+})
+
+test("the same applies to each contract of a multi-outcome market", () => {
+  const ctx = loadBrowser(["utils.js", "components.js", "renderers.js", "adapters.js"])
+  const norm = ctx.normalizeGemini({
+    title: "T", ticker: "T", status: "active",
+    contracts: [
+      { label: "Alpha", prices: { bestAsk: "0.50" } },
+      { label: "Bravo", prices: { bestAsk: "0.30", bestBid: "0.28" } },
+      { label: "Chuck", prices: { bestAsk: "0.20" } },
+    ],
+  })
+  const rows = JSON.parse(JSON.stringify(norm.outcomes))
+  const alpha = rows.find((o) => o.label === "Alpha")
+  const bravo = rows.find((o) => o.label === "Bravo")
+  assert.equal(alpha.bid, undefined, "ask-only contract must not report a bid")
+  assert.equal(bravo.bid, 0.28, "a real bid is still reported")
+})
+
+test("a NO side chosen earlier does not price a market that has no NO", () => {
+  // The side is carried across markets but the toggle only renders for binary
+  // ones, so the calculator said "If NO wins" on a pick-one market with no NO
+  // side and no control on screen to undo it.
+  const ctx = loadBrowser(["utils.js", "components.js", "renderers.js", "adapters.js"])
+  ctx.window._simMarket = { amount: 10, pct: 0, platform: "gemini", side: "no" }
+  const multi = [
+    { label: "Alpha", pct: 50, bid: 0.49, ask: 0.51, color: "#1" },
+    { label: "Bravo", pct: 30, bid: 0.29, ask: 0.31, color: "#2" },
+    { label: "Chuck", pct: 20, bid: 0.19, ask: 0.21, color: "#3" },
+  ]
+  // The side name sits inside markup ("If <strong>NO</strong> wins"), so
+  // compare against the text rather than the raw HTML.
+  const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")
+  const html = ctx.betSimulatorHtml(multi)
+  assert.ok(!/betSimSideToggle/.test(html), "a pick-one market has no side toggle")
+  assert.doesNotMatch(text(html), /If NO wins/, "must not price a NO side that does not exist")
+  assert.match(text(html), /If YES wins/)
+  assert.equal(ctx.window._simMarket.side, "yes", "the stale side is reset, not inherited")
+
+  // A binary market still honours an explicit NO, with the toggle to change it.
+  ctx.window._simMarket.side = "no"
+  const binary = ctx.betSimulatorHtml([
+    { label: "YES", pct: 60, bid: 0.59, ask: 0.61, color: "#1" },
+    { label: "NO", pct: 40, bid: 0.39, ask: 0.41, color: "#2" },
+  ])
+  assert.match(binary, /betSimSideToggle/)
+  assert.match(text(binary), /If NO wins/)
+})
+
+test("no dead code is left claiming a guaranteed profit", () => {
+  // Both removed functions were unreferenced and both announced a guaranteed
+  // profit from ASK prices summing below 100%, which in a real book they do
+  // not. Dead code that makes a financial claim is a claim waiting to be
+  // wired up.
+  const features = fs.readFileSync(path.join(ROOT, "features.js"), "utf8")
+  assert.doesNotMatch(features, /function arbitrageDetectorHtml/)
+  assert.doesNotMatch(features, /function crossPlatformArbHtml/)
+  // Nothing references them either, so neither can be revived by accident.
+  for (const f of ["features.js", "compare.js", "components.js", "renderers.js", "adapters.js", "app.js", "index.html"]) {
+    const src = fs.readFileSync(path.join(ROOT, f), "utf8")
+    assert.ok(!/arbitrageDetectorHtml|crossPlatformArbHtml/.test(src),
+      `${f} still references a removed arbitrage function`)
+  }
+  // The rendered-output claim itself is covered behaviourally by "a price
+  // difference is never presented as guaranteed profit" above.
+})
+
+test("cached() runs the producer once for a burst of cold readers", async () => {
+  // The contract says "at most once per key per TTL window", but without an
+  // in-flight map every concurrent reader on a cold key ran the producer —
+  // one signed upstream request each, against a shared rate limit.
+  const guard = require("../lib/guard.js")
+  let calls = 0
+  const producer = () => new Promise((r) => setTimeout(() => { calls++; r("value") }, 20))
+  const key = "burst-" + Math.random()
+  const results = await Promise.all([1, 2, 3, 4, 5].map(() => guard.cached(key, 5000, producer)))
+  assert.equal(calls, 1, "the producer must run once for five concurrent cold callers")
+  assert.ok(results.every((r) => r.value === "value"), "every caller gets the value")
+})
+
+test("cached() does not cache a failure", async () => {
+  const guard = require("../lib/guard.js")
+  const key = "fail-" + Math.random()
+  const boom = () => Promise.reject(new Error("upstream down"))
+  await assert.rejects(() => guard.cached(key, 5000, boom), /upstream down/)
+  await assert.rejects(() => guard.cached(key, 5000, boom), /upstream down/)
+  // The key is released, so the next caller retries rather than inheriting it.
+  const { value } = await guard.cached(key, 5000, () => Promise.resolve("recovered"))
+  assert.equal(value, "recovered")
+})
