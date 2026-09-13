@@ -90,6 +90,20 @@ function monTileBg(coverage) {
   return `linear-gradient(rgba(var(--heat-hue), ${alpha}), rgba(var(--heat-hue), ${alpha})), var(--tile-base)`
 }
 
+// Kept in step with OVERROUND_MIN_SAMPLE / overroundExclusionKey in
+// lib/monitor.js, so a filtered slice reaches the same verdict the server does.
+const MON_OVERROUND_MIN_SAMPLE = 10
+
+function monOverroundExclusionKey(event) {
+  if (event.overroundPlausible) return null
+  if (event.overroundEligible) return "implausible"
+  const reason = event.overroundReason || ""
+  if (reason.includes("single-winner")) return "notSingleWinner"
+  if (reason.includes("not every outcome")) return "legUnquoted"
+  if (reason.includes("fewer than two")) return "tooFewContracts"
+  return "other"
+}
+
 // ── Rollups ───────────────────────────────────────────────────────────────────
 
 // Re-rolls a list of event summaries into the same shape the server produces.
@@ -99,10 +113,11 @@ function monRollup(events) {
   const acc = {
     events: 0, liveEvents: 0, contractsListed: 0, contractsQuoted: 0, contractsTwoSided: 0,
     crossed: 0, spreadSum: 0, overroundSum: 0, overroundEligibleEvents: 0,
-    overroundImplausibleEvents: 0, dutchBooks: 0,
+    overroundImplausibleEvents: 0, overroundMaxLegs: 0, dutchBooks: 0,
     volume: 0, volumeEvents: 0, expiring24h: 0,
   }
   const fields = new Set()
+  acc.overroundExcluded = { notSingleWinner: 0, legUnquoted: 0, tooFewContracts: 0, implausible: 0, other: 0 }
 
   for (const e of events || []) {
     acc.events += 1
@@ -118,9 +133,14 @@ function monRollup(events) {
     if (e.overroundPlausible) {
       acc.overroundSum += e.overround
       acc.overroundEligibleEvents += 1
+      acc.overroundMaxLegs = Math.max(acc.overroundMaxLegs, e.contractsListed || 0)
       if (e.dutchBook) acc.dutchBooks += 1
-    } else if (e.overroundEligible && e.overround !== null && e.overround !== undefined) {
-      acc.overroundImplausibleEvents += 1
+    } else {
+      if (e.overroundEligible && e.overround !== null && e.overround !== undefined) {
+        acc.overroundImplausibleEvents += 1
+      }
+      const key = monOverroundExclusionKey(e)
+      if (key) acc.overroundExcluded[key] += 1
     }
     if (e.volume !== null && e.volume !== undefined) {
       acc.volume += e.volume
@@ -142,6 +162,11 @@ function monRollup(events) {
     avgOverround: acc.overroundEligibleEvents ? acc.overroundSum / acc.overroundEligibleEvents : null,
     overroundEligibleEvents: acc.overroundEligibleEvents,
     overroundImplausibleEvents: acc.overroundImplausibleEvents,
+    overroundExcluded: acc.overroundExcluded,
+    overroundMaxLegs: acc.overroundMaxLegs,
+    // Mirrors lib/monitor.js: an average over a handful of events is not a
+    // platform figure, and live data makes that the normal case.
+    overroundRepresentative: acc.overroundEligibleEvents >= MON_OVERROUND_MIN_SAMPLE,
     dutchBooks: acc.dutchBooks,
     volume: acc.volumeEvents ? acc.volume : null,
     volumeEvents: acc.volumeEvents,
@@ -275,7 +300,7 @@ function monSquarify(items, rect) {
 
 // Category blocks first, then the events inside each — so the reader sees the
 // category shape before the individual markets, the way the matrix groups them.
-function monTreemapLayout(events, rect, { labelBand = 15, maxPerCategory = 14 } = {}) {
+function monTreemapLayout(events, rect, { labelBand = 15, maxPerCategory = 28 } = {}) {
   const byCategory = new Map()
   for (const e of events || []) {
     if (!(e.volume > 0)) continue
@@ -299,7 +324,12 @@ function monTreemapLayout(events, rect, { labelBand = 15, maxPerCategory = 14 } 
     groups.push({ category: block.key, value: block.value, x: block.x, y: block.y, w: block.w, h: block.h })
 
     // A long tail of sub-pixel tiles is noise; it becomes one "+N markets" tile
-    // that is still hoverable and still sums to the truth.
+    // that is still hoverable and still sums to the truth. The cap is generous
+    // because a tight one made the rollup the largest tile in a busy category —
+    // 509 of Sports' 522 markets in a single block — which buried the very
+    // markets the panel exists to surface. Where the tail really does carry
+    // most of a category's volume, a dominant rollup tile is the honest answer
+    // and says so on its face.
     let items = list.map((e) => ({ key: e.ticker || e.title, value: e.volume, event: e }))
     if (items.length > maxPerCategory) {
       const head = items.slice(0, maxPerCategory - 1)
@@ -503,6 +533,20 @@ function monRenderAlerts(extra) {
           "The event sweep did not finish, so every count below is a floor, not a total.",
       })
     }
+    const vh = _mon.volumeHistory
+    if (vh && vh.available && vh.unresolved > 0) {
+      items.push({
+        level: "warn",
+        text: `${vh.unresolved} hourly volume entr${vh.unresolved === 1 ? "y" : "ies"} carried no readable hour and are missing from the chart. ` +
+          "The chart's total covers only what could be placed on a real time axis.",
+      })
+    }
+    if (vh && vh.available && (vh.missingDays || []).length) {
+      items.push({
+        level: "warn",
+        text: `No hourly volume for ${vh.missingDays.map((d) => d.date).join(", ")} — the chart covers the days that answered.`,
+      })
+    }
     if (_mon.totals && _mon.totals.volumeField === "volume") {
       items.push({
         level: "warn",
@@ -527,6 +571,17 @@ function monRender() {
   const categories = monRollupByCategory(events)
   const rows = monFilterRows(_mon.rows, filters)
 
+  // Reveal the panels BEFORE drawing into them. A hidden element measures
+  // clientWidth 0, so the heat map fell back to a 900px layout and then — being
+  // absolutely positioned rather than scaled by a viewBox — kept it, leaving a
+  // dead band down the right of a 1500px panel on every first load.
+  const filterRow = document.getElementById("monFilters")
+  if (filterRow) filterRow.hidden = false
+  ;["panelHeat", "panelVolume", "panelMatrix", "panelContracts"].forEach((id) => {
+    const el = document.getElementById(id)
+    if (el) el.hidden = false
+  })
+
   monRenderAlerts()
   monRenderKpis(totals)
   monRenderHeat(events, totals)
@@ -534,13 +589,6 @@ function monRender() {
   monRenderMatrix(categories, totals)
   monRenderDutch(events)
   monRenderContracts(rows, filters)
-
-  const filterRow = document.getElementById("monFilters")
-  if (filterRow) filterRow.hidden = false
-  ;["panelHeat", "panelVolume", "panelMatrix", "panelContracts"].forEach((id) => {
-    const el = document.getElementById(id)
-    if (el) el.hidden = false
-  })
 }
 
 function monRepaint() {
@@ -554,6 +602,46 @@ function monKpi({ label, value, sub, tip, state }) {
     <div class="kpi-value${na ? " na" : state ? ` ${state}` : ""}">${na ? "Not available" : MON_ESC(value)}</div>
     <div class="kpi-sub">${MON_ESC(sub || "")}</div>
   </div>`
+}
+
+// Overround needs its own tile builder because the honest answer is usually
+// "not enough eligible events", and that has to be said rather than papered
+// over with an average of one.
+function monOverroundKpi(totals) {
+  const excluded = totals.overroundExcluded || {}
+  const why = [
+    [excluded.legUnquoted, "a leg is unquoted"],
+    [excluded.notSingleWinner, "multi-winner"],
+    [excluded.tooFewContracts, "single-contract"],
+    [excluded.implausible, "outside ±100%"],
+  ].filter(([n]) => n > 0).map(([n, label]) => `${monCount(n)} ${label}`)
+
+  const tip = "Sum of every outcome's ask, minus $1.00, averaged across events. " +
+    "Only single-winner markets (template: categorical) with every leg offered are eligible — a multi-winner " +
+    "market has no meaningful sum of asks, and a missing ask read as zero would invent a dutch book. " +
+    "Values outside ±100% are set aside as mislabelled rather than averaged in. " +
+    `Below ${MON_OVERROUND_MIN_SAMPLE} eligible events no average is shown: it would describe those few markets, not the platform. ` +
+    "Read it with the field size in mind — on a large field the sum of asks is inflated by longshots resting at the minimum tick, " +
+    "so a wide margin there is a granularity artefact rather than a spread the venue is charging."
+
+  if (!totals.overroundRepresentative) {
+    return monKpi({
+      label: "Avg overround",
+      value: null,
+      sub: `Only ${monCount(totals.overroundEligibleEvents)} of ${monCount(totals.events)} events eligible` +
+        (why.length ? ` — ${why.join(", ")}` : ""),
+      tip,
+    })
+  }
+
+  return monKpi({
+    label: "Avg overround",
+    value: monPct(totals.avgOverround, { digits: 1, signed: true }),
+    sub: `${monCount(totals.overroundEligibleEvents)} single-winner events eligible` +
+      (totals.overroundMaxLegs ? `, up to ${monCount(totals.overroundMaxLegs)} outcomes` : "") +
+      (totals.overroundImplausibleEvents ? ` · ${monCount(totals.overroundImplausibleEvents)} set aside` : ""),
+    tip,
+  })
 }
 
 function monRenderKpis(totals) {
@@ -596,13 +684,7 @@ function monRenderKpis(totals) {
       sub: `Over ${monCount(totals.contractsTwoSided)} two-sided books`,
       tip: "Mean of (best ask − best bid) across contracts quoted on both sides. One-sided books have no spread a trader could cross and are excluded rather than counted as zero.",
     }),
-    monKpi({
-      label: "Avg overround",
-      value: monPct(totals.avgOverround, { digits: 1, signed: true }),
-      sub: `${monCount(totals.overroundEligibleEvents)} single-winner events eligible` +
-        (totals.overroundImplausibleEvents ? ` · ${monCount(totals.overroundImplausibleEvents)} set aside` : ""),
-      tip: "Sum of every outcome's ask, minus $1.00, averaged across events. Only single-winner markets with every leg offered are eligible — a multi-winner market has no meaningful sum of asks. Events whose overround falls outside ±100% are set aside rather than averaged in: at that size the legs are almost certainly not mutually exclusive, and one such market would distort this figure.",
-    }),
+    monOverroundKpi(totals),
     monKpi({
       label: "Dutch books",
       value: monCount(totals.dutchBooks),
@@ -640,8 +722,14 @@ function monRenderHeat(events, totals) {
     return
   }
 
-  const width = host.clientWidth || 900
+  // A zero measurement means this ran before layout; defer a frame rather than
+  // laying the map out against a guessed width.
+  const width = host.clientWidth
   const height = host.clientHeight || 420
+  if (!width) {
+    requestAnimationFrame(() => { if (_mon) monRenderHeat(events, totals) })
+    return
+  }
   const { groups, tiles } = monTreemapLayout(withVolume, { x: 0, y: 0, w: width, h: height })
 
   const groupHtml = groups.map((g) => {
@@ -740,22 +828,38 @@ function monRenderVolume() {
     desc.textContent = `Completed UTC days, hourly. Today is excluded — the volume endpoint only publishes a day once it has closed.`
   }
 
-  const width = Math.max(320, wrap.clientWidth || 900)
+  const width = Math.max(320, wrap.clientWidth)
   const height = 260
+  if (!wrap.clientWidth) {
+    requestAnimationFrame(() => { if (_mon) monRenderVolume() })
+    return
+  }
   const pad = { top: 12, right: 12, bottom: 28, left: 62 }
   const plotW = width - pad.left - pad.right
   const plotH = height - pad.top - pad.bottom
 
-  const xMin = buckets[0].hour
-  const xMax = buckets[buckets.length - 1].hour
+  // The time axis comes from the REQUESTED window, not from the timestamps that
+  // came back. Deriving it from the data let one misread hour field stretch the
+  // axis to ~33 days and crush seven day labels into the left fifth of the plot,
+  // while the series still looked plausible.
+  const xMin = history.window ? Date.parse(history.window.start) : buckets[0].hour
+  const xMax = history.window ? Date.parse(history.window.end) : buckets[buckets.length - 1].hour
   const yMax = Math.max(...buckets.map((b) => b.volume)) || 1
   const span = xMax - xMin || 1
 
   const px = (h) => pad.left + ((h - xMin) / span) * plotW
   const py = (v) => pad.top + plotH - (v / yMax) * plotH
 
-  const line = buckets.map((b, i) => `${i ? "L" : "M"}${px(b.hour).toFixed(1)} ${py(b.volume).toFixed(1)}`).join(" ")
-  const area = `${line} L${px(xMax).toFixed(1)} ${py(0).toFixed(1)} L${px(xMin).toFixed(1)} ${py(0).toFixed(1)} Z`
+  // A bucket outside the requested window means the hour was misread upstream of
+  // here; it is left off the axis rather than allowed to distort it.
+  const plotted = buckets.filter((b) => b.hour >= xMin && b.hour <= xMax)
+  if (!plotted.length) {
+    wrap.innerHTML = `<div class="empty">The hourly series did not fall inside the ${MON_ESC(history.days.length)} days requested, so there is nothing to plot against a real time axis.</div>`
+    return
+  }
+
+  const line = plotted.map((b, i) => `${i ? "L" : "M"}${px(b.hour).toFixed(1)} ${py(b.volume).toFixed(1)}`).join(" ")
+  const area = `${line} L${px(plotted[plotted.length - 1].hour).toFixed(1)} ${py(0).toFixed(1)} L${px(plotted[0].hour).toFixed(1)} ${py(0).toFixed(1)} Z`
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax)
   const gridHtml = yTicks.map((v) =>
@@ -763,12 +867,20 @@ function monRenderVolume() {
      <text class="tick" x="${pad.left - 8}" y="${(py(v) + 3.5).toFixed(1)}" text-anchor="end">${MON_ESC(monMoney(v))}</text>`
   ).join("")
 
-  // One tick per UTC midnight in range — dense hourly labels would collide.
-  const dayTicks = history.days.map((d) => Date.parse(`${d.date}T00:00:00Z`))
+  // One tick per UTC midnight, thinned so labels cannot overlap however narrow
+  // the panel gets: a label is only drawn if it clears the last one it drew.
+  const MIN_LABEL_GAP = 62
+  let lastLabelX = -Infinity
+  const xHtml = history.days
+    .map((d) => Date.parse(`${d.date}T00:00:00Z`))
     .filter((t) => t >= xMin && t <= xMax)
-  const xHtml = dayTicks.map((t) =>
-    `<text class="tick" x="${px(t).toFixed(1)}" y="${height - 9}" text-anchor="middle">${MON_ESC(new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}</text>`
-  ).join("")
+    .map((t) => {
+      const x = px(t)
+      if (x - lastLabelX < MIN_LABEL_GAP) return ""
+      lastLabelX = x
+      return `<text class="tick" x="${x.toFixed(1)}" y="${height - 9}" text-anchor="middle">${MON_ESC(new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}</text>`
+    })
+    .join("")
 
   wrap.innerHTML = `<svg class="chart" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
       aria-label="Hourly traded volume over the last ${history.days.length} completed UTC days">
@@ -783,7 +895,7 @@ function monRenderVolume() {
     </svg>
     <div class="tip" id="volTip"></div>`
 
-  monWireChartTips(wrap, buckets, { px, py, pad, plotW })
+  monWireChartTips(wrap, plotted, { px, py, pad, plotW })
 }
 
 function monWireChartTips(wrap, buckets, geom) {
@@ -854,7 +966,9 @@ function monRenderMatrix(categories, totals) {
   // that means "a fair book".
   const coverageScale = monRangeScale(categories.map((c) => (c.coverage === null ? null : 1 - c.coverage)))
   const spreadScale = monRangeScale(categories.map((c) => c.avgSpread))
-  const maxOverround = Math.max(...categories.map((c) => Math.abs(c.avgOverround || 0)), 0)
+  const maxOverround = Math.max(...categories
+    .filter((c) => c.overroundRepresentative)
+    .map((c) => Math.abs(c.avgOverround || 0)), 0)
 
   const head = `<thead><tr>
     <th>Category</th>
@@ -879,10 +993,13 @@ function monRenderMatrix(categories, totals) {
         <div style="height:4px;margin-top:4px;border-radius:2px;background:var(--series-1);opacity:0.6;width:${Math.max(2, volumeShare * 100).toFixed(1)}%;margin-left:auto"></div>`}</td>
       <td style="background:${monAttentionBg(coverageScale(coverageDeficit))}">${MON_ESC(monPct(c.coverage) || "—")}</td>
       <td style="background:${monAttentionBg(spreadScale(c.avgSpread))}">${MON_ESC(monSpread(c.avgSpread) || "—")}</td>
-      <td style="background:${monDivergingBg(c.avgOverround, maxOverround)}">${c.avgOverround === null
-        ? `<span class="na-cell" title="No single-winner event in this category had every leg quoted">—</span>`
-        : MON_ESC(monPct(c.avgOverround, { digits: 1, signed: true }))}
-        <div class="sub">${MON_ESC(monCount(c.overroundEligibleEvents))} elig.</div></td>
+      <td style="background:${c.overroundRepresentative ? monDivergingBg(c.avgOverround, maxOverround) : "transparent"}">${
+        c.avgOverround === null
+          ? `<span class="na-cell" title="No single-winner event in this category had every leg quoted">—</span>`
+          : c.overroundRepresentative
+            ? MON_ESC(monPct(c.avgOverround, { digits: 1, signed: true }))
+            : `<span class="na-cell" title="Too few eligible events to average — read the per-event values instead">(${MON_ESC(monPct(c.avgOverround, { digits: 1, signed: true }))})</span>`
+      }<div class="sub">${MON_ESC(monCount(c.overroundEligibleEvents))} elig.</div></td>
       <td>${c.dutchBooks ? `<span class="flag critical">⚠ ${MON_ESC(c.dutchBooks)}</span>` : `<span class="na-cell">0</span>`}</td>
       <td>${c.expiring24h ? MON_ESC(monCount(c.expiring24h)) : `<span class="na-cell">—</span>`}</td>
     </tr>`
@@ -895,7 +1012,9 @@ function monRenderMatrix(categories, totals) {
     <td>${MON_ESC(monMoney(totals.volume) || "—")}</td>
     <td>${MON_ESC(monPct(totals.coverage) || "—")}</td>
     <td>${MON_ESC(monSpread(totals.avgSpread) || "—")}</td>
-    <td>${MON_ESC(monPct(totals.avgOverround, { digits: 1, signed: true }) || "—")}</td>
+    <td>${totals.overroundRepresentative
+      ? MON_ESC(monPct(totals.avgOverround, { digits: 1, signed: true }) || "—")
+      : `<span class="na-cell">n/a</span>`}</td>
     <td>${MON_ESC(monCount(totals.dutchBooks))}</td>
     <td>${MON_ESC(monCount(totals.expiring24h))}</td>
   </tr></tfoot>`
@@ -1075,7 +1194,8 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     monMoney, monCount, monPct, monPrice, monSpread,
     monTileCoverage, monTileBg,
-    monRollup, monRollupByCategory,
+    monRollup, monRollupByCategory, monOverroundExclusionKey,
+    MON_OVERROUND_MIN_SAMPLE,
     monFilterEvents, monFilterRows,
     monSquarify, monTreemapLayout, monWorstRatio,
     monCsv, monCsvCell,
