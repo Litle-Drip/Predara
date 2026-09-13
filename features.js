@@ -53,7 +53,7 @@ function _showSmartPasteBanner(url) {
   const short = url.length > 60 ? url.slice(0, 57) + "..." : url
   banner.innerHTML = `
     <span>Market URL detected in clipboard: <strong>${esc(short)}</strong></span>
-    <button onclick="acceptSmartPaste('${esc(url.replace(/'/g, "\\'"))}')">Analyze it</button>
+    <button data-url="${esc(safeUrl(url))}" onclick="acceptSmartPaste(this.dataset.url)">Analyze it</button>
     <button onclick="this.parentElement.remove()" style="background:none;border:1px solid var(--border);color:var(--muted)">Dismiss</button>`
   const result = document.getElementById("result")
   if (result) result.parentElement.insertBefore(banner, result)
@@ -442,7 +442,7 @@ function _watchlistCardHtml(bookmark) {
     : `<div class="wl-no-data">No snapshot data</div>`
   const age = snap ? _timeAgo(snap.ts) : ""
   return `
-    <div class="wl-card" onclick="_loadAndAnalyze('${esc(bookmark.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+    <div class="wl-card" data-url="${esc(safeUrl(bookmark.url))}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
       <div class="wl-card-header">
         ${bookmark.platform ? `<span class="wl-platform">${esc(bookmark.platform.toUpperCase())}</span>` : ""}
         <span class="wl-card-title">${esc(bookmark.title || bookmark.url.slice(-40))}</span>
@@ -555,7 +555,11 @@ window.updateParlay = function () {
   const names = []
   document.querySelectorAll(".parlay-prob").forEach((input, i) => {
     const v = parseFloat(input.value)
-    if (v > 0 && v < 100) probs.push(v / 100)
+    // Pushed in lockstep: `names` used to be pushed for every row while
+    // `probs` skipped the blank ones, so probs[i] and names[i] drifted apart
+    // and each leg was labelled with another leg's market.
+    if (!(v > 0 && v < 100)) return
+    probs.push(v / 100)
     const nameInput = document.querySelectorAll(".parlay-name")[i]
     names.push(nameInput?.value || `Leg ${i + 1}`)
   })
@@ -629,7 +633,7 @@ function renderCalendar() {
   })
 
   const marketItem = (m, sub) => `
-    <div class="cal-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+    <div class="cal-market" data-url="${esc(safeUrl(m.url))}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
       ${m.platform ? `<span class="wl-platform">${esc(m.platform.toUpperCase())}</span>` : ""}
       <span>${esc(m.title || m.url.slice(-40))}</span>
       ${sub ? `<span class="cal-market-sub">${esc(sub)}</span>` : ""}
@@ -1062,7 +1066,7 @@ function _renderDiscoveryResults(container, data) {
   }
   const html = platforms.map((p) => {
     const marketsHtml = (p.markets || []).slice(0, 8).map((m) =>
-      `<button type="button" class="discover-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+      `<button type="button" class="discover-market" data-url="${esc(safeUrl(m.url))}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
         <div class="discover-market-title">${esc(m.title)}</div>
         <div class="discover-market-meta">
           ${m.volume ? `<span><strong>Volume</strong> $${esc(m.volume)}</span>` : ""}
@@ -1240,7 +1244,7 @@ function correlationMapHtml(title) {
   if (!related.length) return ""
 
   const items = related.map((m) =>
-    `<div class="corr-item" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}')">
+    `<div class="corr-item" data-url="${esc(safeUrl(m.url))}" onclick="_loadAndAnalyze(this.dataset.url)">
       ${m.platform ? `<span class="wl-platform">${esc(m.platform.toUpperCase())}</span>` : ""}
       <span>${esc(m.title || m.url.slice(-40))}</span>
     </div>`

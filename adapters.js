@@ -274,15 +274,18 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     const labelB = sorted[1]?.yes_sub_title || "the other outcome"
     betExplainerText = `Pick a side: bet YES on ${esc(labelA)} if you think they win, or YES on ${esc(labelB)} if you think they win. Each contract pays $1 — only one side can resolve YES.`
   } else if (!isMultiOutcome && first.rules_primary) {
-    betExplainerText = first.rules_primary
+    // whatsTheBetCard() inserts this raw, and every sibling branch here escapes
+    // its inputs — this one passed upstream rules text straight through.
+    let sentence = first.rules_primary
       .split(/[.!?]\s/)[0]
       .replace(/^If /i, "You win if ")
       .replace(/,\s*then the market resolves to Yes$/i, "")
       .replace(/,\s*then you win$/i, "")
       .trim()
-    if (betExplainerText && !betExplainerText.endsWith(".")) betExplainerText += "."
+    if (sentence && !sentence.endsWith(".")) sentence += "."
     const noText = first.rules_primary.match(/otherwise[^.]*resolves? to "?No"?/i)
-    betExplainerText += noText ? " Otherwise, you lose your bet." : " You lose if it doesn't happen."
+    betExplainerText = esc(sentence) +
+      (noText ? " Otherwise, you lose your bet." : " You lose if it doesn't happen.")
   } else if (isMultiOutcome) {
     const eventName = (ev.title || ev.event_ticker || "this event").replace(/[?!.]+$/, "").trim()
     const sampleOutcome = (sorted[0]?.yes_sub_title || "").replace(/[.!?]+$/, "")
@@ -307,9 +310,11 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     })
   }
   if (!validSources.length) {
-    const contractUrl = ev._contract_url
+    // Scheme-checked like the structured sources above, which this fallback
+    // was skipping on its way to the same href.
+    const contractUrl = safeUrl(ev._contract_url
       || first.contract_url
-      || (ev.markets || []).find(m => m.contract_url)?.contract_url
+      || (ev.markets || []).find(m => m.contract_url)?.contract_url)
     if (contractUrl) validSources.push({ url: contractUrl, name: "View full rules (PDF)" })
   }
   const resSourceHtml = validSources.length
@@ -608,7 +613,10 @@ function normalizeGemini(event, inputUrl = "") {
         `The losing side's contract resolves NO and expires worthless`
       )
       if (!betExplainerText) {
-        betExplainerText = `Bet on the winner: ${a} or ${b}. Each contract pays $1 if your side wins. Only one side can win — the other expires at $0.`
+        // Escaped here, unlike the ruleSentences above: those go through
+        // resolutionChecklist(), which escapes them, but this string is
+        // inserted raw by whatsTheBetCard().
+        betExplainerText = `Bet on the winner: ${esc(a)} or ${esc(b)}. Each contract pays $1 if your side wins. Only one side can win — the other expires at $0.`
       }
     } else if (!isBinary && contracts.length > 2 && contractNames.length > 0) {
       const listed = contractNames.slice(0, 3).join(", ")
@@ -639,10 +647,10 @@ function normalizeGemini(event, inputUrl = "") {
     const url = typeof s === "string" ? s : s?.url
     try { const u = new URL(url); return u.protocol === "http:" || u.protocol === "https:" } catch { return false }
   })
-  const directTermsUrl = event.termsLink
+  // Scheme-checked like geminiValidSources above, which this bypassed.
+  const directTermsUrl = safeUrl(event.termsLink
     || (contracts[0] && contracts[0].termsAndConditionsUrl)
-    || event._contract_url
-    || null
+    || event._contract_url) || null
   if (!geminiValidSources.length && directTermsUrl) {
     geminiValidSources = [{ url: directTermsUrl, name: "Read full contract terms & conditions" }]
   }

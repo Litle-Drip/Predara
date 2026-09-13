@@ -687,9 +687,17 @@ const server = http.createServer((req, res) => {
             winnersData = { title: m.subtitle || m.title || identifier, ticker: m.event_ticker || identifier, status: m.status || "", resolvedAt, winners, losers, contracts: 2, platformName: "Kalshi" }
           } else if (raw.event) {
             const e = raw.event
-            const markets = raw.markets || []
+            // with_nested_markets=true nests the markets under the event, which
+            // is where every other reader of this call looks. Reading a
+            // top-level `markets` found nothing, so a cleanly settled event
+            // reported no winner and fell through to the paid Claude path.
+            const markets = Array.isArray(e.markets) ? e.markets
+              : Array.isArray(raw.markets) ? raw.markets : []
             const winners = markets.filter(m => m.result === "yes").map(m => ({ label: m.subtitle || m.title || m.ticker, resolvedAt: m.close_time || "" }))
-            const losers  = markets.filter(m => m.result !== "yes").map(m => ({ label: m.subtitle || m.title || m.ticker, status: m.status || "" }))
+            // An outcome with no `result` has not settled — counting it as a
+            // loser is what made "All N other outcomes resolved against" false
+            // on a partially settled event.
+            const losers  = markets.filter(m => m.result && m.result !== "yes").map(m => ({ label: m.subtitle || m.title || m.ticker, status: m.status || "" }))
             winnersData = { title: e.title || identifier, ticker: e.event_ticker || identifier, status: e.status || "", resolvedAt: e.close_time || "", winners, losers, contracts: markets.length, platformName: "Kalshi" }
           } else {
             return sendError("Kalshi API returned an unrecognized response shape.")
@@ -710,9 +718,14 @@ const server = http.createServer((req, res) => {
           for (const m of pmMarkets) {
             const outcomes = m.outcomes ? (typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : m.outcomes) : []
             const prices   = m.outcomePrices ? (typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : m.outcomePrices) : []
+            // A price only means "settled" once the market actually closed. A
+            // live favourite at 99c is not a result, and reporting one printed
+            // "confirms X as the winner, settled on <future date>" for a market
+            // still taking orders.
+            const pmSettled = !!(m.closed || event.closed)
             for (let i = 0; i < outcomes.length; i++) {
               const price = parseFloat(prices[i] || "0")
-              if (price >= 0.99) winners.push({ label: outcomes[i], resolvedAt: m.endDate || event.endDate || "" })
+              if (pmSettled && price >= 0.99) winners.push({ label: outcomes[i], resolvedAt: m.endDate || event.endDate || "" })
               else if (m.closed) losers.push({ label: outcomes[i], status: "settled" })
             }
           }
@@ -733,7 +746,7 @@ const server = http.createServer((req, res) => {
           const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
           const winners = contracts.filter(c => c.resolutionSide === "yes" || c.result === "yes")
             .map(c => ({ label: c.label || c.displayName || "", resolvedAt: c.resolvedAt || "" }))
-          const losers  = contracts.filter(c => c.resolutionSide !== "yes" && c.result !== "yes")
+          const losers  = contracts.filter(c => (c.resolutionSide || c.result) && c.resolutionSide !== "yes" && c.result !== "yes")
             .map(c => ({ label: c.label || c.displayName || "", status: c.status || "" }))
           winnersData = { title: eventData.title || identifier, ticker: eventData.ticker || identifier, status: eventData.status || "", resolvedAt: eventData.resolvedAt || "", winners, losers, contracts: contracts.length, platformName: "Gemini" }
         }
@@ -756,7 +769,10 @@ const server = http.createServer((req, res) => {
           keyFacts: [
             `Winner: ${winnerLabels.join(", ")}`,
             `Settlement timestamp: ${settledAt || "N/A"}`,
-            `${winners.length} of ${contracts} outcome${contracts !== 1 ? "s" : ""} resolved YES`,
+            // Not "resolved YES": on a binary market that settled NO, the
+            // winning side IS "No", and claiming it resolved YES contradicted
+            // the winner named one line above it.
+            `Resolved outcome${winners.length !== 1 ? "s" : ""}: ${winnerLabels.join(", ")} (${winners.length} of ${contracts})`,
           ],
           recommendation: "No action needed. Settlement is confirmed directly by the platform's API data.",
         })
@@ -848,6 +864,17 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
 
   // ── Static file server (path traversal safe) ──
   let reqPath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
+
+  // STATIC_ROOT is the repo root, so a dotted segment is never a web asset and
+  // serving one hands out the repository: /.git/config alone exposes the remote
+  // and enough of .git/ to reconstruct history, and .replit publishes this
+  // server on port 80. Checked before resolve() so the segments are still
+  // visible, and it covers the traversal spellings too.
+  if (reqPath.split("/").some((seg) => seg.startsWith("."))) {
+    res.writeHead(403, { "Content-Type": "text/plain" })
+    return res.end("Forbidden")
+  }
+
   const filePath = path.resolve(STATIC_ROOT, "." + reqPath)
 
   // Reject anything that escapes the static root

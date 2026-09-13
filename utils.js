@@ -91,6 +91,20 @@ function esc(str) {
     .replace(/'/g, "&#39;")
 }
 
+// esc() keeps a value inside its attribute, but an href carries a scheme and
+// `javascript:` needs no quotes to run. Market URLs reach us from a pasted
+// ?q= link and from upstream payload fields, so anything that is not http(s)
+// is dropped rather than linked. Relative paths resolve against the base and
+// are returned unchanged.
+function safeUrl(str) {
+  const s = String(str == null ? "" : str).trim()
+  if (!s) return ""
+  try {
+    const u = new URL(s, "https://predara.org")
+    return (u.protocol === "https:" || u.protocol === "http:") ? s : ""
+  } catch { return "" }
+}
+
 const KNOWN_SOURCES = [
   { name: "Associated Press", url: "https://apnews.com" },
   { name: "Fox News",         url: "https://www.foxnews.com" },

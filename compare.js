@@ -49,13 +49,9 @@ function extractTopOutcomes(platform, data) {
       return {
         title: ev.title || "",
         isBinary,
-        topOutcomes: sorted.slice(0, 3).map((m, i) => {
-          const name = m.yes_sub_title
-          const nameLower = name.toLowerCase().trim()
-          const normalized = isBinary && (nameLower === "yes" || nameLower === "no")
-            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
-          return { name, pct: Math.round(mktPrice(m) * 100), color: OUTCOME_COLORS[i], rank: i, normalizedName: normalized }
-        }),
+        topOutcomes: sorted.slice(0, 3).map((m, i) => (
+          { name: m.yes_sub_title, pct: Math.round(mktPrice(m) * 100), color: OUTCOME_COLORS[i], rank: i }
+        )),
         stats: [
           { label: "Volume",        value: fmtCompareNum(vol) },
           { label: "24h Volume",    value: fmtCompareNum(vol24) },
@@ -89,6 +85,20 @@ function extractTopOutcomes(platform, data) {
           prices   = typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : market.outcomePrices
         } catch (e) { return }
         if (!Array.isArray(outcomes) || !Array.isArray(prices)) return
+        // A grouped (categorical) event splits each candidate into its own
+        // Yes/No market and names it in groupItemTitle — the same shape
+        // lib/cross-platform.js reads. Taking the inline outcomes instead
+        // produced a list of "Yes"/"No" rows carrying the long-shots' NO
+        // prices: no candidate names, and the complements of the real
+        // probabilities sorted to the top.
+        if (markets.length > 1 && market.groupItemTitle) {
+          const yesIdx = outcomes.findIndex(o => String(o).toLowerCase().trim() === "yes")
+          const idx = yesIdx >= 0 ? yesIdx : 0
+          if (idx < prices.length) {
+            all.push({ name: market.groupItemTitle, pct: Math.round(parseFloat(prices[idx] || 0) * 100) })
+          }
+          return
+        }
         outcomes.forEach((name, i) => {
           if (i < prices.length) all.push({ name, pct: Math.round(parseFloat(prices[i] || 0) * 100) })
         })
@@ -104,12 +114,7 @@ function extractTopOutcomes(platform, data) {
       return {
         title: event.title || "",
         isBinary: pmIsBinary,
-        topOutcomes: all.slice(0, 3).map((o, i) => {
-          const nameLower = o.name.toLowerCase().trim()
-          const normalized = pmIsBinary && (nameLower === "yes" || nameLower === "no")
-            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
-          return { ...o, color: OUTCOME_COLORS[i], rank: i, normalizedName: normalized }
-        }),
+        topOutcomes: all.slice(0, 3).map((o, i) => ({ ...o, color: OUTCOME_COLORS[i], rank: i })),
         stats: [
           { label: "Volume",        value: fmtCompareNum(parseFloat(event.volume || 0)) },
           { label: "24h Volume",    value: fmtCompareNum(parseFloat(event.volume24hr || 0)) },
@@ -140,12 +145,7 @@ function extractTopOutcomes(platform, data) {
       return {
         title: data.title,
         isBinary: gemIsBinary,
-        topOutcomes: extracted.slice(0, 3).map((o, i) => {
-          const nameLower = o.name.toLowerCase().trim()
-          const normalized = gemIsBinary && (nameLower === "yes" || nameLower === "no")
-            ? (i === 0 ? "__LEAD__" : "__TRAIL__") : nameLower
-          return { ...o, rank: i, normalizedName: normalized }
-        }),
+        topOutcomes: extracted.slice(0, 3).map((o, i) => ({ ...o, rank: i })),
         stats: [
           { label: "Volume",        value: fmtCompareNum(vol) },
           { label: "24h Volume",    value: fmtCompareNum(vol24) },
@@ -213,11 +213,17 @@ async function fetchOneMarket(url) {
               return { html, meta: extractTopOutcomes("kalshi", rawData), platform, accent, rawData }
             }
           }
-          if (!kr.ok && kr.status !== undefined) {
+          // A Response always carries a numeric status, so the old
+          // `kr.status !== undefined` guard returned on every failure and the
+          // documented fall-through below was dead: a Polymarket-backed
+          // coinbase.com event with a mixed-case slug answered "Kalshi API 404"
+          // instead of being retried against Polymarket. Only a 404 — "this is
+          // not a Kalshi event" — falls through; anything else is reported.
+          if (!kr.ok && kr.status !== 404) {
             const e = await kr.json().catch(() => ({}))
             return { error: e.error || `Kalshi API ${kr.status}`, platform, accent }
           }
-          // Fall through to Polymarket on unexpected errors
+          // Fall through to Polymarket: not a Kalshi-backed event.
         }
       }
       const pmVenue = /polymarket\.us/i.test(expandedUrl) ? "us" : "com"
@@ -289,10 +295,16 @@ async function fetchOneMarket(url) {
   }
 }
 
-// ── Binary outcome normalization helper ───────────────────────────────────────
-// Returns the normalized name for matching (handles Yes/No → __LEAD__/__TRAIL__)
+// ── Outcome matching key ──────────────────────────────────────────────────────
+// Outcomes are matched across venues by name. They used to be re-keyed by price
+// RANK for binary markets (top-priced → __LEAD__), which inverted the match
+// whenever the two venues disagreed about which side was the favourite: a
+// market at Yes 80 on one venue and Yes 45 on another had its "Yes" keyed
+// __LEAD__ on one side and __TRAIL__ on the other, so the comparison lined a
+// YES up against a NO. The rank key only ever applied to outcomes already
+// literally named "yes"/"no", where the name matches correctly on its own.
 function _normKey(o) {
-  return o.normalizedName || o.name.toLowerCase().trim()
+  return String(o.name == null ? "" : o.name).toLowerCase().trim()
 }
 
 // Feature 4: detect when two platforms disagree by 15+ points on same outcome
@@ -311,8 +323,7 @@ function _detectDivergence(results) {
         if (diff >= 15) {
           const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
           const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
-          const displayName = aKey.startsWith("__") ? `${ao.name} / ${bo.name}` : ao.name
-          return { name: displayName, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
+          return { name: ao.name, diff, pA, pctA: ao.pct, pB, pctB: bo.pct }
         }
       }
     }
@@ -337,46 +348,50 @@ function _buildBestOddsMap(results) {
   return map
 }
 
-// ── Arb profit calculator ─────────────────────────────────────────────────────
-// For binary markets: finds if (min_YES + min_NO) < 100
-function _computeArb(results) {
+// ── Cross-venue price gap ─────────────────────────────────────────────────────
+// Reports how far apart two venues price the SAME outcome.
+//
+// This deliberately no longer claims an arbitrage. The only NO price available
+// in this view is the complement of a YES midpoint, not a quoted ask, and the
+// old test reduced to an identity:
+//
+//   min(yesA, yesB) + min(100-yesA, 100-yesB)  ===  100 - |yesA - yesB|
+//
+// so "total cost under $1" was true whenever the two venues differed by a
+// single cent, and the card reported a guaranteed profit on essentially every
+// comparison. Executing a real cross-venue arb needs each venue's actual ask
+// plus its fees, which this view does not fetch — so it states the gap and
+// leaves the trading decision to the reader.
+function _computePriceGap(results) {
   const valid = results.filter(r => r && !r.error && r.meta?.topOutcomes?.length >= 1)
   if (valid.length < 2) return null
-  let bestArb = null
+  let widest = null
   for (let i = 0; i < valid.length - 1; i++) {
     for (let j = i + 1; j < valid.length; j++) {
       const aTop = valid[i].meta.topOutcomes[0]
       const bTop = valid[j].meta.topOutcomes[0]
       if (!aTop || !bTop) continue
-      const aKey = _normKey(aTop)
-      const bKey = _normKey(bTop)
-      // Only compute arb when outcomes appear to be the same or are __LEAD__ placeholders
-      if (aKey !== bKey && !aKey.startsWith("__") && !bKey.startsWith("__")) continue
-      const yesA = aTop.pct, yesB = bTop.pct
-      const noA = 100 - yesA, noB = 100 - yesB
-      const bestYes = Math.min(yesA, yesB)
-      const bestNo  = Math.min(noA, noB)
-      const totalCost = bestYes + bestNo
-      if (totalCost < 100) {
-        const profit = 100 - totalCost
-        const roi    = (profit / totalCost * 100).toFixed(1)
-        const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
-        const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
-        if (!bestArb || profit > parseFloat(bestArb.profit)) {
-          bestArb = {
-            profit: profit.toFixed(2),
-            roi,
-            totalCost: totalCost.toFixed(0),
-            yesPlatform: yesA < yesB ? pA : pB,
-            yesPct: bestYes,
-            noPlatform: noA < noB ? pA : pB,
-            noPct: bestNo,
-          }
+      // Same outcome on both sides only: a YES price held up against a NO
+      // price is not a disagreement about anything.
+      if (_normKey(aTop) !== _normKey(bTop)) continue
+      const gap = Math.abs(aTop.pct - bTop.pct)
+      if (gap < 1) continue
+      const pA = (PLATFORMS[valid[i].platform] || {}).label || valid[i].platform.toUpperCase()
+      const pB = (PLATFORMS[valid[j].platform] || {}).label || valid[j].platform.toUpperCase()
+      const aIsLower = aTop.pct <= bTop.pct
+      if (!widest || gap > widest.gap) {
+        widest = {
+          gap,
+          name: aTop.name,
+          lowPlatform:  aIsLower ? pA : pB,
+          lowPct:       Math.min(aTop.pct, bTop.pct),
+          highPlatform: aIsLower ? pB : pA,
+          highPct:      Math.max(aTop.pct, bTop.pct),
         }
       }
     }
   }
-  return bestArb
+  return widest
 }
 
 function renderComparison(results) {
@@ -388,22 +403,21 @@ function renderComparison(results) {
       <div class="divergence-body">
         <strong>${esc(divergence.pA)} and ${esc(divergence.pB)} disagree by ${divergence.diff} points on &ldquo;${esc(divergence.name)}&rdquo;</strong>
         — ${esc(divergence.pA)}: ${divergence.pctA}% · ${esc(divergence.pB)}: ${divergence.pctB}%.
-        Potential arbitrage opportunity.
+        A gap this wide is often a difference in how the two contracts resolve, not a mispricing — compare the rules before reading anything into it.
       </div>
     </div>` : ""
 
-  // Arb calculator card
-  const arb = _computeArb(results)
-  const arbHtml = arb ? `
+  // Cross-venue price gap. States the difference; makes no profit claim — see
+  // _computePriceGap for why the old "guaranteed profit" figure was unsound.
+  const gap = _computePriceGap(results)
+  const gapHtml = gap ? `
     <div class="mi-card arb-card">
-      <div class="section-label arb-label">⚡ ARB OPPORTUNITY DETECTED</div>
+      <div class="section-label arb-label">CROSS-VENUE PRICE GAP</div>
       <div class="arb-body">
-        Buy <strong>YES</strong> on <strong>${esc(arb.yesPlatform)}</strong> at ${arb.yesPct}¢
-        + Buy <strong>NO</strong> on <strong>${esc(arb.noPlatform)}</strong> at ${arb.noPct}¢
-        = <span class="arb-cost">$${arb.totalCost} total cost</span>
-        → <span class="arb-profit">$${arb.profit} guaranteed profit (${arb.roi}% ROI)</span>
+        <strong>${esc(gap.name)}</strong> is priced ${gap.gap} point${gap.gap === 1 ? "" : "s"} apart —
+        <strong>${esc(gap.lowPlatform)}</strong> ${gap.lowPct}% · <strong>${esc(gap.highPlatform)}</strong> ${gap.highPct}%
       </div>
-      <div class="arb-disclaimer">⚠ Only risk-free if both markets resolve identically. Verify resolution rules before trading.</div>
+      <div class="arb-disclaimer">⚠ A gap is not a profit. These are last or mid prices, not the asks you would actually pay, and the two venues may settle on different rules, dates and fees. Predara does not know whether this is tradeable.</div>
     </div>` : ""
 
   // Feature 5: best odds per outcome (using normalized keys)
@@ -449,12 +463,12 @@ function renderComparison(results) {
   const swipeHint = results.length > 1
     ? `<div class="compare-swipe-hint">← swipe to see all platforms →</div>` : ""
 
-  return `${divergenceHtml}${arbHtml}<div class="mi-card" style="margin-bottom:${divergence || arb ? "0" : "24px"}">
+  return `${divergenceHtml}${gapHtml}<div class="mi-card" style="margin-bottom:${divergence || gap ? "0" : "24px"}">
     <div class="section-label">COMPARING ${results.length} MARKETS</div>
     <div class="compare-cols">${cols}</div>
     ${swipeHint}
   </div>
-  <div class="compare-details-label" style="margin-top:${divergence || arb ? "16px" : "0"}">FULL ANALYSES</div>`
+  <div class="compare-details-label" style="margin-top:${divergence || gap ? "16px" : "0"}">FULL ANALYSES</div>`
 }
 
 let _compareMode = false
