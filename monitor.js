@@ -146,6 +146,7 @@ function monRollup(events) {
     events: 0, liveEvents: 0, contractsListed: 0, contractsQuoted: 0, contractsTwoSided: 0,
     crossed: 0, spreadSum: 0, overroundSum: 0, overroundEligibleEvents: 0,
     overroundImplausibleEvents: 0, overroundMaxLegs: 0, dutchBooks: 0,
+    askSum: 0, tickFloorSum: 0, tickFloorLegs: 0,
     volume: 0, volumeEvents: 0, expiring24h: 0,
   }
   const fields = new Set()
@@ -166,6 +167,9 @@ function monRollup(events) {
       acc.overroundSum += e.overround
       acc.overroundEligibleEvents += 1
       acc.overroundMaxLegs = Math.max(acc.overroundMaxLegs, e.contractsListed || 0)
+      acc.askSum += e.overroundAskSum || 0
+      acc.tickFloorSum += e.tickFloorSum || 0
+      acc.tickFloorLegs += e.tickFloorLegs || 0
       if (e.dutchBook) acc.dutchBooks += 1
     } else {
       if (e.overroundEligible && e.overround !== null && e.overround !== undefined) {
@@ -196,6 +200,10 @@ function monRollup(events) {
     overroundImplausibleEvents: acc.overroundImplausibleEvents,
     overroundExcluded: acc.overroundExcluded,
     overroundMaxLegs: acc.overroundMaxLegs,
+    tickFloorLegs: acc.tickFloorLegs,
+    // What share of the summed asks behind the margin is legs resting on the
+    // minimum tick. On a wide field this is most of it.
+    overroundTickFloorShare: acc.askSum > 0 ? acc.tickFloorSum / acc.askSum : null,
     // Mirrors lib/monitor.js: an average over a handful of events is not a
     // platform figure, and live data makes that the normal case.
     overroundRepresentative: acc.overroundEligibleEvents >= MON_OVERROUND_MIN_SAMPLE,
@@ -656,8 +664,10 @@ function monOverroundKpi(totals) {
     "market has no meaningful sum of asks, and a missing ask read as zero would invent a dutch book. " +
     "Values outside ±100% are set aside as mislabelled rather than averaged in. " +
     `Below ${MON_OVERROUND_MIN_SAMPLE} eligible events no average is shown: it would describe those few markets, not the platform. ` +
-    "Read it with the field size in mind — on a large field the sum of asks is inflated by longshots resting at the minimum tick, " +
-    "so a wide margin there is a granularity artefact rather than a spread the venue is charging."
+    "Read it with the field size in mind. On a large field the sum of asks is inflated by longshots resting at the minimum tick: " +
+    "a runner whose real chance is a tenth of a cent still cannot be offered below one, so the basket costs more than a dollar " +
+    "without the venue charging anything for it. The share of the summed asks sitting on that floor is shown beneath the figure, " +
+    "and a high share means the margin is granularity rather than spread."
 
   if (!totals.overroundRepresentative) {
     return monKpi({
@@ -669,12 +679,17 @@ function monOverroundKpi(totals) {
     })
   }
 
+  const floorShare = totals.overroundTickFloorShare
   return monKpi({
     label: "Avg overround",
     value: monPct(totals.avgOverround, { digits: 1, signed: true }),
-    sub: `${monCount(totals.overroundEligibleEvents)} single-winner events eligible` +
+    sub: `${monCount(totals.overroundEligibleEvents)} eligible` +
       (totals.overroundMaxLegs ? `, up to ${monCount(totals.overroundMaxLegs)} outcomes` : "") +
-      (totals.overroundImplausibleEvents ? ` · ${monCount(totals.overroundImplausibleEvents)} set aside` : ""),
+      (totals.overroundImplausibleEvents ? ` · ${monCount(totals.overroundImplausibleEvents)} set aside` : "") +
+      // Without this the figure reads as margin even when it is mostly the tick.
+      (floorShare !== null && floorShare !== undefined
+        ? ` · ${monPct(floorShare)} of the summed asks rests on the minimum tick`
+        : ""),
     tip,
   })
 }
@@ -824,7 +839,10 @@ function monWireTreemapTips(host, tiles) {
       : `<b>${MON_ESC(e.title || e.ticker)}</b><br>
          ${MON_ESC(e.category)} · ${MON_ESC(monMoney(e.volume))}<br>
          ${MON_ESC(monCount(e.contractsListed))} contracts · ${MON_ESC(monPct(monTileCoverage(e)) || "—")} quoted<br>
-         Avg spread ${MON_ESC(monSpread(e.avgSpread) || "—")}${e.overroundEligible ? ` · overround ${MON_ESC(monPct(e.overround, { digits: 1, signed: true }))}` : ""}`
+         Avg spread ${MON_ESC(monSpread(e.avgSpread) || "—")}${e.overroundEligible
+           ? ` · overround ${MON_ESC(monPct(e.overround, { digits: 1, signed: true }))}` +
+             (e.tickFloorLegs ? `<br>${MON_ESC(monCount(e.tickFloorLegs))} of ${MON_ESC(monCount(e.contractsListed))} outcomes at the minimum tick` : "")
+           : ""}`
     const box = host.getBoundingClientRect()
     const cell = el.getBoundingClientRect()
     tip.style.left = `${Math.min(Math.max(0, cell.left - box.left + cell.width / 2), box.width - 240)}px`
@@ -1126,12 +1144,15 @@ function monRenderDutch(events) {
   if (meta) meta.textContent = `${monCount(books.length)} event${books.length === 1 ? "" : "s"}`
 
   table.innerHTML = `<thead><tr>
-      <th>Event</th><th>Category</th><th>Legs</th><th>Sum of asks</th><th>Overround</th><th>Closes</th>
+      <th>Event</th><th>Category</th><th>Legs</th><th>At tick floor</th><th>Sum of asks</th><th>Overround</th><th>Closes</th>
     </tr></thead><tbody>` +
     books.map((e) => `<tr>
       <td class="name">${MON_ESC(e.title)}<div class="sub sym">${MON_ESC(e.ticker || "")}</div></td>
       <td><span class="cat-pill">${MON_ESC(e.category)}</span></td>
       <td>${MON_ESC(monCount(e.contractsListed))}</td>
+      <td>${e.tickFloorLegs
+        ? `${MON_ESC(monCount(e.tickFloorLegs))} <span class="sub">(${MON_ESC(monMoney(e.tickFloorSum, { compact: false }))})</span>`
+        : `<span class="na-cell">—</span>`}</td>
       <td>${MON_ESC(monPrice(1 + e.overround, 4))}</td>
       <td><span class="flag critical">${MON_ESC(monPct(e.overround, { digits: 2, signed: true }))}</span></td>
       <td>${MON_ESC(monDueText(e.expiry))}</td>
