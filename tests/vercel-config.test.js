@@ -33,6 +33,7 @@ test("every folded route is published under its own path", () => {
   const sources = rewrites.map(r => r.source)
   assert.ok(sources.includes("/api/discover"), "/api/discover must be rewritten")
   assert.ok(sources.includes("/api/match"), "/api/match must be rewritten")
+  assert.ok(sources.includes("/api/monitor"), "/api/monitor must be rewritten")
   for (const r of rewrites) {
     assert.match(r.destination, /^\/api\/[a-z-]+\?view=[a-z-]+$/,
       `${r.source} must point at a view= on a real function`)
@@ -56,6 +57,8 @@ test("the local server answers both spellings of a folded route", () => {
   // only ever exercised in production.
   const server = fs.readFileSync(path.join(ROOT, "server.js"), "utf8")
   assert.match(server, /pathname === "\/api\/match"/)
+  assert.match(server, /pathname === "\/api\/monitor"/)
   assert.match(server, /q\.view === "match"/)
   assert.match(server, /q\.view === "discover"/)
+  assert.match(server, /q\.view === "monitor"/)
 })
