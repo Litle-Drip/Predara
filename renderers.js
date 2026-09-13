@@ -125,7 +125,7 @@ function renderMarket(norm, accent) {
       ${resConfidenceHtml}
       ${hasRules
         ? `<div class="num-list">${resolutionChecklist(norm.ruleSentences, norm.outcomes)}</div>`
-        : `<div class="resolution-fallback">See the market source for resolution details.${norm.sourceUrl ? ` <a href="${esc(norm.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--orange)">View original market ↗</a>` : ""}</div>`
+        : `<div class="resolution-fallback">See the market source for resolution details.${safeUrl(norm.sourceUrl) ? ` <a href="${esc(safeUrl(norm.sourceUrl))}" target="_blank" rel="noopener" style="color:var(--orange)">View original market ↗</a>` : ""}</div>`
       }
     </div>` : ""}
 

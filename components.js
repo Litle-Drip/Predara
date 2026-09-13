@@ -1051,7 +1051,11 @@ function showLessOutcomes(uid, pool) {
 function buildOutcomesHtml(rows) {
   if (rows.length <= PAGE_SIZE) return rows.join("")
   const uid = "op" + (++_opCounter)
-  const remaining = JSON.stringify(rows.slice(PAGE_SIZE)).replace(/"/g, "&quot;")
+  // Escape the whole payload, not just the quotes. The rows are already-escaped
+  // HTML, and the parser decodes an attribute value once on the way out — so
+  // escaping only `"` handed `&lt;img onerror=…&gt;` back as live markup for
+  // showMoreOutcomes() to write into innerHTML, undoing esc() on every label.
+  const remaining = esc(JSON.stringify(rows.slice(PAGE_SIZE)))
   return rows.slice(0, PAGE_SIZE).join("") + `
     <div class="show-more-row" id="${uid}_smr" data-rows="${remaining}">
       <button class="show-more-btn" onclick="showMoreOutcomes('${uid}')">
@@ -1066,11 +1070,12 @@ function buildOutcomesHtml(rows) {
 // it. Without this the user is walked to a conclusion and then abandoned.
 // Suppressed on resolved markets, where there is nothing left to trade.
 function tradeCtaHtml(sourceUrl, platform, isResolved) {
-  if (!sourceUrl || isResolved) return ""
+  const href = safeUrl(sourceUrl)
+  if (!href || isResolved) return ""
   const venue = (PLATFORMS[platform] || {}).label || (platform || "").toUpperCase() || "the platform"
   return `
     <div class="mi-card trade-cta-card">
-      <a class="trade-cta-btn" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">
+      <a class="trade-cta-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
         Trade this market on ${esc(venue)} \u2197
       </a>
       <div class="trade-cta-note">Opens the original market. Predara does not take orders or hold funds.</div>

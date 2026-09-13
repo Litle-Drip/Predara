@@ -32,7 +32,7 @@ async function fetchAndInjectMlbLink(date, awayAbbr, homeAbbr) {
 
     const slot = document.getElementById("sports-game-link-slot")
     if (slot) {
-      slot.outerHTML = `<div class="info-row"><span class="info-key">Watch</span><span class="info-val"><a href="${gameUrl}" target="_blank" rel="noopener" style="color:var(--orange)">MLB Gameday ↗</a></span></div>`
+      slot.outerHTML = `<div class="info-row"><span class="info-key">Watch</span><span class="info-val"><a href="${esc(gameUrl)}" target="_blank" rel="noopener" style="color:var(--orange)">MLB Gameday ↗</a></span></div>`
     }
   } catch {}
 }
