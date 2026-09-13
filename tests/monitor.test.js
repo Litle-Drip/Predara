@@ -175,6 +175,108 @@ test("the captured live event's own numbers come out of the arithmetic", () => {
   assert.equal(summary.crossed, 0)
 })
 
+// ── Tick floor ────────────────────────────────────────────────────────────────
+
+test("overround is decomposed by the minimum tick, so a wide field reads apart from a wide margin", () => {
+  // USOPENM26 is the live case: ~96 players, priceIncrement $0.01 on every
+  // contract. A longshot whose real chance is a tenth of a cent still cannot be
+  // offered below one, so the basket costs well over a dollar without the venue
+  // charging anything for it. Reported as a bare "+80% margin" that is simply
+  // wrong to read as a margin.
+  const tick = { priceIncrement: "0.01" }
+  const contracts = [
+    ...Array.from({ length: 4 }, (_, i) => ({ ...tick, ticker: `T${i}`, status: "active", prices: { bestBid: "0.20", bestAsk: "0.22" } })),
+    ...Array.from({ length: 92 }, (_, i) => ({ ...tick, ticker: `L${i}`, status: "active", prices: { bestBid: "0.01", bestAsk: "0.01" } })),
+  ]
+  const result = monitor.eventOverround(event({ ticker: "USOPENM26", contracts }))
+
+  assert.equal(result.eligible, true)
+  assert.equal(result.legs, 96)
+  assert.equal(result.askSum, 1.8)                  // 4 x 0.22 + 92 x 0.01
+  assert.equal(result.value, 0.8)                   // a bare "+80%"
+  assert.equal(result.tickFloorLegs, 92, "every longshot is pinned to the tick")
+  assert.equal(result.tickFloorSum, 0.92, "and contributes $0.92 of that sum")
+
+  // Which is the number that makes the +80% readable.
+  const snapshot = monitor.summarize([event({ ticker: "USOPENM26", contracts })], { now: NOW })
+  assert.equal(snapshot.totals.overroundTickFloorShare, 0.5111,
+    "just over half the summed asks is granularity, not spread")
+  assert.equal(snapshot.totals.tickFloorLegs, 92)
+})
+
+test("a leg above the tick is not counted against the floor", () => {
+  const contracts = [
+    { priceIncrement: "0.01", ticker: "A", status: "active", prices: { bestBid: "0.01", bestAsk: "0.02" } },
+    { priceIncrement: "0.01", ticker: "B", status: "active", prices: { bestBid: "0.96", bestAsk: "0.99" } },
+  ]
+  const result = monitor.eventOverround(event({ contracts }))
+  assert.equal(result.tickFloorLegs, 0, "$0.02 is one step above a $0.01 floor")
+  assert.equal(result.tickFloorSum, 0)
+})
+
+test("a contract with no stated tick is never assumed to be on a floor", () => {
+  // tests/fixtures/gemini-settled-podium.json carries no priceIncrement at all,
+  // so there is no floor to compare against and none may be invented.
+  const contracts = [
+    { ticker: "A", status: "active", prices: { bestBid: "0.01", bestAsk: "0.01" } },
+    { ticker: "B", status: "active", prices: { bestBid: "0.97", bestAsk: "0.99" } },
+  ]
+  const result = monitor.eventOverround(event({ contracts }))
+  assert.equal(result.tickFloorLegs, 0)
+  assert.equal(monitor.readQuote(contracts[0]).tick, null)
+  assert.equal(monitor.readQuote(contracts[0]).atTickFloor, false)
+})
+
+test("the tick floor share is null when nothing is eligible, not zero", () => {
+  // Zero would read as "none of the margin is granularity", which is a claim.
+  const snapshot = monitor.summarize([
+    event({ template: "binary", contracts: [
+      { priceIncrement: "0.01", ticker: "A", status: "active", prices: { bestBid: "0.30", bestAsk: "0.34" } },
+      { priceIncrement: "0.01", ticker: "B", status: "active", prices: { bestBid: "0.66", bestAsk: "0.70" } },
+    ] }),
+  ], { now: NOW })
+  assert.equal(snapshot.totals.overroundEligibleEvents, 0)
+  assert.equal(snapshot.totals.overroundTickFloorShare, null)
+})
+
+// ── Stated exclusivity ────────────────────────────────────────────────────────
+
+test("an explicitly stated exclusivity flag outranks the template", () => {
+  // kyle.js has resolved exclusivity from these four spellings for a while,
+  // because Gemini states it inconsistently. A stated fact beats an inference
+  // from the market's shape.
+  const legs = [
+    { ticker: "A", status: "active", prices: { bestBid: "0.40", bestAsk: "0.45" } },
+    { ticker: "B", status: "active", prices: { bestBid: "0.50", bestAsk: "0.56" } },
+  ]
+  for (const key of ["mutuallyExclusive", "mutually_exclusive", "isMutuallyExclusive", "exclusive"]) {
+    const ev = event({ template: "binary", contracts: legs, [key]: true })
+    assert.equal(monitor.eventOverround(ev).eligible, true, `${key}: true should make it eligible`)
+  }
+
+  // And the other direction: a stated false is believed over a categorical
+  // template, rather than the template winning.
+  const denied = event({ template: "categorical", contracts: legs, mutuallyExclusive: false })
+  const result = monitor.eventOverround(denied)
+  assert.equal(result.eligible, false)
+  assert.match(result.reason, /states it is not mutually exclusive/)
+})
+
+test("an absent exclusivity flag is unstated, not false", () => {
+  assert.equal(monitor.statedExclusivity({}), null)
+  assert.equal(monitor.statedExclusivity({ mutuallyExclusive: "yes" }), null, "only a boolean counts")
+  assert.equal(monitor.statedExclusivity({ mutuallyExclusive: true }), true)
+  assert.equal(monitor.statedExclusivity({ mutually_exclusive: false }), false)
+
+  // So an unstated event still falls through to the template check and stays
+  // eligible, rather than being dropped for lacking a flag.
+  const ev = event({ contracts: [
+    { ticker: "A", status: "active", prices: { bestBid: "0.40", bestAsk: "0.45" } },
+    { ticker: "B", status: "active", prices: { bestBid: "0.50", bestAsk: "0.56" } },
+  ] })
+  assert.equal(monitor.eventOverround(ev).eligible, true)
+})
+
 // ── Volume ────────────────────────────────────────────────────────────────────
 
 test("volume prefers the 24h figure, falls back to cumulative, and never uses liquidity", () => {

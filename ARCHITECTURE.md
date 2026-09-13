@@ -557,6 +557,27 @@ implementation reports a number that is not true. They are pinned by
   on), and values outside ±100% are counted but set aside rather than averaged,
   since at that size the legs are almost certainly not mutually exclusive.
   The eligible-event count travels with the average.
+
+  It is also **decomposed by the minimum tick**, because the headline is
+  misleading on its own. Every contract carries a `priceIncrement` — a cent on
+  the markets seen so far — and a longshot whose real chance is a tenth of that
+  still cannot be offered below it. The live US Open men's singles winner market
+  carries ~96 players: with ninety at $0.01 the asks sum to $1.80, so the event
+  reports **+80%** while being priced perfectly sensibly, and $0.92 of that sum
+  is granularity rather than anything the venue is charging. So `tickFloorLegs`
+  and `tickFloorSum` travel per event, `overroundTickFloorShare` gives the share
+  of the summed asks resting on the floor, and the page prints it under the
+  figure. A contract with no stated tick is never assumed to be on one.
+
+  Exclusivity is taken from an explicit flag where the feed states one —
+  `mutuallyExclusive`, `mutually_exclusive`, `isMutuallyExclusive` or
+  `exclusive`, the same four spellings `kyle.js` has checked for a while,
+  because a stated fact beats an inference from the market's shape. Absent means
+  *unstated*, not false: such an event falls through to the template check
+  rather than being dropped. The other branches of `kyleExclusive` do not apply
+  here — its single-contract and `type: "binary"` cases are already excluded for
+  having fewer than two live contracts, and its settled-event `resolutionSide`
+  evidence cannot help a monitor that filters settled contracts out first.
 - **Volume** — `volume24h` where present, `volume` as a labelled cumulative
   fallback. Never `liquidity`: that is resting size, not traded notional, and
   substituting it reports a volume number that is not volume. A feed mixing the
