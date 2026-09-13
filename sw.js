@@ -1,11 +1,12 @@
 // Predara Service Worker — PWA offline shell
 //
-// Bump CACHE_NAME on any change that returning users must not miss. The
-// previous bump went with the ?v= fix that actually delivers changed scripts to
-// returning readers; this one carries the cross-venue search fix and the
-// polymarket.us copy. Bump this and the ?v= in index.html together, always —
-// see tests/asset-versions.test.js.
-const CACHE_NAME = "predara-v16"
+// Bump CACHE_NAME on any change that returning users must not miss. This one
+// carries the settlement-review and Kyle correctness fixes, and the ?v= bump
+// that finally delivers them: kyle.html had been pinned at kyle.js?v=2 through
+// every change to that file, so support agents were reading a stale Kyle.
+// Bump this and the ?v= in EVERY page together, always — see
+// tests/asset-versions.test.js.
+const CACHE_NAME = "predara-v17"
 
 // Pages, cached so the app opens offline — but always fetched fresh first when
 // the network is there. See the navigation rule in the fetch handler.
