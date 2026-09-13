@@ -572,10 +572,143 @@ test("hourly volume is read structurally, and an unreadable body yields nothing"
   assert.equal(monitor.parseHourlyVolume(null, date), null)
 })
 
+test("an unreadable hour is dropped, never invented from the entry's position", () => {
+  // The bug this pins shipped and was caught against live data. The fallback was
+  // `dayStart + index * 1h`, which is harmless for a clean 24-entry day but
+  // catastrophic when a day's container holds more than 24 rows — a
+  // per-category breakdown, say. The index then ran past 23 and invented hours
+  // days into the future: seven requested days plotted across a ~33-day axis,
+  // with a series that still looked entirely plausible.
+  const rows = []
+  for (let h = 0; h < 24; h++) {
+    for (const category of ["Sports", "Crypto", "Politics"]) rows.push({ category, volume: 10 })
+  }
+  assert.equal(monitor.parseHourlyVolume(rows, "2026-09-06"), null,
+    "72 rows with no readable hour must yield nothing, not 72 fabricated hours")
+
+  // Position only implies the hour when there is exactly one row per hour.
+  const clean = Array.from({ length: 24 }, () => ({ volume: 5 }))
+  const parsed = monitor.parseHourlyVolume(clean, "2026-09-06")
+  assert.equal(parsed.buckets.length, 24)
+  assert.equal(parsed.unresolved, 0)
+  assert.equal(parsed.buckets[23].hour, Date.parse("2026-09-06T23:00:00Z"))
+})
+
+test("rows sharing an hour are summed, not plotted as separate points", () => {
+  // A feed broken out by category reports each slice separately. Pushing them as
+  // separate points is what made one day of data occupy nine days of axis.
+  const rows = []
+  for (let h = 0; h < 24; h++) {
+    for (const category of ["a", "b", "c"]) rows.push({ hour: h, category, volume: 2 })
+  }
+  const parsed = monitor.parseHourlyVolume(rows, "2026-09-06")
+  assert.equal(parsed.buckets.length, 24, "24 hours in, 24 buckets out")
+  assert.equal(parsed.total, 144, "every slice still counts toward the total")
+  assert.equal(parsed.buckets[0].volume, 6)
+})
+
+test("a timestamp outside the requested day is refused rather than trusted", () => {
+  const date = "2026-09-06"
+  // Inside the day: taken as-is.
+  assert.equal(
+    monitor.normalizeHour(`${date}T05:00:00Z`, date, 0, 24),
+    Date.parse(`${date}T05:00:00Z`))
+  // Outside it: the field was misread, so there is no hour to report.
+  assert.equal(monitor.normalizeHour("2026-10-20T05:00:00Z", date, 0, 24), null)
+  assert.equal(monitor.normalizeHour(24, date, 0, 24), null, "hour 24 is not a valid hour index")
+  assert.equal(monitor.normalizeHour("nonsense", date, 0, 24), null)
+  // No hour field at all, in a container that is not one row per hour.
+  assert.equal(monitor.normalizeHour(undefined, date, 30, 216), null)
+})
+
 test("only completed UTC days are requested, oldest first", () => {
   const days = monitor.completedUtcDays(3, Date.parse("2026-09-13T04:00:00Z"))
   assert.deepEqual(days, ["2026-09-10", "2026-09-11", "2026-09-12"])
   assert.ok(!days.includes("2026-09-13"), "today has not closed; the endpoint 404s for it")
+})
+
+// ── Overround sample size ─────────────────────────────────────────────────────
+
+test("an average over too few eligible events is not called a platform figure", () => {
+  // Live data made this the normal case, not the edge: at 71% quote coverage a
+  // 976-event sweep produced ONE eligible event, and the dashboard printed its
+  // overround as "Avg overround +57.0%".
+  const legs = (n, ask) => Array.from({ length: n }, (_, i) => contract(ask - 0.02, ask, { ticker: `L${i}` }))
+
+  const one = monitor.summarize([
+    event({ ticker: "ELIGIBLE", contracts: legs(3, 0.40) }),
+    // Every other event has an unquoted leg, exactly as the live feed does.
+    ...Array.from({ length: 40 }, (_, i) => event({
+      ticker: `HOLE${i}`,
+      contracts: [contract(0.4, 0.45, { ticker: "A" }), contract(null, null, { ticker: "B" })],
+    })),
+  ], { now: NOW })
+
+  assert.equal(one.totals.overroundEligibleEvents, 1)
+  assert.equal(one.totals.overroundRepresentative, false,
+    "one event cannot describe a platform")
+  assert.ok(one.totals.avgOverround !== null,
+    "the value is still published — it is the presentation that must withhold it")
+  assert.equal(one.totals.overroundExcluded.legUnquoted, 40,
+    "the page has to be able to say WHY the sample collapsed")
+
+  // With a real sample it becomes a platform figure again.
+  const many = monitor.summarize(
+    Array.from({ length: 12 }, (_, i) => event({ ticker: `E${i}`, contracts: legs(2, 0.52) })),
+    { now: NOW })
+  assert.equal(many.totals.overroundEligibleEvents, 12)
+  assert.equal(many.totals.overroundRepresentative, true)
+  assert.equal(many.totals.avgOverround, 0.04)
+})
+
+test("the exclusion breakdown accounts for every ineligible event", () => {
+  const snapshot = monitor.summarize([
+    event({ ticker: "OK", contracts: [contract(0.4, 0.45, { ticker: "A" }), contract(0.5, 0.56, { ticker: "B" })] }),
+    event({ ticker: "MULTI", template: "binary", contracts: [contract(0.4, 0.45, { ticker: "A" }), contract(0.4, 0.45, { ticker: "B" })] }),
+    event({ ticker: "HOLE", contracts: [contract(0.4, 0.45, { ticker: "A" }), contract(0.4, null, { ticker: "B" })] }),
+    event({ ticker: "SOLO", contracts: [contract(0.4, 0.45, { ticker: "A" })] }),
+    event({ ticker: "WILD", contracts: Array.from({ length: 12 }, (_, i) => contract(0.33, 0.35, { ticker: `L${i}` })) }),
+  ], { now: NOW })
+
+  const x = snapshot.totals.overroundExcluded
+  assert.equal(x.notSingleWinner, 1)
+  assert.equal(x.legUnquoted, 1)
+  assert.equal(x.tooFewContracts, 1)
+  assert.equal(x.implausible, 1)
+  assert.equal(x.other, 0)
+  assert.equal(snapshot.totals.overroundEligibleEvents + Object.values(x).reduce((a, b) => a + b, 0),
+    snapshot.totals.events, "every event is either eligible or accounted for")
+})
+
+test("field size travels with the overround so a tick-floor artefact is visible", () => {
+  // On a wide field the sum of asks is inflated by longshots resting at the
+  // minimum tick, so a large margin is granularity rather than a spread the
+  // venue is charging. The reader needs the leg count to tell those apart.
+  const wide = monitor.summarize(
+    Array.from({ length: 10 }, (_, i) => event({
+      ticker: `W${i}`,
+      contracts: Array.from({ length: 40 }, (_, j) => contract(0.01, 0.02, { ticker: `L${j}` })),
+    })),
+    { now: NOW })
+  assert.equal(wide.totals.overroundMaxLegs, 40)
+  assert.equal(wide.totals.overroundRepresentative, true)
+})
+
+test("the client reaches the same representativeness verdict as the server", () => {
+  const events = [
+    event({ ticker: "ELIGIBLE", contracts: [contract(0.4, 0.45, { ticker: "A" }), contract(0.5, 0.56, { ticker: "B" })] }),
+    ...Array.from({ length: 20 }, (_, i) => event({
+      ticker: `HOLE${i}`,
+      contracts: [contract(0.4, 0.45, { ticker: "A" }), contract(null, null, { ticker: "B" })],
+    })),
+  ]
+  const snapshot = monitor.summarize(events, { now: NOW })
+  const rolled = client.monRollup(snapshot.events)
+
+  assert.equal(rolled.overroundRepresentative, snapshot.totals.overroundRepresentative)
+  assert.equal(rolled.overroundEligibleEvents, snapshot.totals.overroundEligibleEvents)
+  assert.deepEqual(rolled.overroundExcluded, snapshot.totals.overroundExcluded)
+  assert.equal(rolled.overroundMaxLegs, snapshot.totals.overroundMaxLegs)
 })
 
 // ── Sweep ─────────────────────────────────────────────────────────────────────
