@@ -176,9 +176,14 @@ test("isSafeParam accepts real tickers and rejects injection attempts", () => {
 
 test("isSafeUrl only accepts gemini.com pages", () => {
   assert.ok(gemini.isSafeUrl("https://www.gemini.com/predictions/FEDJAN26"))
+  assert.ok(gemini.isSafeUrl("https://gemini.com/predictions/FEDJAN26"))
   for (const bad of [
     "https://evil.com/x",
     "https://gemini.com.evil.com/x",
+    // A bare suffix match ("evilgemini.com".endsWith("gemini.com")) would wrongly
+    // accept a lookalike domain that is not gemini.com or a subdomain of it.
+    "https://evilgemini.com/x",
+    "https://notgemini.com/x",
     "javascript:alert(1)",
     "not a url",
     null,
