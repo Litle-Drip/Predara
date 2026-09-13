@@ -21,25 +21,40 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const ROOT = path.join(__dirname, "..")
-const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8")
 
-function scriptTags() {
+// Every page, not just index.html. Checking one page is how kyle.html sat on
+// kyle.js?v=2 through every change that file ever had: the version test passed,
+// index.html kept moving, and support agents kept being served a Kyle from
+// twenty commits earlier — including the ask-vs-last-trade price fix and the
+// exclusivity fix, both of which change what an agent tells a customer.
+const PAGES = ["index.html", "kyle.html", "settlement.html"]
+
+function scriptTags(page) {
+  const html = fs.readFileSync(path.join(ROOT, page), "utf8")
   return [...html.matchAll(/<script src="([^"]+\.js)(\?v=(\d+))?"/g)]
-    .map(m => ({ src: m[1], version: m[3] }))
+    .map(m => ({ page, src: m[1], version: m[3] }))
+}
+
+function allScriptTags() {
+  return PAGES.flatMap(scriptTags).filter(s => !s.src.startsWith("http"))
 }
 
 test("every local script carries a cache-busting version", () => {
-  for (const { src, version } of scriptTags()) {
-    if (src.startsWith("http")) continue
-    assert.ok(version, `${src} has no ?v= — a change to it would never reach a returning reader`)
+  for (const { page, src, version } of allScriptTags()) {
+    assert.ok(version, `${page} loads ${src} with no ?v= — a change to it would never reach a returning reader`)
   }
 })
 
-test("all scripts share one version, so a change is one number to bump", () => {
-  const versions = [...new Set(scriptTags().filter(s => !s.src.startsWith("http")).map(s => s.version))]
-  assert.equal(versions.length, 1,
-    `scripts are on mixed versions (${versions.join(", ")}). Bump them all together: ` +
-    "picking which files 'really' changed is how a stale client ships.")
+test("all scripts share one version across every page", () => {
+  const byVersion = new Map()
+  for (const { page, src, version } of allScriptTags()) {
+    if (!byVersion.has(version)) byVersion.set(version, [])
+    byVersion.get(version).push(`${page} → ${src}`)
+  }
+  assert.equal(byVersion.size, 1,
+    "scripts are on mixed versions. Bump every page together — picking which " +
+    "files 'really' changed is how a stale client ships:\n" +
+    [...byVersion].map(([v, where]) => `  ?v=${v}: ${where.join(", ")}`).join("\n"))
 })
 
 test("every versioned script is in the service worker's asset list", () => {
@@ -47,8 +62,7 @@ test("every versioned script is in the service worker's asset list", () => {
   // the network every load and is not there at all when the reader is offline.
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8")
   const assetList = sw.split("const ASSET_URLS")[1].split("]")[0]
-  for (const { src } of scriptTags()) {
-    if (src.startsWith("http")) continue
+  for (const { src } of allScriptTags()) {
     assert.ok(assetList.includes(`"/${src}"`), `sw.js ASSET_URLS is missing /${src}`)
   }
 })

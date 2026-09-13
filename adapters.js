@@ -274,15 +274,18 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     const labelB = sorted[1]?.yes_sub_title || "the other outcome"
     betExplainerText = `Pick a side: bet YES on ${esc(labelA)} if you think they win, or YES on ${esc(labelB)} if you think they win. Each contract pays $1 — only one side can resolve YES.`
   } else if (!isMultiOutcome && first.rules_primary) {
-    betExplainerText = first.rules_primary
+    // whatsTheBetCard() inserts this raw, and every sibling branch here escapes
+    // its inputs — this one passed upstream rules text straight through.
+    let sentence = first.rules_primary
       .split(/[.!?]\s/)[0]
       .replace(/^If /i, "You win if ")
       .replace(/,\s*then the market resolves to Yes$/i, "")
       .replace(/,\s*then you win$/i, "")
       .trim()
-    if (betExplainerText && !betExplainerText.endsWith(".")) betExplainerText += "."
+    if (sentence && !sentence.endsWith(".")) sentence += "."
     const noText = first.rules_primary.match(/otherwise[^.]*resolves? to "?No"?/i)
-    betExplainerText += noText ? " Otherwise, you lose your bet." : " You lose if it doesn't happen."
+    betExplainerText = esc(sentence) +
+      (noText ? " Otherwise, you lose your bet." : " You lose if it doesn't happen.")
   } else if (isMultiOutcome) {
     const eventName = (ev.title || ev.event_ticker || "this event").replace(/[?!.]+$/, "").trim()
     const sampleOutcome = (sorted[0]?.yes_sub_title || "").replace(/[.!?]+$/, "")
@@ -307,9 +310,11 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     })
   }
   if (!validSources.length) {
-    const contractUrl = ev._contract_url
+    // Scheme-checked like the structured sources above, which this fallback
+    // was skipping on its way to the same href.
+    const contractUrl = safeUrl(ev._contract_url
       || first.contract_url
-      || (ev.markets || []).find(m => m.contract_url)?.contract_url
+      || (ev.markets || []).find(m => m.contract_url)?.contract_url)
     if (contractUrl) validSources.push({ url: contractUrl, name: "View full rules (PDF)" })
   }
   const resSourceHtml = validSources.length
@@ -466,14 +471,19 @@ function normalizeGemini(event, inputUrl = "") {
     const c = contracts[0]
     const price = geminiExtractPrice(c)
     const cp    = c.prices || {}
-    const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
+    // Do NOT fall back to `price` for the bid: geminiExtractPrice prefers the
+    // ASK, so a contract quoting only an ask rendered "Bid 64¢ · Ask 64¢" — a
+    // zero spread, and a bid nobody is offering. The Kalshi path above refuses
+    // the same thing for the derived NO side, for the same reason.
+    const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || 0)
     const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
     // If the market is settled and resolutionSide is explicit, use it to override
     // price-derived percentages (which go to 0 after settlement, making NO look like winner).
     const resSide = (c.resolutionSide || "").toLowerCase()
     const pctYes = resSide === "yes" ? 100 : resSide === "no" ? 0 : Math.round(price * 100)
     const pctNo  = 100 - pctYes
-    const extras = Number.isFinite(bid) && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
+    // Both sides must be real quotes before a spread is shown.
+    const extras = Number.isFinite(bid) && bid > 0 && Number.isFinite(ask) && ask > 0 ? { bid, ask } : {}
     // Pre-settlement closing price: lastTradePrice holds the last traded value before
     // the settlement push (which sets ASK to 1.0 or 0.0). "price" (from geminiExtractPrice)
     // prefers bestAsk, which may already be 1.0 at settlement, so we read lastTradePrice first.
@@ -483,25 +493,26 @@ function normalizeGemini(event, inputUrl = "") {
     // Carry _resolutionSide so geminiWinner can use the explicit field (cleaned up below).
     outcomes.push({ label: "YES", sub: "", pct: pctYes, _resolutionSide: resSide === "yes" ? "yes" : (resSide === "no" ? "no" : null), _closingPrice: preSettBin, color: OUTCOME_COLORS[0], delta: null, ...extras })
     outcomes.push({ label: "NO",  sub: "", pct: pctNo,  _resolutionSide: resSide === "no" ? "yes" : (resSide === "yes" ? "no" : null), _closingPrice: preSettBin != null ? (1 - preSettBin) : null, color: OUTCOME_COLORS[1], delta: null })
-    if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid || price, color: OUTCOME_COLORS[0] })
+    if (ask > 0) analyticsSource.push({ label: "YES", prob: price, ask, bid: bid > 0 ? bid : null, color: OUTCOME_COLORS[0] })
   } else {
     const sortedContracts = [...contracts].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
     sortedContracts.forEach((c, idx) => {
       const name  = geminiExtractName(c, `Outcome ${idx + 1}`)
       const price = geminiExtractPrice(c)
       const cp    = c.prices || {}
-      const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || price)
+      // No `price` fallback on the bid — see the binary branch above.
+      const bid   = parseFloat(cp.bestBid || cp.bid || c.bestBid || c.bid || 0)
       const ask   = parseFloat(cp.bestAsk || cp.ask || c.bestAsk || c.ask || price)
       const yp    = cp.yes || cp.YES || {}
       const lastTradeMulti = parseFloat(cp.lastTradePrice || cp.last || cp.close || yp.lastTradePrice || yp.last || c.lastPrice || c.lastSalePrice || 0) || 0
       const preSettMulti = (lastTradeMulti > 0.01 && lastTradeMulti < 0.99) ? lastTradeMulti
         : (price > 0.01 && price < 0.99) ? price : null
       const out   = { label: name, sub: "", pct: 0, _rawPrice: price, _closingPrice: preSettMulti, _resolutionSide: (c.resolutionSide || "").toLowerCase() || null, color: OUTCOME_COLORS[idx % OUTCOME_COLORS.length], delta: null }
-      if (Number.isFinite(bid) && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
+      if (Number.isFinite(bid) && bid > 0 && Number.isFinite(ask) && ask > 0) { out.bid = bid; out.ask = ask }
       if (c.volume || c.notionalVolume) out.vol = fmtNum(parseFloat(c.volume || c.notionalVolume))
       if (c.openInterest) out.oi = fmtNum(parseFloat(c.openInterest))
       outcomes.push(out)
-      if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid || price, color: out.color })
+      if (price > 0 && ask > 0) analyticsSource.push({ label: String(name), prob: price, ask, bid: bid > 0 ? bid : null, color: out.color })
     })
     // Convert raw prices (0–1 range) to percentages directly — no normalisation.
     // Normalising by dividing each price by the field total breaks any market with
@@ -608,7 +619,10 @@ function normalizeGemini(event, inputUrl = "") {
         `The losing side's contract resolves NO and expires worthless`
       )
       if (!betExplainerText) {
-        betExplainerText = `Bet on the winner: ${a} or ${b}. Each contract pays $1 if your side wins. Only one side can win — the other expires at $0.`
+        // Escaped here, unlike the ruleSentences above: those go through
+        // resolutionChecklist(), which escapes them, but this string is
+        // inserted raw by whatsTheBetCard().
+        betExplainerText = `Bet on the winner: ${esc(a)} or ${esc(b)}. Each contract pays $1 if your side wins. Only one side can win — the other expires at $0.`
       }
     } else if (!isBinary && contracts.length > 2 && contractNames.length > 0) {
       const listed = contractNames.slice(0, 3).join(", ")
@@ -639,10 +653,10 @@ function normalizeGemini(event, inputUrl = "") {
     const url = typeof s === "string" ? s : s?.url
     try { const u = new URL(url); return u.protocol === "http:" || u.protocol === "https:" } catch { return false }
   })
-  const directTermsUrl = event.termsLink
+  // Scheme-checked like geminiValidSources above, which this bypassed.
+  const directTermsUrl = safeUrl(event.termsLink
     || (contracts[0] && contracts[0].termsAndConditionsUrl)
-    || event._contract_url
-    || null
+    || event._contract_url) || null
   if (!geminiValidSources.length && directTermsUrl) {
     geminiValidSources = [{ url: directTermsUrl, name: "Read full contract terms & conditions" }]
   }

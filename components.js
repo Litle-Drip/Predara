@@ -528,7 +528,12 @@ function betSimulatorHtml(outcomes) {
     : ""
   const yesPct = first.pct
   const noPct = 100 - first.pct
-  const savedSide = window._simMarket ? window._simMarket.side || "yes" : "yes"
+  // The side is carried across markets, but the toggle only renders for binary
+  // ones — so a NO chosen on a previous market priced "If NO wins" on a
+  // pick-one market that has no NO side, with no control on screen to undo it.
+  // A non-binary market has no side to take: reset rather than inherit.
+  if (!isBinary && window._simMarket) window._simMarket.side = "yes"
+  const savedSide = isBinary && window._simMarket ? window._simMarket.side || "yes" : "yes"
   const sideToggleHtml = isBinary
     ? `<div class="bet-sim-side-toggle" id="betSimSideToggle">
         <span class="bet-sim-side-label">Betting side:</span>
@@ -549,7 +554,7 @@ function betSimulatorHtml(outcomes) {
             oninput="updateBetSim()" />
         </div>
         <div class="bet-sim-results" id="betSimResults">
-          ${betSimResultHtml(defaultBet, first, platform, window._simMarket ? window._simMarket.side : "yes")}
+          ${betSimResultHtml(defaultBet, first, platform, savedSide)}
         </div>
       </div>
     </div>`
@@ -1059,7 +1064,11 @@ function showLessOutcomes(uid, pool) {
 function buildOutcomesHtml(rows) {
   if (rows.length <= PAGE_SIZE) return rows.join("")
   const uid = "op" + (++_opCounter)
-  const remaining = JSON.stringify(rows.slice(PAGE_SIZE)).replace(/"/g, "&quot;")
+  // Escape the whole payload, not just the quotes. The rows are already-escaped
+  // HTML, and the parser decodes an attribute value once on the way out — so
+  // escaping only `"` handed `&lt;img onerror=…&gt;` back as live markup for
+  // showMoreOutcomes() to write into innerHTML, undoing esc() on every label.
+  const remaining = esc(JSON.stringify(rows.slice(PAGE_SIZE)))
   return rows.slice(0, PAGE_SIZE).join("") + `
     <div class="show-more-row" id="${uid}_smr" data-rows="${remaining}">
       <button class="show-more-btn" onclick="showMoreOutcomes('${uid}')">
@@ -1074,11 +1083,12 @@ function buildOutcomesHtml(rows) {
 // it. Without this the user is walked to a conclusion and then abandoned.
 // Suppressed on resolved markets, where there is nothing left to trade.
 function tradeCtaHtml(sourceUrl, platform, isResolved) {
-  if (!sourceUrl || isResolved) return ""
+  const href = safeUrl(sourceUrl)
+  if (!href || isResolved) return ""
   const venue = (PLATFORMS[platform] || {}).label || (platform || "").toUpperCase() || "the platform"
   return `
     <div class="mi-card trade-cta-card">
-      <a class="trade-cta-btn" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">
+      <a class="trade-cta-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
         Trade this market on ${esc(venue)} \u2197
       </a>
       <div class="trade-cta-note">Opens the original market. Predara does not take orders or hold funds.</div>

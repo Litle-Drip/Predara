@@ -305,13 +305,13 @@
       border: 1px solid var(--border);
     }
 
-    .key-status.active { background: var(--orange-dim); color: var(--orange); border-color: transparent; }
+    .key-status.active { background: var(--orange-dim); color: var(--accent-ink); border-color: transparent; }
 
     .key-body { display: none; margin-top: 12px; }
     .key-panel.open .key-body { display: block; }
 
     .key-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
-    .key-desc a { color: var(--orange); text-decoration: none; }
+    .key-desc a { color: var(--accent-ink); text-decoration: none; }
     .key-desc a:hover { text-decoration: underline; }
 
     .key-row { display: flex; gap: 8px; }
@@ -350,7 +350,7 @@
     .btn-key.primary:hover { opacity: 0.88; }
 
     .key-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
-    .key-note.err { color: var(--orange); }
+    .key-note.err { color: var(--accent-ink); }
 
     /* ── Empty state ── */
     /* Same empty state as the Analyze page: a card, a title, one line of copy.
@@ -414,7 +414,7 @@
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
     .discover-market-ticker {
       font-family: 'IBM Plex Mono', ui-monospace, monospace;
-      font-size: 10.5px; color: var(--orange); background: var(--orange-bg);
+      font-size: 10.5px; color: var(--accent-ink); background: var(--orange-bg);
       border-radius: 4px; padding: 2px 6px;
     }
     .discover-market-result { color: var(--text-mid); font-weight: 600; }
@@ -458,7 +458,7 @@
       font-family: 'IBM Plex Mono', 'Courier New', monospace;
       font-size: 12px;
       font-weight: 500;
-      color: var(--orange);
+      color: var(--accent-ink);
       background: var(--orange-bg);
       padding: 2px 7px;
       border-radius: 4px;
@@ -492,7 +492,7 @@
     .pill-error        { background: var(--error-pill-bg);       color: var(--error-pill-text); }
     .pill-pending {
       background: var(--orange-dim);
-      color: var(--orange);
+      color: var(--accent-ink);
       animation: pulse 1.2s ease-in-out infinite;
     }
 
@@ -530,7 +530,7 @@
       content: "·";
       position: absolute;
       left: 0;
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 16px;
       line-height: 1;
       top: 1px;
@@ -719,7 +719,7 @@
 
 </div>
 
-<script src="gemini-live.js?v=36"></script>
+<script src="gemini-live.js?v=37"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')

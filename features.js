@@ -53,7 +53,7 @@ function _showSmartPasteBanner(url) {
   const short = url.length > 60 ? url.slice(0, 57) + "..." : url
   banner.innerHTML = `
     <span>Market URL detected in clipboard: <strong>${esc(short)}</strong></span>
-    <button onclick="acceptSmartPaste('${esc(url.replace(/'/g, "\\'"))}')">Analyze it</button>
+    <button data-url="${esc(safeUrl(url))}" onclick="acceptSmartPaste(this.dataset.url)">Analyze it</button>
     <button onclick="this.parentElement.remove()" style="background:none;border:1px solid var(--border);color:var(--muted)">Dismiss</button>`
   const result = document.getElementById("result")
   if (result) result.parentElement.insertBefore(banner, result)
@@ -446,7 +446,7 @@ function _watchlistCardHtml(bookmark) {
     : `<div class="wl-no-data">No snapshot data</div>`
   const age = snap ? _timeAgo(snap.ts) : ""
   return `
-    <div class="wl-card" onclick="_loadAndAnalyze('${esc(bookmark.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+    <div class="wl-card" data-url="${esc(safeUrl(bookmark.url))}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
       <div class="wl-card-header">
         ${bookmark.platform ? `<span class="wl-platform">${esc(bookmark.platform.toUpperCase())}</span>` : ""}
         <span class="wl-card-title">${esc(bookmark.title || bookmark.url.slice(-40))}</span>
@@ -559,7 +559,11 @@ window.updateParlay = function () {
   const names = []
   document.querySelectorAll(".parlay-prob").forEach((input, i) => {
     const v = parseFloat(input.value)
-    if (v > 0 && v < 100) probs.push(v / 100)
+    // Pushed in lockstep: `names` used to be pushed for every row while
+    // `probs` skipped the blank ones, so probs[i] and names[i] drifted apart
+    // and each leg was labelled with another leg's market.
+    if (!(v > 0 && v < 100)) return
+    probs.push(v / 100)
     const nameInput = document.querySelectorAll(".parlay-name")[i]
     names.push(nameInput?.value || `Leg ${i + 1}`)
   })
@@ -635,7 +639,7 @@ function renderCalendar() {
   })
 
   const marketItem = (m, sub) => `
-    <div class="cal-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+    <div class="cal-market" data-url="${esc(safeUrl(m.url))}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
       ${m.platform ? `<span class="wl-platform">${esc(m.platform.toUpperCase())}</span>` : ""}
       <span>${esc(m.title || m.url.slice(-40))}</span>
       ${sub ? `<span class="cal-market-sub">${esc(sub)}</span>` : ""}
@@ -1068,7 +1072,7 @@ function _renderDiscoveryResults(container, data) {
   }
   const html = platforms.map((p) => {
     const marketsHtml = (p.markets || []).slice(0, 8).map((m) =>
-      `<button type="button" class="discover-market" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}');switchTab('analyze')">
+      `<button type="button" class="discover-market" data-url="${esc(safeUrl(m.url))}" onclick="_loadAndAnalyze(this.dataset.url);switchTab('analyze')">
         <div class="discover-market-title">${esc(m.title)}</div>
         <div class="discover-market-meta">
           ${m.volume ? `<span><strong>Volume</strong> $${esc(m.volume)}</span>` : ""}
@@ -1089,74 +1093,13 @@ function _renderDiscoveryResults(container, data) {
   geminiBrowseInit()
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// FEATURE 1: Cross-Platform Arbitrage Detector
-// ════════════════════════════════════════════════════════════════════════════════
-function arbitrageDetectorHtml(outcomes, platform) {
-  if (!outcomes || outcomes.length < 2) return ""
-  // For binary markets: check if YES + NO from the current market < $1
-  const yesOutcome = outcomes.find((o) => o.pct > 0)
-  if (!yesOutcome) return ""
-
-  const total = outcomes.reduce((s, o) => s + o.pct, 0)
-  if (total >= 100) return ""
-
-  const gap = 100 - total
-  const profit = (gap / 100).toFixed(2)
-  return `
-    <div class="mi-card arb-card">
-      <div class="section-label arb-label">ARBITRAGE OPPORTUNITY</div>
-      <div class="arb-body">
-        Outcome probabilities sum to <strong>${total}%</strong> — that's <strong class="arb-profit">${gap}% below 100%</strong>.
-        Buying all outcomes costs ~<span class="arb-cost">$${(total / 100).toFixed(2)}</span> per contract set,
-        for a guaranteed <span class="arb-profit">$${profit} profit</span> per set.
-      </div>
-      <div class="arb-disclaimer">Theoretical only. Excludes fees, spread, and execution risk across platforms.</div>
-    </div>`
-}
-
-// Enhanced cross-platform arb hint (shown after compare)
-function crossPlatformArbHtml(markets) {
-  if (!markets || markets.length < 2) return ""
-  const hints = []
-  for (let i = 0; i < markets.length; i++) {
-    for (let j = i + 1; j < markets.length; j++) {
-      const a = markets[i]
-      const b = markets[j]
-      if (!a.topOutcomes?.length || !b.topOutcomes?.length) continue
-      // Check if same outcome has different prices
-      a.topOutcomes.forEach((ao) => {
-        const match = b.topOutcomes.find((bo) =>
-          bo.normalizedName === ao.normalizedName ||
-          bo.name.toLowerCase() === ao.name.toLowerCase()
-        )
-        if (match && Math.abs(ao.pct - match.pct) >= 5) {
-          hints.push({
-            outcome: ao.name,
-            platform1: a.platform,
-            pct1: ao.pct,
-            platform2: b.platform,
-            pct2: match.pct,
-            diff: Math.abs(ao.pct - match.pct),
-          })
-        }
-      })
-    }
-  }
-  if (!hints.length) return ""
-  const rows = hints.map((h) =>
-    `<div class="arb-hint-row">
-      <strong>"${esc(h.outcome)}"</strong>: ${h.pct1}% on ${esc(h.platform1.toUpperCase())} vs ${h.pct2}% on ${esc(h.platform2.toUpperCase())}
-      <span class="arb-profit">(${h.diff}pt gap)</span>
-    </div>`
-  ).join("")
-  return `
-    <div class="mi-card arb-card">
-      <div class="section-label arb-label">CROSS-PLATFORM PRICE GAPS</div>
-      <div class="arb-body">${rows}</div>
-      <div class="arb-disclaimer">Price gaps may reflect timing differences, fees, or liquidity. Not financial advice.</div>
-    </div>`
-}
+// Cross-platform arbitrage detection was removed here. Both functions were
+// unreferenced, and both announced a "guaranteed profit" from probabilities
+// that sum below 100% — which they read off ASK prices, where in any real
+// order book the asks sum to MORE than 1 because of the spread. That is the
+// same unsound reasoning compare.js dropped and kyle.js calls out by name.
+// Dead code that makes a financial claim is a claim waiting to be wired up.
+// The honest version of this lives in compare.js as the price-gap card.
 
 // ════════════════════════════════════════════════════════════════════════════════
 // FEATURE 9: Embed Widget
@@ -1246,7 +1189,7 @@ function correlationMapHtml(title) {
   if (!related.length) return ""
 
   const items = related.map((m) =>
-    `<div class="corr-item" onclick="_loadAndAnalyze('${esc(m.url.replace(/'/g, "\\'"))}')">
+    `<div class="corr-item" data-url="${esc(safeUrl(m.url))}" onclick="_loadAndAnalyze(this.dataset.url)">
       ${m.platform ? `<span class="wl-platform">${esc(m.platform.toUpperCase())}</span>` : ""}
       <span>${esc(m.title || m.url.slice(-40))}</span>
     </div>`

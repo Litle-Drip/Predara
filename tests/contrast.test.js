@@ -149,9 +149,17 @@ test("accent text goes through the ink token, never the raw brand accent", () =>
   // color: var(--orange) is the brand accent used as text; on a dark card that
   // is 4.29:1. Inline style="color:var(--orange)" in the renderers had the same
   // problem and is why .link-accent exists.
-  const cssOffenders = read("index.html").split("\n")
-    .filter((l) => /[\s{;]color:\s*var\(--orange\)/.test(l))
-  assert.deepEqual(cssOffenders, [], "use --accent-ink for accent-coloured text")
+  //
+  // Checked on both pages that use this palette, not just index.html: seven of
+  // these were left behind in settlement.html by a pass that only swept the one
+  // file, which is the same way the duplicated tokens drift apart.
+  // kyle.html is excluded — it has its own per-theme accents (--k-ink), which
+  // tests/kyle.test.js verifies separately.
+  for (const page of PALETTE_PAGES) {
+    const cssOffenders = read(page).split("\n")
+      .filter((l) => /[\s{;]color:\s*var\(--orange\)/.test(l))
+    assert.deepEqual(cssOffenders, [], `${page}: use --accent-ink for accent-coloured text`)
+  }
 
   for (const file of ["adapters.js", "app.js", "features.js", "renderers.js", "utils.js", "components.js", "compare.js", "crossmatch.js", "gemini-live.js"]) {
     assert.ok(!read(file).includes("color:var(--orange)"),
