@@ -9,6 +9,7 @@ const { getGeminiPublic } = require("./lib/gemini-public")
 const { handleMatchRequest } = require("./lib/cross-platform")
 const polymarket = require("./lib/polymarket")
 const { getDiscoveryFeed } = require("./lib/discover")
+const { handleMonitorRequest } = require("./lib/monitor")
 const { fetchPolymarketSeries, fetchKalshiSeries, normalizeWindow } = require("./lib/history")
 const { makeSignedGet } = require("./lib/kalshi-auth")
 const guard = require("./lib/guard")
@@ -238,6 +239,22 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Prediction Markets Monitor ──
+  // Platform-wide book quality. Same code path as view=monitor in production;
+  // the sweep is several upstream pages, so lib/monitor.js caches the snapshot.
+  if (parsed.pathname === "/api/monitor") {
+    handleMonitorRequest(parsed.query)
+      .then(({ status, data, error }) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify(error ? { error } : data))
+      })
+      .catch((err) => {
+        res.writeHead(502, { "Content-Type": "application/json", ...CORS_HEADERS })
+        res.end(JSON.stringify({ error: err.message }))
+      })
+    return
+  }
+
   // ── Gemini proxies (read-only) ──
   // Shared with the Vercel functions via lib/gemini.js — see api/gemini*.js.
   const geminiRoutes = {
@@ -250,6 +267,7 @@ const server = http.createServer((req, res) => {
     "/api/gemini-events": (q) => {
       if (q.view === "discover") return getDiscoveryFeed({ limit: q.limit }).then((data) => ({ status: 200, data }))
       if (q.view === "match") return handleMatchRequest(q)
+      if (q.view === "monitor") return handleMonitorRequest(q)
       return gemini.listEvents(q)
     },
     "/api/gemini-strike": (q) => gemini.getEventStrike(q.ticker),

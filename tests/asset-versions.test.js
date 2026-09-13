@@ -27,7 +27,7 @@ const ROOT = path.join(__dirname, "..")
 // index.html kept moving, and support agents kept being served a Kyle from
 // twenty commits earlier — including the ask-vs-last-trade price fix and the
 // exclusivity fix, both of which change what an agent tells a customer.
-const PAGES = ["index.html", "kyle.html", "settlement.html"]
+const PAGES = ["index.html", "kyle.html", "settlement.html", "monitor.html"]
 
 function scriptTags(page) {
   const html = fs.readFileSync(path.join(ROOT, page), "utf8")

@@ -13,6 +13,10 @@
     {
       "source": "/api/match",
       "destination": "/api/gemini-events?view=match"
+    },
+    {
+      "source": "/api/monitor",
+      "destination": "/api/gemini-events?view=monitor"
     }
   ]
 }

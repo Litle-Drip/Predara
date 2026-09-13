@@ -48,10 +48,13 @@ const SURFACES = {
   light: { bg: "#f7f7f5", card: "#ffffff", bar: "#eeeeed" },
 }
 
-// index.html is the reference palette; the other two pages carry their own copy
+// index.html is the reference palette; the other pages carry their own copy
 // of it, which is exactly how --muted drifted back out of AA on two pages after
-// being fixed on the third.
-const PALETTE_PAGES = ["index.html", "settlement.html"]
+// being fixed on the third. Every page that copies the palette belongs in this
+// list — monitor.html was written against the pre-split tokens and shipped a
+// --muted at 4.0:1 and a white label on the raw brand orange until it was
+// added here.
+const PALETTE_PAGES = ["index.html", "settlement.html", "monitor.html"]
 
 for (const page of PALETTE_PAGES) {
   test(`${page}: --muted clears AA on every surface it is used on`, () => {

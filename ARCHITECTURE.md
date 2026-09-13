@@ -4,11 +4,12 @@
 Node.js web app that analyzes Kalshi, Polymarket, Gemini, and Coinbase prediction markets. Users paste a market URL and get a full breakdown of what they're betting on, resolution rules in plain English, a bet calculator, odds, volume, liquidity, and trader analytics. Gemini URLs route through Gemini's own public Prediction Markets REST API (`api.gemini.com/v1/prediction-markets`). Coinbase has two product surfaces: `predict.coinbase.com/markets/<slug>` (lowercase slugs) routes through the Polymarket gamma API, while `www.coinbase.com/predictions/event/<TICKER>` (uppercase tickers) routes through the Kalshi API.
 
 ## Architecture
-- **lib/** — Shared platform logic, imported by both `api/` and `server.js` so the two entrypoints cannot drift. `lib/guard.js` gates every `/api/*` route; `lib/history.js` fetches real price history; `lib/notify.js` relays alert webhooks; `lib/kalshi-auth.js` is the shared Kalshi request signer. `lib/gemini.js` is the single source of truth for the Gemini Prediction Markets API; `lib/serverless.js` is the CORS/JSON shell for the read-only Vercel functions. `lib/polymarket.js` is the Polymarket event lookup, including the polymarket.us venue fallback; `lib/match.js` and `lib/cross-platform.js` answer "where else is this event listed?".
+- **lib/** — Shared platform logic, imported by both `api/` and `server.js` so the two entrypoints cannot drift. `lib/guard.js` gates every `/api/*` route; `lib/history.js` fetches real price history; `lib/notify.js` relays alert webhooks; `lib/kalshi-auth.js` is the shared Kalshi request signer. `lib/gemini.js` is the single source of truth for the Gemini Prediction Markets API; `lib/serverless.js` is the CORS/JSON shell for the read-only Vercel functions. `lib/polymarket.js` is the Polymarket event lookup, including the polymarket.us venue fallback; `lib/match.js` and `lib/cross-platform.js` answer "where else is this event listed?"; `lib/monitor.js` computes platform-wide book quality for the Monitor page.
 - **server.js** — Local dev HTTP server on port 5000 / 0.0.0.0. Proxies API calls to Kalshi (authenticated via RSA-signed JWT), Polymarket (public gamma API) and Gemini (public, unauthenticated). Serves static files.
 - **app.js** — Client-side rendering. Detects platform from URL, fetches data via `/api/kalshi` or `/api/polymarket`, renders: "WHAT'S THE BET?" explainer, outcomes, bet simulator, resolution rules, timeline, trader analytics, glossary tooltips, and volume stats.
 - **index.html** — Single-page app shell with all CSS inline.
 - **kyle.html / kyle.js** — "Kyle", the customer-support event brief (third tab, after Analyze and Settlement Desk). A Gemini CS agent pastes what a customer sent them — an event name in their own words, a ticker, or a gemini.com link — and gets a plain-English brief: what the event is, whether it is open / closed-awaiting-result / settled / voided, the dates, the winning outcome once it settles, and the things to check before replying. It reads the existing read-only routes (`/api/gemini` for one event, `/api/gemini-markets?resource=events&search=` for a name search) and adds no upstream surface. Everything above the DOM section of `kyle.js` is pure and covered by `tests/kyle.test.js`.
+- **monitor.html / monitor.js** — the Prediction Markets Monitor (second tab). Platform-wide book quality for Gemini: quote coverage, bid-ask spread, event overround and dutch books, 24h volume, and a per-category health matrix. It reads one route, `/api/monitor`, and adds no upstream surface beyond the paginated public event feed the rest of the app already uses. Everything above the DOM section of `monitor.js` is pure and covered by `tests/monitor.test.js`.
 - **api/*.js** — Vercel serverless functions for predara.org production. Keep these as thin HTTP shells: put the logic in `lib/` so `server.js` runs the same code path locally. `api/kalshi.js` has not been migrated to `lib/` yet — change it only with care, since production deploys directly from this directory. `api/polymarket.js` was migrated when the venue fallback landed; its logic is in `lib/polymarket.js`.
 
 ## Finding the same event on another venue
@@ -521,6 +522,76 @@ Slack's incoming webhooks reject cross-origin browser requests. `lib/notify.js`
 pins the reachable hosts to Discord, Slack and Telegram — without that allowlist
 the relay is an SSRF hole and an open spam cannon. Destinations arrive with each
 request, are used for one POST, and are never logged or stored.
+
+## Prediction Markets Monitor — what it measures, and what it will not
+
+`lib/monitor.js` sweeps the public event feed (`/events`, 100 events a page) and
+rolls it up. One sweep answers the whole dashboard, because the events list
+carries each event's `contracts` array with each contract's top-of-book
+`prices` — so no per-event fetch is needed. The snapshot is cached for 60s:
+eight-plus upstream calls per viewer would spend the whole rate-limit budget on
+data the previous viewer just fetched.
+
+Four definitions carry the page, and each one is a place where a plausible
+implementation reports a number that is not true. They are pinned by
+`tests/monitor.test.js`.
+
+- **Quote coverage** — contracts with a positive best bid *or* ask, over
+  contracts that are not settled/closed/cancelled. Settled legs leave the
+  denominator; counting them as "listed but unquoted" would make a finished
+  market look like a coverage failure. An explicit `0` from upstream counts as
+  no quote: you cannot bid nothing.
+- **Average spread** — mean of `ask − bid` over **two-sided books only**, and
+  the page prints that denominator next to the figure. Filling a missing side
+  in with 0 or 1 would report a spread no trader could cross and would make the
+  platform average depend on how many books happen to be half-empty. A negative
+  spread is kept as-is and surfaced: that is a crossed book.
+- **Overround** — `Σ ask − 1` across an event's outcomes, so a negative value is
+  a dutch book. That arithmetic only holds where exactly one contract can win,
+  and Gemini distinguishes the cases in `template`, **not** `type`: the F1
+  race-winner market and the F1 podium are both `type: "categorical"`, but the
+  winner is `template: "categorical"` while the podium is `template: "binary"` —
+  22 independent yes/no contracts, three of which pay. Only
+  `template: "categorical"` events are eligible, every leg must be offered (a
+  missing ask read as zero invents a risk-free profit that someone would act
+  on), and values outside ±100% are counted but set aside rather than averaged,
+  since at that size the legs are almost certainly not mutually exclusive.
+  The eligible-event count travels with the average.
+- **Volume** — `volume24h` where present, `volume` as a labelled cumulative
+  fallback. Never `liquidity`: that is resting size, not traded notional, and
+  substituting it reports a volume number that is not volume. A feed mixing the
+  two reports the weaker label and says so.
+
+**Not computed, and deliberately not estimated:** order-book depth and
+everything built on it — depth in dollars, depth imbalance, and thin/one-sided/
+skewed/drought signals. The public feed carries top-of-book prices with no sizes
+attached; multi-level `contractOrderbooks` appear only on the per-event endpoint,
+which is one call per event with nowhere to persist the result. A depth figure
+cannot be derived from a price. Likewise there is no trade or quote tape: that
+needs the WebSocket streams `lib/gemini.js` does not implement and a process
+that outlives a serverless invocation.
+
+The rule throughout: a metric that cannot be computed is `null` with a reason
+attached, and the UI renders "Not available". A partial or capped sweep sets
+`complete: false` and the page says every count is a floor. Do not add a
+fallback that fills one of these in with an estimate.
+
+The contract table is capped (1500 rows by default) because 39k rows is not a
+payload — but **every aggregate is computed from the uncapped event summaries**,
+never from the capped rows, and the page states the cap. Client-side filtering
+re-rolls the event summaries in the browser via `monRollup()`, which is held
+arithmetically identical to the server's rollup by test: a filtered total that
+disagreed with the unfiltered one would make both untrustworthy. That is why
+each event summary carries an unrounded `spreadSum` alongside its mean —
+averaging the per-event averages would not give the platform average.
+
+On colour: the heat map shades tiles by **quote coverage on one sequential
+ramp**, not by category. A treemap is an all-pairs colour form (any block can
+touch any other), and the eight-slot categorical palette fails that case on this
+page's own surfaces — magenta against aqua at a CVD ΔE of 1.6, red against
+orange at 7.1 for normal vision. Category identity is printed on each block
+instead, so hue is free to carry a second variable. Every shaded value in the
+matrix is also printed as text; no figure on the page depends on colour.
 
 ## Secrets
 - `KALSHI_API_KEY_ID` — Kalshi API key member ID

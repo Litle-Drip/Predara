@@ -4,7 +4,7 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const ROOT = path.join(__dirname, "..")
-const PAGES = ["index.html", "settlement.html", "kyle.html"]
+const PAGES = ["index.html", "settlement.html", "kyle.html", "monitor.html"]
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8")
 
 // Every page must reach every other page. The Kyle tab was missing from the
@@ -12,7 +12,12 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8")
 // assumed — in the markup here, and in the caching rule that decides whether a
 // user is actually served this markup (below).
 test("every page links to every other page", () => {
-  const targets = { "index.html": 'href="/"', "settlement.html": 'href="/settlement.html"', "kyle.html": 'href="/kyle.html"' }
+  const targets = {
+    "index.html": 'href="/"',
+    "settlement.html": 'href="/settlement.html"',
+    "kyle.html": 'href="/kyle.html"',
+    "monitor.html": 'href="/monitor.html"',
+  }
   for (const page of PAGES) {
     const html = read(page)
     for (const [target, href] of Object.entries(targets)) {
@@ -26,6 +31,7 @@ test("the current page is the one marked active in its own nav", () => {
     "index.html": 'class="mode-tab active" href="/"',
     "settlement.html": '<a href="/settlement.html" class="active"',
     "kyle.html": '<a href="/kyle.html" class="active"',
+    "monitor.html": '<a href="/monitor.html" class="active"',
   }
   for (const [page, marker] of Object.entries(expected)) {
     assert.ok(read(page).includes(marker), `${page} does not mark itself as the active tab`)
@@ -35,6 +41,12 @@ test("the current page is the one marked active in its own nav", () => {
 test("the shared header stays anchored while narrow pages keep readable content", () => {
   const analyze = read("index.html")
   assert.ok(analyze.includes(".app { max-width: 1200px; margin: 0 auto; }"))
+
+  // monitor.html is deliberately not in this list: a nine-column matrix and an
+  // eight-column contracts table do not fit an 800px reading measure, so the
+  // dashboard runs wider. It still shares every header and breakpoint rule
+  // asserted by the tests that loop over PAGES.
+  assert.ok(read("monitor.html").includes(".app { max-width: 1600px; margin: 0 auto; }"))
 
   for (const page of ["settlement.html", "kyle.html"]) {
     const html = read(page)
@@ -108,6 +120,7 @@ test("every page is precached, so the app opens offline", () => {
     assert.ok(sw.includes(`"/${page}"`), `${page} is not in the service worker precache`)
   }
   assert.ok(sw.includes('"/kyle.js"'), "kyle.js is not precached")
+  assert.ok(sw.includes('"/monitor.js"'), "monitor.js is not precached")
 })
 
 test("the cache name is bumped, so poisoned caches are cleared on this deploy", () => {

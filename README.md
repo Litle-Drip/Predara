@@ -21,6 +21,7 @@ Prediction markets bury the information traders actually need — resolution cri
 - **Price history** — the platform's own time series (Kalshi candlesticks, Polymarket CLOB), over 24h / 1w / 1m
 - **Price alerts** — checked every 3 minutes across every alerted market for as long as Predara is open in a tab, with optional relay to Discord, Slack or Telegram
 - **Glossary tooltips** — hover any stat to see what it means, no prior market experience required
+- **Prediction Markets Monitor** — platform-wide book quality for Gemini: quote coverage, average spread, event overround and dutch books, 24h volume, a per-category health matrix, and a volume heat map. Computed from the public event feed only; order-book depth is not available there and is reported as absent rather than estimated
 
 ## Supported platforms
 
@@ -30,6 +31,17 @@ Prediction markets bury the information traders actually need — resolution cri
 | Polymarket | Public Gamma API |
 | Gemini | Direct public Prediction Markets API (`api.gemini.com/v1/prediction-markets`) |
 | Coinbase | Routed through Polymarket or Kalshi, depending on market type |
+
+## Prediction Markets Monitor
+
+The Monitor tab audits the health of Gemini's prediction-market book rather than
+one market: how much of it is quoted, how wide, where the margin sits, and which
+categories need attention. Every figure comes from the public API, and each one
+prints its own denominator — the average spread says how many two-sided books it
+covers, the overround says how many events were eligible. Metrics the public
+feed cannot support (order-book depth and everything derived from it) are shown
+as absent rather than estimated. See [ARCHITECTURE.md](ARCHITECTURE.md) for the
+metric definitions.
 
 ## Settlement Desk
 
@@ -59,11 +71,14 @@ lib/            Shared platform logic imported by both api/ and server.js
 lib/guard.js    Origin allowlist, response cache and rate limiting for /api/*
 lib/history.js  Real price-history fetching (Kalshi candlesticks, Polymarket CLOB)
 lib/notify.js   Webhook relay with a pinned destination allowlist
+lib/monitor.js  Platform-wide book-quality metrics for the Monitor page
 app.js          Client-side rendering and market detection
 components.js   Reusable UI building blocks
 features.js     Feature-specific rendering (analytics, timeline, glossary)
 adapters.js     Per-platform data normalization
 compare.js      Market comparison logic
+monitor.html    Prediction Markets Monitor page shell
+monitor.js      Monitor rendering — rollups, heat map, charts, tables
 utils.js        Shared helpers
 tests/          Test suite (node --test)
 ```

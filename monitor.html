@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prediction Markets Monitor — Predara</title>
+  <meta name="description" content="Platform-wide book quality for Gemini prediction markets: quote coverage, bid-ask spread, overround and dutch books, by category.">
+  <link rel="icon" href="/og-image.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f0f11;
+      --card:        #18181c;
+      --border:      #27272e;
+      --border-hi:   #3a3a42;
+      --text:        #b4b4c0;
+      --text-mid:    #d0d0da;
+      --text-bright: #ededf2;
+      /* Split by job, matching the reference palette in index.html: --muted is
+         the only secondary grey and clears AA on bg, card and bar; the accent
+         has a fill (carries white) apart from an ink (is read as text); each
+         status colour likewise. tests/contrast.test.js computes all of it. */
+      --muted:       #8d8d99;
+      --orange:      #d94f20;
+      --accent-ink:  #de643b;
+      --accent-fill: #ce4b1e;
+      --green:       #1db954;
+      --red:         #e84040;
+      --amber:       #d49010;
+      --green-ink:   #1db954;
+      --red-ink:     #e84444;
+      --amber-ink:   #d49010;
+      --bar-bg:      #222228;
+      --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25);
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
+      --rec-bg:      rgba(255,255,255,0.03);
+
+      /* ── Data-viz palette ──
+         Only ONE categorical slot is in use. There is no eight-hue categorical
+         encoding on this page and there should not be: the heat map is a
+         treemap, where any block can touch any other, and the validator fails
+         the full eight against that "all pairs" case on this page's own
+         surfaces — magenta vs aqua at CVD ΔE 1.6, red vs orange at 7.1 for
+         normal vision. Category identity is carried by the printed block
+         labels; hue carries quote coverage on the sequential ramp below.
+         Slot 1 is validated against both card colours (#18181c / #ffffff).  */
+      --series-1: #3987e5;
+      --tile-base: #23232a;
+      --tile-ink: #ffffff;
+      --tile-ink-dim: rgba(255,255,255,0.82);
+
+      /* Heat ramps are expressed as one hue at varying alpha OVER the card
+         surface rather than as hand-picked hex steps. Alpha over a fixed
+         surface is monotonic in lightness by construction, so the ramp cannot
+         drift non-monotonic in either theme the way a hand-built scale does.
+         Attention heat is orange (Predara's accent); the diverging scale for
+         overround is red (negative) vs blue (positive) with the neutral card
+         showing through at zero.                                             */
+      --heat-hue:    217, 89, 38;
+      --div-neg-hue: 208, 59, 59;
+      --div-pos-hue: 57, 135, 229;
+
+      --grid:     #2c2c2a;
+      --axis:     #383835;
+    }
+
+    body.light {
+      --bg:          #f7f7f5;
+      --card:        #ffffff;
+      --border:      #e6e6e4;
+      --border-hi:   #d0d0ce;
+      --text:        #4a4a52;
+      --text-mid:    #2e2e38;
+      --text-bright: #16161a;
+      --muted:       #6b6b74;
+      --orange:      #c8421a;
+      --accent-ink:  #c8421a;
+      --accent-fill: #c8421a;
+      --green:       #14a44d;
+      --red:         #d63232;
+      --amber:       #d49010;
+      --green-ink:   #10833e;
+      --red-ink:     #d43232;
+      --amber-ink:   #99680c;
+      --bar-bg:      #eeeeed;
+      --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+      --shadow-sm:   0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
+      --rec-bg:      rgba(0,0,0,0.03);
+
+      /* Light mode is a selected step of the same hue, not an automatic flip. */
+      --series-1: #2a78d6;
+      --tile-base: #f4f3f1;
+      --tile-ink: #16161a;
+      --tile-ink-dim: #4a4a52;
+
+      --heat-hue:    200, 66, 26;
+      --div-neg-hue: 208, 59, 59;
+      --div-pos-hue: 42, 120, 214;
+
+      --grid: #e1e0d9;
+      --axis: #c3c2b7;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 52px 32px 96px;
+    }
+
+    @view-transition { navigation: auto; }
+    ::view-transition-old(root) { animation: page-out 90ms ease both; }
+    ::view-transition-new(root) { animation: page-in 160ms ease-out both; }
+    @keyframes page-out { to { opacity: 0.94; } }
+    @keyframes page-in {
+      from { opacity: 0.94; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* A dashboard is the one page that earns the full viewport: the contracts
+       table has eight columns and the matrix has seven. The 800px reading
+       measure the narrow pages use would put both in a permanent scroller. */
+    .app { max-width: 1600px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .app-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    .logo-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .app-logo { width: 40px; height: 40px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
+    .app-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+    .app-title { font-size: 20px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.4px; }
+    .app-subtitle { font-size: 12px; color: var(--muted); letter-spacing: 0.2px; margin-top: 2px; }
+
+    /* ── Tab nav ── */
+    .tab-nav {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--bar-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .tab-nav a {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 5px 11px;
+      border-radius: 5px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
+    .tab-nav a.active { background: var(--accent-fill); color: #fff; }
+
+    .page-tools { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+
+    .theme-toggle, .btn-refresh {
+      background: var(--bar-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      min-height: 34px;
+      padding: 0 10px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle { min-width: 34px; padding: 0; }
+    .theme-toggle:hover, .btn-refresh:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .btn-refresh[disabled] { opacity: 0.5; cursor: default; }
+
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 3px rgba(29,185,84,0.18);
+    }
+    .live-pill.stale .live-dot { background: var(--amber); box-shadow: 0 0 0 3px rgba(212,144,16,0.18); }
+    .live-pill.failed .live-dot { background: var(--red); box-shadow: 0 0 0 3px rgba(232,64,64,0.18); }
+
+    .logo-link:focus-visible,
+    .tab-nav a:focus-visible,
+    .theme-toggle:focus-visible,
+    .btn-refresh:focus-visible,
+    .mon-filters select:focus-visible,
+    .mon-filters input:focus-visible,
+    .btn-csv:focus-visible,
+    th.sortable:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    /* ── Provenance ── */
+    .mon-source {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--orange);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--text);
+    }
+    .mon-source strong { color: var(--text-bright); font-weight: 600; }
+    .mon-source ul { margin: 6px 0 0 16px; }
+    .mon-source li { margin-top: 3px; }
+
+    .mon-warn {
+      background: rgba(212,144,16,0.09);
+      border: 1px solid rgba(212,144,16,0.38);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 12.5px;
+      color: var(--text-mid);
+    }
+    .mon-warn.err { background: rgba(232,64,64,0.09); border-color: rgba(232,64,64,0.38); }
+
+    /* ── KPI tiles ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 15px 17px;
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    /* Proportional figures on the hero numbers — tabular digits make a large
+       standalone value look loose. tabular-nums is for the table columns. */
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.6px;
+      margin-top: 7px;
+      color: var(--text-bright);
+      line-height: 1.15;
+    }
+    .kpi-value.na { color: var(--muted); font-size: 19px; font-weight: 500; }
+    .kpi-value.good { color: var(--green-ink); }
+    .kpi-value.warning { color: var(--amber-ink); }
+    .kpi-value.critical { color: var(--red-ink); }
+    .kpi-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+
+    .info {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 13px; height: 13px;
+      border: 1px solid var(--border-hi);
+      border-radius: 50%;
+      font-size: 9px;
+      color: var(--muted);
+      cursor: help;
+      flex-shrink: 0;
+    }
+
+    /* ── Panels ── */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .panel-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .panel-title { font-size: 14.5px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.1px; }
+    .panel-desc { font-size: 11.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+    .panel-meta { font-size: 11.5px; color: var(--muted); text-align: right; }
+
+    /* ── Filters: one row above everything it scopes ── */
+    .mon-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .mon-filters select, .mon-filters input {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-mid);
+      font-family: inherit;
+      font-size: 12.5px;
+      min-height: 34px;
+      padding: 0 10px;
+    }
+    .mon-filters input { flex: 1 1 240px; min-width: 180px; }
+    .mon-filters .spacer { flex: 1 1 auto; }
+    .btn-csv {
+      background: var(--bar-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-mid);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12.5px;
+      min-height: 34px;
+      padding: 0 12px;
+    }
+    .btn-csv:hover { color: var(--text-bright); border-color: var(--border-hi); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; }
+
+    /* The contracts table carries up to 1500 rows. Left to grow, it makes the
+       page ~78,000px tall — every panel above it becomes unreachable and the
+       sticky header has nothing to stick to. Its own scroll container bounds
+       the page and gives the header something to pin against. */
+    .table-scroll { overflow: auto; max-height: 560px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    thead th {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: right;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      background: var(--card);
+    }
+    thead th:first-child, td:first-child { text-align: left; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text-bright); }
+    th .arrow { opacity: 0.45; font-size: 9px; margin-left: 2px; }
+    tbody td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      color: var(--text-mid);
+    }
+    tbody tr:hover td { background: var(--rec-bg); }
+    td.name { max-width: 320px; overflow: hidden; text-overflow: ellipsis; color: var(--text-bright); font-variant-numeric: normal; }
+    td.sym { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11.5px; color: var(--muted); }
+    td.na, .na-cell { color: var(--muted); }
+    .sub { font-size: 11px; color: var(--muted); }
+
+    .cat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--bar-bg);
+      color: var(--text-mid);
+      white-space: nowrap;
+    }
+
+    .flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+    .flag.critical { background: rgba(232,64,64,0.14); color: var(--red-ink); }
+    .flag.good { background: rgba(29,185,84,0.14); color: var(--green-ink); }
+    .flag.warning { background: rgba(212,144,16,0.16); color: var(--amber-ink); }
+
+    /* ── Scale legend ── */
+    .scale {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .scale-steps { display: flex; gap: 2px; }
+    .scale-step { width: 22px; height: 9px; border-radius: 2px; border: 1px solid var(--border); }
+
+    /* ── Treemap ── */
+    .treemap {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bar-bg);
+    }
+    .tile {
+      position: absolute;
+      overflow: hidden;
+      border-radius: 3px;
+      padding: 6px 8px;
+      cursor: default;
+      /* A 2px surface gap rather than a stroke around each tile. */
+      outline: 2px solid var(--card);
+      outline-offset: -1px;
+    }
+    /* Clamped to the number of lines the tile can hold — the line count comes
+       from the tile's measured height in monitor.js, so a label is never cut
+       mid-character. line-height here must match the LINE constant there. */
+    .tile-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      line-height: 14px;
+      color: var(--tile-ink);
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tile-value { font-size: 10.5px; line-height: 14px; color: var(--tile-ink-dim); }
+    .tile-group {
+      position: absolute;
+      pointer-events: none;
+      border: 1px solid var(--card);
+      border-radius: 5px;
+    }
+    .tile-group-label {
+      position: absolute;
+      top: 0; left: 0;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      color: var(--text-bright);
+      background: var(--card);
+      border-bottom-right-radius: 5px;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; font-size: 11.5px; color: var(--muted); }
+    .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+
+    /* ── Area chart ── */
+    .chart-wrap { position: relative; }
+    .chart { display: block; width: 100%; height: auto; }
+    .chart .grid-line { stroke: var(--grid); stroke-width: 1; }
+    .chart .axis-line { stroke: var(--axis); stroke-width: 1; }
+    .chart .tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .chart .series-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; }
+    .chart .series-fill { fill: var(--series-1); opacity: 0.16; }
+    .chart .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .chart .cursor-dot { fill: var(--series-1); stroke: var(--card); stroke-width: 2; }
+
+    .tip {
+      position: absolute;
+      z-index: 20;
+      pointer-events: none;
+      background: var(--card);
+      border: 1px solid var(--border-hi);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 8px 10px;
+      font-size: 11.5px;
+      color: var(--text-mid);
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+    .tip.on { opacity: 1; }
+    .tip b { color: var(--text-bright); font-weight: 600; }
+
+    .empty { padding: 28px 4px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+    .skeleton { color: var(--muted); font-size: 12.5px; padding: 28px 4px; text-align: center; }
+
+    /* Holding the previous render at reduced opacity beats a skeleton flash:
+       no layout jump while a refresh is in flight. */
+    .refreshing { opacity: 0.72; transition: opacity 0.15s; }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+    .footer a { color: var(--accent-ink); }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .treemap { height: 340px; }
+    }
+
+    @media (max-width: 760px) {
+      .app-header {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+      }
+      .tab-nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        width: 100%;
+      }
+      .tab-nav a { flex: 1; text-align: center; padding: 5px 6px; }
+      .page-tools { grid-column: 2; grid-row: 1; width: auto; margin-left: auto; }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 20px 14px 64px; }
+      .app-header { margin-bottom: 24px; }
+      .app-title { font-size: 18px; }
+      .panel { padding: 15px 14px 16px; }
+      .treemap { height: 300px; }
+      .table-scroll { max-height: 420px; }
+      .kpi-value { font-size: 22px; }
+      .mon-filters input { flex-basis: 100%; }
+    }
+
+    @media (max-width: 380px) {
+      .app-subtitle { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      ::view-transition-old(root),
+      ::view-transition-new(root) { animation: none; }
+      .refreshing, .tip { transition: none; }
+    }
+  </style>
+</head>
+<body class="light">
+
+<div class="app">
+
+  <div class="app-header">
+    <a class="logo-link" href="/" title="Back to Analyze">
+      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
+      <div>
+        <div class="app-title">Predara</div>
+        <div class="app-subtitle">Independent prediction market intelligence</div>
+      </div>
+    </a>
+    <nav class="tab-nav" aria-label="App sections">
+      <a href="/">Analyze</a>
+      <a href="/monitor.html" class="active" aria-current="page">Monitor</a>
+      <a href="/settlement.html">Settlement Desk</a>
+      <a href="/kyle.html">Kyle</a>
+    </nav>
+    <div class="page-tools">
+      <span class="live-pill" id="livePill"><span class="live-dot"></span><span id="liveText">Loading</span></span>
+      <button class="btn-refresh" id="btnRefresh" onclick="monRefresh()" title="Fetch a fresh sweep">↻ Refresh</button>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    </div>
+  </div>
+
+  <h1 class="sr-only">Gemini Prediction Markets Monitor</h1>
+
+  <div class="mon-source">
+    <strong>Gemini prediction markets · book quality.</strong>
+    Every figure on this page is computed from Gemini's <strong>public</strong> Prediction Markets API
+    (<span class="sub">/events and /volume</span>) — no authenticated, internal or venue-private data.
+    Three limits are worth knowing before you quote a number from here:
+    <ul>
+      <li><strong>No depth.</strong> The public feed carries top-of-book prices with no sizes, so order-book depth, depth imbalance and the thin/one-sided/skewed signals are absent rather than estimated.</li>
+      <li><strong>Overround covers single-winner events only.</strong> A multi-winner market (a podium, say) has no meaningful sum-of-asks, so it is excluded from the average and the dutch-book count. The eligible-event count is shown beside the figure.</li>
+      <li><strong>Averages state their own denominator.</strong> Spread is averaged over two-sided books only; a one-sided book has no spread a trader could cross.</li>
+    </ul>
+  </div>
+
+  <div id="monAlerts"></div>
+
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="skeleton">Sweeping the public event feed…</div>
+  </div>
+
+  <div class="mon-filters" id="monFilters" hidden>
+    <label class="sr-only" for="fSearch">Search events, contracts or symbols</label>
+    <input id="fSearch" type="search" placeholder="Search events, contracts, symbols…" oninput="monFilterChanged()">
+    <label class="sr-only" for="fCategory">Category</label>
+    <select id="fCategory" onchange="monFilterChanged()"><option value="">All categories</option></select>
+    <label class="sr-only" for="fQuote">Quote state</label>
+    <select id="fQuote" onchange="monFilterChanged()">
+      <option value="">Quote state: any</option>
+      <option value="two">Two-sided</option>
+      <option value="one">One-sided</option>
+      <option value="none">Unquoted</option>
+    </select>
+    <label class="sr-only" for="fSpread">Spread</label>
+    <select id="fSpread" onchange="monFilterChanged()">
+      <option value="">All spreads</option>
+      <option value="tight">Tight (≤ $0.02)</option>
+      <option value="mid">Moderate ($0.02–$0.10)</option>
+      <option value="wide">Wide (&gt; $0.10)</option>
+      <option value="crossed">Crossed (&lt; $0)</option>
+    </select>
+    <label class="sr-only" for="fExpiry">Expiry</label>
+    <select id="fExpiry" onchange="monFilterChanged()">
+      <option value="">All expiries</option>
+      <option value="24h">Within 24h</option>
+      <option value="7d">Within 7 days</option>
+    </select>
+    <span class="spacer"></span>
+    <button class="btn-csv" onclick="monClearFilters()">Clear</button>
+  </div>
+
+  <section class="panel" id="panelHeat" hidden>
+    <div class="panel-head">
+      <div class="panel-title">Market Activity Heat Map</div>
+      <div class="panel-meta" id="heatMeta"></div>
+    </div>
+    <div class="panel-desc" id="heatDesc">Category → event. Area is traded volume; shading is quote coverage, so a large strongly-shaded block is volume sitting on a thinly quoted book. Category names are printed on each block rather than encoded in colour.</div>
+    <div class="treemap" id="treemap"></div>
+    <div class="legend" id="heatLegend"></div>
+    <div class="tip" id="heatTip"></div>
+  </section>
+
+  <section class="panel" id="panelVolume" hidden>
+    <div class="panel-head">
+      <div class="panel-title">Hourly Traded Volume</div>
+      <div class="panel-meta" id="volMeta"></div>
+    </div>
+    <div class="panel-desc" id="volDesc">Completed UTC days, hourly.</div>
+    <div class="chart-wrap" id="volWrap"></div>
+  </section>
+
+  <section class="panel" id="panelMatrix" hidden>
+    <div class="panel-head">
+      <div class="panel-title">Category Health Matrix</div>
+      <div class="panel-meta" id="matrixMeta"></div>
+    </div>
+    <div class="panel-desc">Metrics summarize the contracts currently visible under the filters above.</div>
+    <div class="table-wrap"><table id="matrixTable"></table></div>
+    <div class="scale" id="matrixScale"></div>
+  </section>
+
+  <section class="panel" id="panelDutch" hidden>
+    <div class="panel-head">
+      <div class="panel-title">Dutch Books</div>
+      <div class="panel-meta" id="dutchMeta"></div>
+    </div>
+    <div class="panel-desc">Single-winner events whose outcomes are collectively offered for less than $1.00 — every leg quoted, summed at the ask.</div>
+    <div class="table-scroll" style="max-height: 320px"><table id="dutchTable"></table></div>
+  </section>
+
+  <section class="panel" id="panelContracts" hidden>
+    <div class="panel-head">
+      <div class="panel-title">All Contracts</div>
+      <div class="panel-meta" id="contractsMeta"></div>
+    </div>
+    <div class="panel-desc">The table view for everything above — every value on this page is readable here without relying on colour or hover.</div>
+    <div class="mon-filters">
+      <button class="btn-csv" onclick="monExportCsv()">Export CSV</button>
+      <span class="spacer"></span>
+      <span class="sub" id="contractsNote"></span>
+    </div>
+    <div class="table-scroll"><table id="contractsTable"></table></div>
+  </section>
+
+  <div class="footer">
+    <div>Predara · book quality from the public Gemini feed</div>
+    <div><a href="/">Analyze a market →</a></div>
+  </div>
+
+</div>
+
+<script src="utils.js?v=37"></script>
+<script src="monitor.js?v=37"></script>
+<script>
+  /* ── Theme ── (light by default, matching the Analyze page) */
+  ;(function() {
+    if (localStorage.getItem('predara-theme') === 'dark') {
+      document.body.classList.remove('light')
+      const btn = document.getElementById('themeToggle')
+      if (btn) btn.textContent = '☾'
+    }
+  })()
+
+  function toggleTheme() {
+    const isLight = !document.body.classList.contains('light')
+    document.body.classList.toggle('light')
+    localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
+    document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
+    // The treemap and the chart are painted with resolved colours, so a theme
+    // flip has to repaint them rather than just restyle the DOM.
+    monRepaint()
+  }
+
+  monInit()
+</script>
+
+</body>
+</html>
