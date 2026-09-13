@@ -36,6 +36,18 @@ function _kEsc(s) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 }
 
+// The terms URL comes from the event payload and ends up in an href. _kEsc
+// keeps it inside the attribute but says nothing about the scheme, so anything
+// that is not http(s) is dropped rather than linked.
+function _kSafeUrl(str) {
+  const s = String(str == null ? "" : str).trim()
+  if (!s) return ""
+  try {
+    const u = new URL(s, "https://www.gemini.com")
+    return (u.protocol === "https:" || u.protocol === "http:") ? s : ""
+  } catch { return "" }
+}
+
 function _kNum(v) {
   const n = typeof v === "number" ? v : parseFloat(v)
   return Number.isFinite(n) ? n : null
@@ -366,7 +378,11 @@ function kyleType(event) {
   if (exclusive === false) {
     return {
       code: "multi", outcomeCount: n, exclusive: false, label: "Several can win",
-      plain: `${n} separate contracts on the same event, and this one settled with more than one of them winning — a podium or top-N market. Each winning contract settles at ${settle.each} independently of the others, so a customer can hold a losing contract on an event that had several winners.` + ask,
+      // Present tense: this branch is also reached on a live market (template
+      // "binary" with a strike on every contract), where "settled with more
+      // than one of them winning" asserted a settlement that has not happened
+      // and contradicted the headline on the same page.
+      plain: `${n} separate contracts on the same event, and more than one of them can win — a podium or top-N market. Each winning contract settles at ${settle.each} independently of the others, so a customer can hold a losing contract on an event that has several winners.` + ask,
     }
   }
   // Nothing in the payload states whether these are mutually exclusive, and it
@@ -586,7 +602,9 @@ function kyleIssues(event, now = Date.now()) {
   if (status.code === "closed" && closeT !== null) {
     const hoursSince = (now - closeT) / 3600000
     if (hoursSince > 24) {
-      const days = Math.round(hoursSince / 24)
+      // Floor, not round: at 36 hours "2 days" overstated the delay in a flag
+      // that reaches the ticket alongside the timestamps that contradict it.
+      const days = Math.floor(hoursSince / 24)
       issues.push({ level: "alert", title: `Unresolved ${days} day${days === 1 ? "" : "s"} after trading closed`,
         body: "Trading ended more than a day ago and no result has been published. If the customer is asking where their payout is, this is a genuine settlement delay — escalate rather than telling them to wait." })
     } else {
@@ -663,7 +681,11 @@ function kyleBrief(event, now = Date.now(), options = {}) {
     dates,
     // "when will it resolve" is the single most asked support question, so it
     // gets its own answered-or-not field rather than being inferred from dates.
-    resolution: status.code === "settled" && dates.resolved
+    resolution: status.code === "voided"
+      // A cancelled event never resolves, so the "result is published after
+      // that" line promised the customer something that will never arrive.
+      ? { known: false, text: "Gemini cancelled this event, so it will not resolve. How the trades on it were handled is a settlement question — escalate." }
+      : status.code === "settled" && dates.resolved
       ? { known: true, text: `Resolved ${_kDateTimeUtc(dates.resolved)}` }
       : status.code === "settled"
         ? { known: false, text: "Marked settled, but no resolution timestamp was published." }
@@ -685,7 +707,7 @@ function kyleBrief(event, now = Date.now(), options = {}) {
     links: {
       event: ticker ? KYLE_EVENT_URL(ticker) : "",
       api: ticker ? KYLE_API_URL(ticker) : "",
-      terms: String(_kFirst(e.termsLink, e._contract_url, contracts[0] && contracts[0].termsAndConditionsUrl) || ""),
+      terms: _kSafeUrl(_kFirst(e.termsLink, e._contract_url, contracts[0] && contracts[0].termsAndConditionsUrl)),
     },
   }
 }
@@ -714,16 +736,26 @@ function kyleHeadline(brief, now = Date.now(), { relative = true, concise = fals
     // Kyle reads a resolution state, never an account balance. It says what the
     // contract does, not that the customer has been credited.
     const at = when(dates.resolved, relative ? "It settled" : "Settled")
+    // "every other contract settles at zero" is only true once every other
+    // contract has published a losing result. On a top-N event where only the
+    // winner resolved, it asserted a zero payout the data never stated — and
+    // contradicted the focus card, which correctly said that same contract's
+    // result was not published.
+    const others = (b.outcomes || []).filter((o) => !o.derived && o.result !== "won")
+    const unpublished = others.filter((o) => !o.result).length
+    const rest = unpublished
+      ? ` Contracts that resolved NO settle at zero, but ${unpublished} other contract${unpublished === 1 ? " has" : "s have"} no published result — do not tell the customer those paid nothing until you confirm.`
+      : ` Every other contract settles at zero.`
     if (won.length === 1) {
       return concise
         ? `${won[0].name} won.${at}`
-        : `Finished — ${won[0].name} won.${at} That contract settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+        : `Finished — ${won[0].name} won.${at} That contract settles at ${pay}.${rest} Check the customer's account to confirm the credit.`
     }
     if (won.length > 1) {
       const names = won.map((o) => o.name).join(", ")
       return concise
         ? `${won.length} outcomes won: ${names}.${at}`
-        : `Finished — ${won.length} outcomes won: ${names}.${at} Each of those settles at ${pay}; every other contract settles at zero. Check the customer's account to confirm the credit.`
+        : `Finished — ${won.length} outcomes won: ${names}.${at} Each of those settles at ${pay}.${rest} Check the customer's account to confirm the credit.`
     }
     return `Finished, but the data does not say which outcome won.${at} Confirm the result on the event page before telling the customer anything about their payout.`
   }
@@ -731,7 +763,16 @@ function kyleHeadline(brief, now = Date.now(), { relative = true, concise = fals
     return `Gemini reports this event as open, but its published close time${when(dates.tradingCloses, relative ? "passed" : "was")} Kyle will not guess which is right — confirm on the event page before telling the customer whether they can still trade.`
   }
   if (code === "closed") {
-    const at = when(dates.tradingCloses, relative ? "Trading stopped" : "Trading closed")
+    // Gemini can report trading closed while the close time it publishes is
+    // still in the future. Saying "Trading stopped in 4 hours" — or, in copied
+    // text, "Trading closed <a future timestamp>" — states the clock backwards,
+    // so a close time that has not passed is labelled as what it is.
+    const closeT = _kTime(dates.tradingCloses)
+    const at = closeT !== null && closeT > now
+      ? (relative
+          ? ` Its published close time is still ${_kRelative(dates.tradingCloses, now)}.`
+          : ` Its published close time is ${_kDateTimeUtc(dates.tradingCloses)}.`)
+      : when(dates.tradingCloses, relative ? "Trading stopped" : "Trading closed")
     return `Gemini reports trading as closed, and no result has been published.${at} No contract has settled and no position can be opened or closed.`
   }
   if (code === "open") {
@@ -769,6 +810,30 @@ function kyleFocusAnswer(brief, now = Date.now()) {
     return { verdict: "unknown", name: focus.name,
       line: "The event has settled, but this contract's result is not published.",
       note: "Do not tell the customer whether it won — confirm on the event page first." }
+  }
+  // Everything below used to fall through to "Still trading", which said a
+  // cancelled event was live and invited the agent to tell the customer they
+  // could still sell. The focus card is the first thing read on the page, so
+  // each non-open state answers for itself.
+  if (code === "voided") {
+    return { verdict: "voided", name: focus.name,
+      line: "Gemini cancelled this event, so this contract has no result.",
+      note: "Kyle cannot tell you how the trades on it were handled — escalate to settlement rather than describing a refund." }
+  }
+  if (code === "closed") {
+    return { verdict: "closed", name: focus.name,
+      line: "Trading has closed and this contract's result has not been published yet.",
+      note: "It has not settled and it cannot be traded — do not tell the customer it won or lost." }
+  }
+  if (code === "conflict") {
+    return { verdict: "conflict", name: focus.name,
+      line: "Gemini reports this event as open, but the close time it publishes has already passed.",
+      note: "Do not tell the customer whether this contract can still be traded — confirm on the event page first." }
+  }
+  if (code !== "open") {
+    return { verdict: "unknown", name: focus.name,
+      line: "Gemini did not return a state Kyle recognises for this event.",
+      note: "Do not tell the customer whether this contract is still trading — check the event page first." }
   }
   return { verdict: "open", name: focus.name,
     line: focus.pctLabel && focus.pctLabel !== "—"
