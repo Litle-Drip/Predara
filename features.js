@@ -415,7 +415,11 @@ function renderWatchlist() {
   if (!container) return
   const bookmarks = _getBookmarks()
   if (!bookmarks.length) {
-    container.innerHTML = `<div class="empty-state">No saved markets yet. Analyze a market and click "Save" to add it to your watchlist.</div>`
+    container.innerHTML = emptyStateHtml(
+      "No saved markets yet",
+      "Analyze a market, then use Save on the toolbar to keep it here.",
+      `<button class="start-example" onclick="switchTab('analyze')">Go to Analyze →</button>`
+    )
     return
   }
 
@@ -471,11 +475,11 @@ function pnlCalculatorHtml() {
       <div class="pnl-body">
         <div class="pnl-input-grid">
           <label>Shares / contracts bought</label>
-          <input type="number" id="pnlShares" value="100" min="1" oninput="updatePnl()" />
+          <input type="number" id="pnlShares" class="field field--num" value="100" min="1" oninput="updatePnl()" />
           <label>Entry price (cents)</label>
-          <input type="number" id="pnlEntry" value="35" min="1" max="99" oninput="updatePnl()" />
+          <input type="number" id="pnlEntry" class="field field--num" value="35" min="1" max="99" oninput="updatePnl()" />
           <label>Current price (cents)</label>
-          <input type="number" id="pnlCurrent" value="52" min="1" max="99" oninput="updatePnl()" />
+          <input type="number" id="pnlCurrent" class="field field--num" value="52" min="1" max="99" oninput="updatePnl()" />
         </div>
         <div id="pnlResult" class="pnl-result"></div>
       </div>
@@ -517,19 +521,19 @@ function parlayCalculatorHtml() {
         <p class="parlay-desc">Combine 2-4 independent markets to calculate combined probability and potential payout.</p>
         <div id="parlayLegs">
           <div class="parlay-leg">
-            <input type="text" class="parlay-name" placeholder="Market name (optional)" />
-            <input type="number" class="parlay-prob" placeholder="Probability %" min="1" max="99" oninput="updateParlay()" />
+            <input type="text" class="field parlay-name" placeholder="Market name (optional)" />
+            <input type="number" class="field field--num parlay-prob" placeholder="Prob %" aria-label="Probability, percent" min="1" max="99" oninput="updateParlay()" />
           </div>
           <div class="parlay-leg">
-            <input type="text" class="parlay-name" placeholder="Market name (optional)" />
-            <input type="number" class="parlay-prob" placeholder="Probability %" min="1" max="99" oninput="updateParlay()" />
+            <input type="text" class="field parlay-name" placeholder="Market name (optional)" />
+            <input type="number" class="field field--num parlay-prob" placeholder="Prob %" aria-label="Probability, percent" min="1" max="99" oninput="updateParlay()" />
           </div>
         </div>
         <div class="parlay-actions">
           <button class="copy-link-btn" onclick="addParlayLeg()">+ Add leg</button>
           <div class="parlay-bet-row">
             <span>Bet: $</span>
-            <input type="number" id="parlayBet" value="10" min="1" oninput="updateParlay()" />
+            <input type="number" id="parlayBet" class="field field--num" value="10" min="1" oninput="updateParlay()" />
           </div>
         </div>
         <div id="parlayResult" class="parlay-result"></div>
@@ -545,8 +549,8 @@ window.addParlayLeg = function () {
   const leg = document.createElement("div")
   leg.className = "parlay-leg"
   leg.innerHTML = `
-    <input type="text" class="parlay-name" placeholder="Market name (optional)" />
-    <input type="number" class="parlay-prob" placeholder="Probability %" min="1" max="99" oninput="updateParlay()" />`
+    <input type="text" class="field parlay-name" placeholder="Market name (optional)" />
+    <input type="number" class="field field--num parlay-prob" placeholder="Prob %" aria-label="Probability, percent" min="1" max="99" oninput="updateParlay()" />`
   container.appendChild(leg)
 }
 
@@ -595,9 +599,11 @@ function renderCalendar() {
     .filter((m, i, arr) => arr.findIndex((x) => x.url === m.url) === i)
 
   if (!allMarkets.length) {
-    container.innerHTML = `
-      <div class="empty-state">No markets tracked yet. Analyze and save markets to see them in the calendar.</div>
-      <div id="gemUpcomingSlot"></div>`
+    container.innerHTML = emptyStateHtml(
+      "No markets tracked yet",
+      "Saved markets appear here on their close dates, so you can see what resolves when.",
+      `<button class="start-example" onclick="switchTab('analyze')">Go to Analyze →</button>`
+    ) + `<div id="gemUpcomingSlot"></div>`
     renderGeminiUpcoming()
     return
   }
@@ -639,7 +645,7 @@ function renderCalendar() {
     const isToday = key === todayKey
     const marketsHtml = day.markets.length
       ? day.markets.slice(0, 5).map((m) => marketItem(m)).join("")
-      : `<div class="cal-empty">—</div>`
+      : `<div class="cal-empty cal-empty-dash">—</div>`
     return `
       <div class="cal-day ${isToday ? "cal-today" : ""}">
         <div class="cal-day-label">${day.label}${isToday ? " (today)" : ""}</div>
@@ -1073,10 +1079,10 @@ function _renderDiscoveryResults(container, data) {
     return `
       <section class="discover-platform">
         <div class="discover-platform-head">
-          <div class="discover-platform-label" style="color:${(PLATFORMS[p.name] || {}).accent || "#999"}">${esc(p.name.toUpperCase())}</div>
+          ${venueChip(p.name)}
           <div class="discover-platform-count">${(p.markets || []).length} markets</div>
         </div>
-        ${marketsHtml || `<div class="cal-empty">No markets available</div>`}
+        ${marketsHtml || emptyInlineHtml("No markets available")}
       </section>`
   }).join("")
   container.innerHTML = _discoveryHeaderHtml(data.generatedAt) + html + geminiBrowseHtml()
@@ -1323,20 +1329,24 @@ function notificationSettingsHtml() {
       <div class="section-label">NOTIFICATION INTEGRATIONS</div>
       <div class="webhook-body">
         <p class="embed-desc">Connect external services to receive alerts when tracked markets move.</p>
+        <div class="webhook-form">
         <div class="webhook-row">
           <label>Discord Webhook URL</label>
-          <input type="url" id="webhookDiscord" class="compare-url-input" placeholder="https://discord.com/api/webhooks/..." value="${esc(config.discord || "")}" />
+          <input type="url" id="webhookDiscord" class="field field--wide" placeholder="https://discord.com/api/webhooks/..." value="${esc(config.discord || "")}" />
         </div>
         <div class="webhook-row">
           <label>Telegram Bot Token</label>
-          <input type="text" id="webhookTelegram" class="compare-url-input" placeholder="bot_token:chat_id" value="${esc(config.telegram || "")}" />
+          <input type="text" id="webhookTelegram" class="field field--wide" placeholder="bot_token:chat_id" value="${esc(config.telegram || "")}" />
         </div>
         <div class="webhook-row">
           <label>Slack Webhook URL</label>
-          <input type="url" id="webhookSlack" class="compare-url-input" placeholder="https://hooks.slack.com/services/..." value="${esc(config.slack || "")}" />
+          <input type="url" id="webhookSlack" class="field field--wide" placeholder="https://hooks.slack.com/services/..." value="${esc(config.slack || "")}" />
         </div>
-        <button class="copy-link-btn" onclick="saveWebhookConfig()" style="margin-top:8px">Save settings</button>
-        <button class="copy-link-btn" onclick="testWebhooks()" style="margin-top:8px">Send test</button>
+        <div class="webhook-actions">
+          <button class="btn-primary" onclick="saveWebhookConfig()">Save settings</button>
+          <button class="copy-link-btn" onclick="testWebhooks()">Send test</button>
+        </div>
+        </div>
         <div class="alert-note" style="margin-top:8px">
           Fires when a price alert triggers. Settings stay in your browser; Predara relays each
           message to the service you name and keeps no copy of the URL or token.
@@ -1569,7 +1579,7 @@ function _rewardsPlatformCard(key, subtitle, programsHtml, extraHtml = "") {
   return `
     <div class="mi-card rewards-platform-card">
       <div class="rewards-platform-head">
-        <span class="rewards-platform-badge" style="background:${p.accent}">${esc(p.label)}</span>
+        <span class="rewards-platform-badge" style="background:${p.accent};color:${platformInk(p.accent)}">${esc(p.label)}</span>
         <span class="rewards-platform-sub">${esc(subtitle)}</span>
       </div>
       <div class="rewards-program-grid">${programsHtml}</div>
@@ -1752,7 +1762,7 @@ async function _loadKalshiLiveIncentives() {
         : ""}
       <div class="rewards-note-box">${programs.length} active program${programs.length === 1 ? "" : "s"} right now. Select a row to open the market on Kalshi.</div>`
   } catch {
-    box.innerHTML = "Couldn't load live Kalshi programs right now. Browse current programs directly at <a href=\"https://kalshi.com/incentives\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--orange)\">kalshi.com/incentives ↗</a>."
+    box.innerHTML = "Couldn't load live Kalshi programs right now. Browse current programs directly at <a href=\"https://kalshi.com/incentives\" target=\"_blank\" rel=\"noopener\" class=\"link-accent\">kalshi.com/incentives ↗</a>."
   }
 }
 

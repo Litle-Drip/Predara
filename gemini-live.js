@@ -102,7 +102,12 @@ function _gemEventCardHtml(event, { showClose = false, showSettled = false } = {
 // DISCOVER — search + newly listed / upcoming / recently settled feeds
 // ════════════════════════════════════════════════════════════════════════════
 const GEM_FEEDS = {
-  search: { resource: "events", label: "Search" },
+  // Labelled for what the chip shows, not for the control that reaches it. This
+  // feed lists every active market and narrows to matches once the box above has
+  // a query, so calling it "Search" put a second button reading "Search" in a row
+  // of filters directly under the real one — two identical-looking controls doing
+  // different things. The other three chips are already named by their contents.
+  search: { resource: "events", label: "All active" },
   new: { resource: "newly-listed", label: "New (24h)" },
   upcoming: { resource: "upcoming", label: "Upcoming" },
   settled: { resource: "recently-settled", label: "Recently settled" },
@@ -121,14 +126,15 @@ function geminiBrowseHtml() {
       <div class="section-label">SEARCH GEMINI PREDICTION MARKETS</div>
       <div class="gem-browse-row">
         <input id="gemSearchInput" class="gem-search-input" type="text" autocomplete="off"
+          aria-label="Search Gemini prediction markets"
           placeholder="Search by team, topic or ticker…"
           onkeydown="if(event.key==='Enter')geminiBrowseSearch()">
-        <select id="gemCategorySelect" class="gem-select" onchange="geminiBrowseSearch()">
+        <select id="gemCategorySelect" class="gem-select" aria-label="Category" onchange="geminiBrowseSearch()">
           <option value="">All categories</option>
         </select>
-        <button class="copy-link-btn" onclick="geminiBrowseSearch()">Search</button>
+        <button class="btn-primary" onclick="geminiBrowseSearch()">Search</button>
       </div>
-      <div class="gem-feed-tabs">${tabs}</div>
+      <div class="gem-feed-tabs" role="group" aria-label="Market feed">${tabs}</div>
       <div id="gemBrowseResults" class="gem-browse-results"></div>
       <div class="cal-note">Live from Gemini's public Prediction Markets API. Click any market to analyze it.</div>
     </div>`
@@ -193,7 +199,7 @@ async function _gemBrowseLoad(append = false) {
       const msg = _gemBrowse.search
         ? `No Gemini markets match “${_gemEsc(_gemBrowse.search)}”.`
         : "No markets in this feed right now."
-      box.innerHTML = `<div class="cal-empty">${msg}</div>`
+      box.innerHTML = emptyInlineHtml(msg)
       return
     }
     const html = events.map((e) => _gemEventCardHtml(e, {
@@ -212,7 +218,7 @@ async function _gemBrowseLoad(append = false) {
       box.innerHTML = html + moreBtn
     }
   } catch (err) {
-    box.innerHTML = `<div class="cal-empty">Couldn't reach Gemini right now — ${_gemEsc(err.message)}</div>`
+    box.innerHTML = emptyInlineHtml(`Couldn't reach Gemini right now — ${err.message}`)
   }
 }
 
@@ -231,11 +237,11 @@ function geminiLiveCardHtml(live) {
   const rows = live.contracts.map((c) => `
     <tr data-sym="${_gemEsc(c.symbol.toLowerCase())}">
       <td class="gem-book-name">${_gemEsc(c.label)}</td>
-      <td class="gem-bid">—</td>
-      <td class="gem-ask">—</td>
-      <td class="gem-spread">—</td>
-      <td class="gem-last">—</td>
-      <td class="gem-size">—</td>
+      <td class="gem-bid gem-no-val">—</td>
+      <td class="gem-ask gem-no-val">—</td>
+      <td class="gem-spread gem-no-val">—</td>
+      <td class="gem-last gem-no-val">—</td>
+      <td class="gem-size gem-no-val">—</td>
     </tr>`).join("")
   return `
     <div class="mi-card" id="gemLiveCard">
@@ -361,6 +367,18 @@ function _gemApplyMessage(feed, msg) {
   feed.dirty = true
 }
 
+// A bid cell is green and an ask cell is red because that is what the number
+// means. Before the socket delivers anything those cells hold an em dash, and a
+// green dash reads as a value rather than as an absence — on a disconnected book
+// the whole column rendered as coloured dashes. The colour is carried by the
+// value, so it comes off when there is no value to carry it.
+function _gemCell(row, selector, value) {
+  const cell = row.querySelector(selector)
+  if (!cell) return
+  cell.textContent = value == null ? "—" : value
+  cell.classList.toggle("gem-no-val", value == null)
+}
+
 function _gemRenderBook(feed) {
   const card = document.getElementById("gemLiveCard")
   if (!card) { closeGeminiLive(); return }
@@ -372,11 +390,11 @@ function _gemRenderBook(feed) {
     const ask = parseFloat(q.ask)
     const spread = isFinite(bid) && isFinite(ask) && ask > 0 ? Math.round((ask - bid) * 100) : null
     const size = (parseFloat(q.bidSize) || 0) + (parseFloat(q.askSize) || 0)
-    tr.querySelector(".gem-bid").textContent = isFinite(bid) && bid > 0 ? _gemCents(bid) : "—"
-    tr.querySelector(".gem-ask").textContent = isFinite(ask) && ask > 0 ? _gemCents(ask) : "—"
-    tr.querySelector(".gem-spread").textContent = spread == null ? "—" : `${spread}¢`
-    tr.querySelector(".gem-last").textContent = q.last ? _gemCents(q.last) : "—"
-    tr.querySelector(".gem-size").textContent = size > 0 ? Math.round(size).toLocaleString() : "—"
+    _gemCell(tr, ".gem-bid", isFinite(bid) && bid > 0 ? _gemCents(bid) : null)
+    _gemCell(tr, ".gem-ask", isFinite(ask) && ask > 0 ? _gemCents(ask) : null)
+    _gemCell(tr, ".gem-spread", spread == null ? null : `${spread}¢`)
+    _gemCell(tr, ".gem-last", q.last ? _gemCents(q.last) : null)
+    _gemCell(tr, ".gem-size", size > 0 ? Math.round(size).toLocaleString() : null)
   })
 
   if (!feed.depth) return
@@ -484,7 +502,7 @@ async function loadGeminiVolume(autoBack = 2) {
       _gemVolDaysAgo += 1
       return loadGeminiVolume(autoBack - 1)
     }
-    body.innerHTML = `<div class="cal-empty">No volume published for ${_gemEsc(date)} — ${_gemEsc(err.message)}</div>`
+    body.innerHTML = emptyInlineHtml(`No volume published for ${date} — ${err.message}`)
     return
   }
 
@@ -499,7 +517,7 @@ async function loadGeminiVolume(autoBack = 2) {
       _gemVolDaysAgo += 1
       return loadGeminiVolume(autoBack - 1)
     }
-    body.innerHTML = `<div class="cal-empty">No volume published for ${_gemEsc(date)} yet.</div>`
+    body.innerHTML = emptyInlineHtml(`No volume published for ${date} yet.`)
     return
   }
   const total = tops.reduce((s, r) => s + r.volume, 0)
@@ -704,7 +722,7 @@ async function renderGeminiUpcoming(containerId = "gemUpcomingSlot") {
         <div class="section-label">CLOSING SOON ON GEMINI</div>
         ${events.length
           ? events.map((e) => _gemEventCardHtml(e, { showClose: true })).join("")
-          : `<div class="cal-empty">No upcoming Gemini markets listed right now.</div>`}
+          : emptyInlineHtml("No upcoming Gemini markets listed right now.")}
         <div class="cal-note">Markets that open or close next on Gemini, straight from its public API.</div>
       </div>`
   } catch {

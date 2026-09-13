@@ -33,11 +33,20 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    /* The header is deliberately anchored on the same 1200px grid as the Analyze
+       page so the logo and the page tabs do not jump when you move between the
+       three pages — tests/navigation.test.js pins that.
+
+       What was wrong is that the 800px content column was *centred* inside that
+       1200px frame, so every card started about 280px to the right of the logo
+       above it and the footer rule lined up with neither. The column keeps its
+       readable 800px measure and its own left edge now sits under the header's,
+       which leaves the header anchored and the page aligned. */
     .app {
       max-width: 1200px;
       margin: 0 auto;
     }
-    .app > :not(.app-header) { width: min(800px, 100%); margin-left: auto; margin-right: auto; }
+    .app > :not(.app-header) { width: min(800px, 100%); margin-left: 0; margin-right: auto; }
 
     /* ── Header ── */
     .app-header {
@@ -209,12 +218,19 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-top: 42px;
+      flex-wrap: wrap;
+      margin-top: 56px;
       padding-top: 18px;
       border-top: 1px solid var(--border);
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--muted);
     }
+    .footer-brand { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .footer-sep { color: var(--muted); opacity: 0.55; }
+    .footer-note { color: var(--muted); }
+    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
+    .footer a:hover { color: var(--k-ink); }
+    .footer .dot-sm { font-size: 6px; color: var(--k-ink); line-height: 1; }
 
 
     .sr-only {
@@ -261,7 +277,7 @@
       --text:        #3c576f;
       --text-mid:    #1e3a52;
       --text-bright: #0a2136;
-      --muted:       #4b6f8b;   /* blue-grey; 4.77:1 on the tinted page */
+      --muted:       #4a6e8a;   /* blue-grey; 4.52:1 at the deepest point of the page tint (#dbedfd), 5.41:1 on a card */
       --orange:      #0093f5;   /* Gemini brand blue — chrome only, never under text */
       --k-fill:      #0077c8;   /* darkened so white 12px labels clear 4.5:1 */
       --k-on-fill:   #ffffff;
@@ -732,8 +748,8 @@
   </div>
 
   <footer class="footer">
-    <span>Read-only event information for support use. Not trading advice.</span>
-    <span>Confirm final results and payouts with the settlement team.</span>
+    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-note">Read-only event information for support use. Confirm results and payouts with the settlement team.</span>
   </footer>
 
 </div>

@@ -29,16 +29,36 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Three accent tokens per colour, because one value cannot do all three jobs.
+       The brand accent (--orange, --green, --red, --amber) is for marks nothing
+       sits on top of: borders, focus rings, bars, dots, tints. The *-ink token is
+       the same colour as small text on a card, darkened or lightened until it
+       clears WCAG AA 4.5:1 against --bg, --card and --tag-bg. --accent-fill is
+       the button background that carries white text at 4.5:1. Keeping them apart
+       is what lets the brand colour stay the brand colour: #d94f20 reads as
+       Predara orange but only reaches 4.29:1 as 11px text on a dark card, and
+       white on it reaches 4.13:1 — both short of AA. Same split ARCHITECTURE.md
+       documents for Kyle's themes; tests/contrast.test.js computes the ratios
+       rather than trusting the eye. */
     :root {
       /* Dark theme — Anthropic-inspired warm charcoal */
       --bg:      #0f0f11;
       --card:    #18181c;
       --border:  #27272e;
       --text:    #b4b4c0;
-      --muted:   #6b6b7a;
+      --muted:   #8d8d99;
       --orange:  #d94f20;
       --green:   #1db954;
       --red:     #e84040;
+      --amber:   #d49010;
+      --accent-ink: #de643b;
+      --accent-fill: #ce4b1e;
+      --accent-tint: rgba(217,79,32,0.10);
+      --accent-line: rgba(217,79,32,0.32);
+      --accent-ring: rgba(217,79,32,0.34);
+      --green-ink:  #1db954;
+      --red-ink:    #e84444;
+      --amber-ink:  #d49010;
       --text-bright:   #ededf2;
       --text-mid:      #d0d0da;
       --card-hover:    rgba(255,255,255,0.025);
@@ -49,6 +69,15 @@
       --tooltip-bg:    #0b0b0d;
       --shadow:        0 1px 2px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25);
       --shadow-sm:     0 1px 3px rgba(0,0,0,0.3);
+
+      /* One card inset, so every row in a card lines up with that card's own
+         section label. The value used to be typed literally (30px desktop, 18px
+         mobile) in about twenty rules, which is why the cards built later — the
+         live order book, the Discover search, the Gemini volume panel — had no
+         inset at all and rendered their contents flush against the card border.
+         Anything dropped straight into a .mi-card should take its horizontal
+         padding from this. */
+      --card-pad-x: 30px;
     }
 
     body.light {
@@ -57,10 +86,19 @@
       --card:    #ffffff;
       --border:  #e6e6e4;
       --text:    #4a4a52;
-      --muted:   #8e8e9a;
+      --muted:   #6b6b74;
       --orange:  #c8421a;
       --green:   #14a44d;
       --red:     #d63232;
+      --amber:   #d49010;
+      --accent-ink: #c8421a;
+      --accent-fill: #c8421a;
+      --accent-tint: rgba(200,66,26,0.07);
+      --accent-line: rgba(200,66,26,0.30);
+      --accent-ring: rgba(200,66,26,0.30);
+      --green-ink:  #10833e;
+      --red-ink:    #d43232;
+      --amber-ink:  #99680c;
       --text-bright:   #16161a;
       --text-mid:      #2e2e38;
       --card-hover:    rgba(0,0,0,0.02);
@@ -71,6 +109,26 @@
       --tooltip-bg:    #ffffff;
       --shadow:        0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
       --shadow-sm:     0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    /* Inline monospace. With no rule of its own, <code> fell back to the
+       browser's default monospace size rather than the size of the text around
+       it — the well-known `font-size: medium` quirk — so identifiers inside a
+       sentence rendered visibly larger than the sentence and pushed the line
+       height out. Named tickers, symbols and API fields appear inline all over
+       this app (the order-book footnote, the Rewards copy, resolution rules), so
+       this is a base rule rather than a per-component patch. */
+    code, kbd, samp, pre {
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    /* No chip behind it. A padded background reads as a gap before the comma or
+       bracket that follows — "(bookTicker , trade , depth5)" — because the
+       padding is visible where the fill is. The monospace face at the
+       surrounding size is enough to mark an identifier inside a sentence. */
+    code {
+      color: var(--text-bright);
+      overflow-wrap: anywhere;
     }
 
     body {
@@ -158,11 +216,11 @@
     }
     .search-row input:focus {
       border-color: var(--orange);
-      box-shadow: 0 0 0 3px rgba(217,79,32,0.1), var(--shadow-sm);
+      box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-sm);
     }
     .search-row input::placeholder { color: var(--muted); font-weight: 400; }
     .search-row button {
-      background: var(--orange);
+      background: var(--accent-fill);
       border: none;
       border-radius: 10px;
       color: #fff;
@@ -190,7 +248,7 @@
     }
 
     /* ── Event header ── */
-    .event-head { padding: 24px 30px 22px; }
+    .event-head { padding: 24px var(--card-pad-x) 22px; }
     .event-tags {
       display: flex;
       align-items: center;
@@ -200,7 +258,7 @@
       font-size: 11px;
     }
     .tag-platform {
-      background: var(--orange);
+      background: var(--accent-fill);
       color: #fff;
       padding: 4px 10px;
       border-radius: 6px;
@@ -245,8 +303,8 @@
       border-radius: 6px;
       padding: 3px 9px;
     }
-    .dot-green { color: var(--green); }
-    .dot-red   { color: var(--red); }
+    .dot-green { color: var(--green-ink); }
+    .dot-red   { color: var(--red-ink); }
     .dot-muted { color: var(--muted); }
     .event-title {
       font-size: 24px;
@@ -310,12 +368,39 @@
       font-weight: 600;
       letter-spacing: 0.5px;
       color: var(--muted);
-      padding: 16px 30px 13px;
+      padding: 16px var(--card-pad-x) 13px;
       border-bottom: 1px solid var(--border);
       text-transform: uppercase;
     }
+
+    /* Card rows that carry no padding of their own. Each of these sits as a
+       direct child of a .mi-card next to a .section-label, so without an inset
+       it renders hard against the card border — the order-book table ran under
+       its own rounded corner and the Discover footnotes were clipped by the
+       card's bottom edge. Grouped rather than fixed one at a time so the next
+       card body added inherits the alignment instead of repeating the bug. */
+    .gem-browse-row,
+    .gem-feed-tabs,
+    .gem-browse-results,
+    .gem-book-wrap,
+    .gem-strike-row,
+    .gem-depth-wrap,
+    .gem-live-note,
+    .gem-vol-controls,
+    #gemVolumeBody,
+    .platform-footnote,
+    .cal-note {
+      padding-left: var(--card-pad-x);
+      padding-right: var(--card-pad-x);
+    }
+    /* The table scrolls inside the inset rather than under it, so a wide book
+       still starts and ends on the card's own margins. */
+    .gem-book-wrap { padding-top: 4px; }
+    .gem-live-note, .cal-note { padding-bottom: 18px; }
+    #gemVolumeBody { padding-bottom: 18px; }
+    .gem-vol-chart { box-sizing: border-box; max-width: 100%; }
     .outcome-row {
-      padding: 22px 30px 18px;
+      padding: 22px var(--card-pad-x) 18px;
       border-bottom: 1px solid var(--border);
       transition: background 0.12s;
     }
@@ -365,7 +450,14 @@
       left: auto;
       right: 0;
     }
+    /* The probability column reads as one column. The leading outcome used to
+       have its number tinted with that outcome's decorative palette colour,
+       which made it the only coloured number among four and put the most
+       important figure on the page at 2.3:1 against the card (40px bold needs
+       3:1). The dot and the fill bar already carry the colour; the leader is
+       marked by weight here instead, so every percentage stays legible. */
     .odds-display { color: var(--text-bright); }
+    .odds-display--lead .outcome-pct { color: var(--text-bright); }
     .outcome-pct {
       font-size: 40px;
       font-weight: 700;
@@ -383,8 +475,8 @@
       color: var(--muted);
       margin-left: 3px;
     }
-    .delta-up { color: var(--green); }
-    .delta-dn { color: var(--red); }
+    .delta-up { color: var(--green-ink); }
+    .delta-dn { color: var(--red-ink); }
     .outcome-meta {
       display: flex;
       gap: 14px;
@@ -415,12 +507,22 @@
       gap: 8px;
       margin-bottom: 12px;
     }
+    /* A stat tile is a label and one figure, and the row is meant to be read
+       across in a glance. The RUNNERS tile carries a list of names underneath
+       its figure, and because the grid stretches every tile to the tallest, four
+       wrapped names set the height of the whole row — leaving the other five
+       tiles roughly 60% empty. Anchoring the figure to the top and the sub-line
+       to the bottom of the tile keeps the figures on one line across the row,
+       and the sub-line is clamped so a long field cannot set the height again. */
     .stat-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px 24px 22px;
       box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
     }
     .stat-label {
       font-size: 11px;
@@ -439,9 +541,13 @@
     .stat-sub {
       font-size: 11px;
       color: var(--muted);
-      margin-top: 4px;
+      margin-top: 6px;
       line-height: 1.45;
-      word-break: break-word;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .stat-dash {
       width: 20px;
@@ -450,12 +556,17 @@
       margin-top: 8px;
       border-radius: 1px;
     }
-    /* Platforms don't report every metric — say so instead of showing a stub. */
+    /* Platforms don't report every metric — say so instead of showing a stub.
+       It sits in the figure's slot, so it takes the figure's line-height and
+       weight at a smaller size: the tile still reads as one of the row rather
+       than as a tile that failed to load. The 0.75 opacity is gone — it was
+       stacked on --muted and pushed the result under AA. */
     .stat-empty {
-      font-size: 13px;
+      font-size: 14px;
+      font-weight: 500;
       color: var(--muted);
-      opacity: 0.75;
-      padding-top: 4px;
+      line-height: 1.45;
+      letter-spacing: -0.2px;
     }
 
     /* ── Timeline / info rows ── */
@@ -463,7 +574,7 @@
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding: 13px 30px;
+      padding: 13px var(--card-pad-x);
       border-bottom: 1px solid var(--border);
       font-size: 13px;
       line-height: 1.5;
@@ -473,7 +584,7 @@
     .info-val { color: var(--text-bright); text-align: right; max-width: 55%; font-weight: 500; }
 
     /* ── Numbered list ── */
-    .num-list { padding: 8px 30px 20px; }
+    .num-list { padding: 8px var(--card-pad-x) 20px; }
     .resolution-fallback { padding: 12px 20px 18px; font-size: 13px; color: var(--muted); font-style: italic; }
     .num-row {
       display: flex;
@@ -485,7 +596,7 @@
     }
     .num-row:last-child { border-bottom: none; }
     .num-idx {
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 11px;
       font-weight: 600;
       flex-shrink: 0;
@@ -497,18 +608,18 @@
     /* ── What's the Bet explainer ── */
     .bet-explainer { border-left: 2px solid var(--orange); }
     .bet-explainer .section-label {
-      color: var(--orange);
+      color: var(--accent-ink);
       font-weight: 600;
     }
     .bet-explainer-body {
-      padding: 16px 30px 24px;
+      padding: 16px var(--card-pad-x) 24px;
       font-size: 14px;
       line-height: 1.8;
       color: var(--text);
     }
 
     /* ── Bet simulator ── */
-    .bet-sim-body { padding: 20px 30px 24px; }
+    .bet-sim-body { padding: 20px var(--card-pad-x) 24px; }
     .bet-sim-input-row {
       display: flex;
       align-items: center;
@@ -521,7 +632,7 @@
     .bet-sim-label { font-weight: 400; }
     .bet-sim-label strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-dollar {
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 16px;
       font-weight: 600;
     }
@@ -561,7 +672,7 @@
     }
     .bet-sim-win strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-lose strong { color: var(--text-bright); font-weight: 600; }
-    .bet-sim-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px 30px 0; }
+    .bet-sim-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px var(--card-pad-x) 0; }
     .bet-sim-tab {
       font-size: 12px; font-weight: 500;
       padding: 5px 14px; border-radius: 20px;
@@ -570,7 +681,22 @@
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
       font-family: inherit;
     }
-    .bet-sim-tab:hover { border-color: var(--orange); color: var(--orange); }
+    .bet-sim-tab:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .bet-sim-tab.active {
+      border-color: var(--orange);
+      color: var(--accent-ink);
+      background: var(--accent-tint);
+      font-weight: 600;
+    }
+    .bet-sim-tab-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 7px;
+      vertical-align: 1px;
+      flex-shrink: 0;
+    }
     .bet-sim-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.55; font-style: italic; }
     .odds-sens-details { margin-top: 12px; }
     .odds-sens-summary {
@@ -581,7 +707,7 @@
     .odds-sens-summary::-webkit-details-marker { display: none; }
     .odds-sens-summary::before { content: "▶"; font-size: 9px; transition: transform 0.15s; }
     details[open] .odds-sens-summary::before { transform: rotate(90deg); }
-    .odds-sens-summary:hover { color: var(--orange); }
+    .odds-sens-summary:hover { color: var(--accent-ink); }
     .odds-sens-table {
       width: 100%; border-collapse: collapse;
       font-size: 12px; margin-top: 8px;
@@ -605,13 +731,29 @@
     .bet-sim-fee-detail { opacity: 0.65; margin-left: 4px; }
     .bet-sim-fee-unknown { font-style: italic; }
     .bet-sim-est { color: var(--muted); font-size: 11px; font-weight: 500; }
-    .analytics-edge-prompt .info-val { font-size: 12px; font-style: italic; }
+    /* Upright, not italic: italic is this app's footnote voice, and setting a
+       placeholder value in it made an ordinary "not yet" read as a caveat. */
+    .analytics-edge-prompt .info-val { font-size: 12.5px; }
+    .val-none { color: var(--muted); font-weight: 400; cursor: help; }
+
+    /* An outcome's heading inside Trader Analytics. One hairline per boundary:
+       the heading draws the rule, and the row above it gives its own up so the
+       two do not sit 4px apart. */
+    .analytics-group-head { border-bottom: none; padding-bottom: 4px; }
+    .analytics-group-head .info-key { font-weight: 600; color: var(--text-bright); }
+    .analytics-group-head--sep { margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .info-row:has(+ .analytics-group-head--sep) { border-bottom: none; }
+    .analytics-group-dot { font-size: 9px; vertical-align: 1px; }
     .analytics-fee-caveat { color: var(--muted); font-size: 11px; font-weight: 400; }
     .kelly-cap-note { color: var(--muted); font-size: 11px; margin-left: 6px; }
     .trade-cta-card { text-align: center; }
+    /* The page's primary action. It carried a near-black label on the brand
+       orange at 4.0:1, and was the one primary button in the app not styled like
+       the others — every other one is white on the accent fill. Both fixed by
+       using the same pair, which measures 4.94:1 light and 4.51:1 dark. */
     .trade-cta-btn {
-      display: block; padding: 14px 18px; border-radius: 6px;
-      background: var(--orange); color: #0b0b0d; font-weight: 700;
+      display: block; padding: 14px 18px; border-radius: 10px;
+      background: var(--accent-fill); color: #fff; font-weight: 700;
       font-size: 15px; letter-spacing: 0.02em; text-decoration: none;
     }
     .trade-cta-btn:hover { filter: brightness(1.08); }
@@ -622,7 +764,7 @@
       border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
       font-family: inherit;
     }
-    .hist-window-btn.active { border-color: var(--orange); color: var(--orange); }
+    .hist-window-btn.active { border-color: var(--orange); color: var(--accent-ink); }
     .price-chart-source { color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.6; }
     .price-chart-source-warn { color: var(--amber, #f59e0b); }
     .bet-sim-side-toggle {
@@ -638,10 +780,10 @@
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
       font-family: inherit; letter-spacing: 0.04em;
     }
-    .bet-sim-side-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .bet-sim-side-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
     .bet-sim-side-btn.active {
       border-color: var(--orange);
-      color: var(--orange);
+      color: var(--accent-ink);
       background: rgba(251,146,60,0.10);
     }
     .bet-sim-side-pct { font-weight: 400; opacity: 0.75; }
@@ -706,13 +848,13 @@
       color: var(--text);
     }
     .urgency-text-low  { color: var(--muted); }
-    .urgency-text-med  { color: #d49010; }
-    .urgency-text-high { color: var(--red); font-weight: 600; }
+    .urgency-text-med  { color: var(--amber-ink); }
+    .urgency-text-high { color: var(--red-ink); font-weight: 600; }
 
     /* ── Analytics value colors ── */
-    .val-green { color: var(--green); }
-    .val-amber { color: #d49010; }
-    .val-red   { color: var(--red); }
+    .val-green { color: var(--green-ink); }
+    .val-amber { color: var(--amber-ink); }
+    .val-red   { color: var(--red-ink); }
     .val-muted { color: var(--muted); }
 
     /* ── Odds format toggle ── */
@@ -730,8 +872,8 @@
       transition: border-color 0.18s, color 0.18s;
       flex-shrink: 0;
     }
-    .odds-toggle:hover { border-color: var(--orange); color: var(--orange); }
-    body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--orange); }
+    .odds-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
+    body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--accent-ink); }
 
     /* odds-display: pct stacked above ml, right-aligned */
     .odds-display { display: flex; flex-direction: column; align-items: flex-end; }
@@ -755,7 +897,6 @@
       font-weight: 400;
       color: var(--muted);
       margin-bottom: 10px;
-      opacity: 0.75;
     }
     .stale-warning {
       display: inline-flex;
@@ -763,7 +904,7 @@
       gap: 6px;
       font-size: 11px;
       font-weight: 500;
-      color: #d49010;
+      color: var(--amber-ink);
       background: rgba(245, 158, 11, 0.07);
       border: 1px solid rgba(245, 158, 11, 0.2);
       border-radius: 6px;
@@ -821,7 +962,7 @@
       transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
     }
-    .copy-link-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .copy-link-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
 
     .compare-toggle-btn {
       background: transparent;
@@ -835,11 +976,11 @@
       padding: 9px 18px;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
-    .compare-toggle-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .compare-toggle-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
     .compare-toggle-btn.active {
-      background: rgba(217,79,32,0.08);
+      background: var(--accent-tint);
       border-color: var(--orange);
-      color: var(--orange);
+      color: var(--accent-ink);
     }
 
     /* ── Compare inputs ── */
@@ -872,7 +1013,7 @@
     .compare-url-input:focus { border-color: var(--orange); }
     .compare-url-input::placeholder { color: var(--muted); }
     .compare-submit-btn {
-      background: var(--orange);
+      background: var(--accent-fill);
       border: none;
       border-radius: 8px;
       color: #fff;
@@ -913,7 +1054,7 @@
     .compare-outcome:last-child { border-bottom: none; }
     .compare-outcome-name { font-weight: 500; flex: 1; overflow-wrap: break-word; color: var(--text); }
     .compare-outcome-pct { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; flex-shrink: 0; }
-    .compare-col-empty { color: var(--red); font-size: 13px; padding: 8px 0; }
+    .compare-col-empty { color: var(--red-ink); font-size: 13px; padding: 8px 0; }
     .compare-stats { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .compare-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
     .compare-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
@@ -944,7 +1085,7 @@
       padding: 7px 10px;
       transition: border-color 0.18s, color 0.18s;
     }
-    .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
+    .theme-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
     .header-controls {
       margin-left: auto;
       display: grid;
@@ -957,7 +1098,7 @@
     .mode-tabs { display: flex; align-items: center; gap: 3px; background: var(--bar-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; flex-shrink: 0; }
     .mode-tab { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 11px; border-radius: 5px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
     .mode-tab:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
-    .mode-tab.active { background: var(--orange); color: #fff; }
+    .mode-tab.active { background: var(--accent-fill); color: #fff; }
     .mode-tab, .theme-toggle, .odds-toggle { min-height: 34px; }
     .mode-tab:focus-visible,
     .theme-toggle:focus-visible,
@@ -984,16 +1125,51 @@
     }
 
     /* ── Footer ── */
+    /* One footer for Analyze, Settlement Desk and Kyle. It used to be a single
+       brand line here and a two-column disclaimer on the other two pages, at
+       three different sizes and top margins; now all three carry the same rule,
+       the same brand line and the page's own disclaimer on the right.
+
+       The separators are elements rather than "·" typed between text nodes. As
+       text they sat inside a flex container, where each run became an anonymous
+       flex item and the 8px gap stacked on top of the literal spaces — so the
+       gaps around the middle dots were visibly wider on one side than the
+       other. Real items get exactly one gap each. */
     .footer {
       margin-top: 56px;
-      font-size: 12px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 11.5px;
       color: var(--muted);
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
       font-weight: 400;
     }
-    .footer .dot-sm { font-size: 6px; color: var(--orange); }
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .footer-sep { color: var(--muted); opacity: 0.55; }
+    .footer-note { color: var(--muted); }
+    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
+    .footer a:hover { color: var(--accent-ink); }
+    .footer .dot-sm { font-size: 6px; color: var(--accent-ink); line-height: 1; }
+
+    /* An accent-coloured link inside body copy. Ten of these were written as
+       inline style="color:var(--orange)", which is the brand accent rather than
+       the accent-as-text token — so they stayed at 4.29:1 on a dark card after
+       the stylesheet moved to --accent-ink. One class, one place to fix. */
+    .link-accent {
+      color: var(--accent-ink);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .link-accent:hover { text-decoration: underline; }
 
     /* ── Resolved box ── */
     .resolved-box { position: relative; overflow: hidden; }
@@ -1009,7 +1185,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 16px 30px 13px;
+      padding: 16px var(--card-pad-x) 13px;
       border-bottom: 1px solid var(--border);
     }
     .resolved-header-label {
@@ -1027,9 +1203,9 @@
       border-radius: 20px;
       border: 1px solid currentColor;
     }
-    .resolved-yes .resolved-pill { color: var(--green); }
-    .resolved-no  .resolved-pill { color: var(--red); }
-    .resolved-body { padding: 22px 30px 26px; }
+    .resolved-yes .resolved-pill { color: var(--green-ink); }
+    .resolved-no  .resolved-pill { color: var(--red-ink); }
+    .resolved-body { padding: 22px var(--card-pad-x) 26px; }
     .resolved-winner {
       font-size: 22px;
       font-weight: 600;
@@ -1040,8 +1216,8 @@
       overflow-wrap: break-word;
     }
     .resolved-check { margin-right: 4px; }
-    .resolved-yes .resolved-check { color: var(--green); }
-    .resolved-no  .resolved-check { color: var(--red); }
+    .resolved-yes .resolved-check { color: var(--green-ink); }
+    .resolved-no  .resolved-check { color: var(--red-ink); }
     .resolved-meta {
       display: flex;
       flex-wrap: wrap;
@@ -1061,7 +1237,7 @@
 
     /* ── Show more ── */
     .show-more-row {
-      padding: 13px 30px;
+      padding: 13px var(--card-pad-x);
       border-top: 1px solid var(--border);
       text-align: center;
     }
@@ -1077,11 +1253,11 @@
       padding: 7px 18px;
       transition: border-color 0.15s, color 0.15s;
     }
-    .show-more-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .show-more-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
 
     /* ── Loading / error ── */
     .mi-loading, .mi-error {
-      padding: 48px 30px;
+      padding: 48px var(--card-pad-x);
       font-size: 13px;
     }
     .mi-loading {
@@ -1106,7 +1282,7 @@
       flex-shrink: 0;
     }
     .mi-error {
-      color: var(--red);
+      color: var(--red-ink);
       display: flex;
       align-items: flex-start;
       gap: 18px;
@@ -1133,7 +1309,7 @@
       flex-shrink: 0;
       margin-top: 2px;
     }
-    .retry-btn:hover { border-color: var(--red); color: var(--red); }
+    .retry-btn:hover { border-color: var(--red); color: var(--red-ink); }
 
     /* ── Input validation hint ── */
     .input-hint {
@@ -1144,19 +1320,62 @@
       transition: color 0.15s;
     }
     .input-hint:not(:empty) { margin: -4px 0 10px; }
-    .hint-error { color: var(--red); }
+    .hint-error { color: var(--red-ink); }
     .hint-ok    { color: var(--muted); }
     .hint-info  { color: var(--muted); }
     .search-row input.input-invalid { border-color: var(--red); }
     .search-row input.input-valid   { border-color: var(--border-hi, var(--border)); }
 
-    /* ── Empty state ── */
+    /* ── Empty state ──
+       There were four of these: a bare centred sentence on Watchlist and
+       Calendar, a dashed box on the home panel, a small italic line inside the
+       Gemini cards, and a titled card on Discover — so the same "nothing here
+       yet" moment looked like a different product on each tab. Two now, split by
+       scope rather than by which file happened to render it:
+
+         .empty-state  a whole panel is empty. Card, centred, title + one line,
+                       and an optional action.
+         .empty-inline a region inside a card is empty. One muted line on the
+                       card's own inset, upright — italic is the app's footnote
+                       voice and reads as a caveat rather than a state. */
     .empty-state {
-      padding: 48px 30px;
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.7;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-sm);
+      padding: 52px var(--card-pad-x);
       text-align: center;
+    }
+    .empty-state-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-bright);
+      letter-spacing: -0.1px;
+    }
+    .empty-state-copy {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.65;
+      margin: 6px auto 0;
+      max-width: 46ch;
+    }
+    .empty-state-action { margin-top: 18px; }
+    /* Vertical rhythm only. The inset comes from whatever contains it — a card
+       body, a Discover section, a calendar cell — so this lines up with the rows
+       it replaces instead of being indented past them. */
+    .empty-inline {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.6;
+      padding: 12px 0 4px;
+    }
+    /* Dropped straight into a card rather than into a padded body, it has no
+       container to take an inset from, so it takes the card's own. */
+    .mi-card > .empty-inline,
+    .mi-card > .cal-empty {
+      padding-left: var(--card-pad-x);
+      padding-right: var(--card-pad-x);
+      padding-bottom: 16px;
     }
 
     /* ── First-run state ── */
@@ -1172,7 +1391,7 @@
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--orange);
+      color: var(--accent-ink);
       margin-bottom: 10px;
     }
     .start-title {
@@ -1207,7 +1426,7 @@
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--orange);
+      color: var(--accent-ink);
     }
     .start-feature-body {
       margin-top: 6px;
@@ -1215,19 +1434,26 @@
       line-height: 1.6;
       color: var(--muted);
     }
+    /* Same container idiom as .start-features directly above it. These two rows
+       sat side by side in two different languages: three separate 10px cards on
+       a tint, then a single bordered strip split by 1px hairlines — where the
+       hairlines ran straight into the strip's rounded corners. The rows say
+       different things, so they stay typographically distinct (accent titles
+       above, muted labels here), but they are built the same way. */
     .start-proof {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px;
-      margin-top: 22px;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    /* Same fill as .start-feature above. The two rows differ in what they say,
+       and that is carried by the type — an accent title up there, a muted label
+       here — rather than by one row being tinted and the other white. */
+    .start-proof-item {
       border: 1px solid var(--border);
       border-radius: 10px;
-      overflow: hidden;
-      background: var(--border);
-    }
-    .start-proof-item {
-      background: var(--card);
-      padding: 13px 16px;
+      background: var(--rule-bg);
+      padding: 15px 18px;
     }
     .start-proof-label {
       display: block;
@@ -1268,7 +1494,7 @@
       cursor: pointer;
       font-family: inherit;
     }
-    .start-example:hover { border-color: var(--orange); color: var(--orange); }
+    .start-example:hover { border-color: var(--orange); color: var(--accent-ink); }
     .start-note {
       margin-top: 22px;
       padding-top: 16px;
@@ -1280,7 +1506,7 @@
     @media (max-width: 700px) {
       .start-card { padding: 24px 18px; }
       .start-features { grid-template-columns: 1fr; gap: 10px; }
-      .start-proof { grid-template-columns: 1fr; }
+      .start-proof { grid-template-columns: 1fr; gap: 10px; }
     }
 
     /* ── Feature 10: ML label above moneyline ── */
@@ -1294,7 +1520,6 @@
       font-weight: 600;
       letter-spacing: 0.5px;
       color: var(--muted);
-      opacity: 0.7;
       line-height: 1;
       margin-bottom: 2px;
       text-transform: uppercase;
@@ -1337,7 +1562,7 @@
     }
 
     /* ── Feature 2: volume distribution bar ── */
-    .vd-wrap { padding: 16px 30px 22px; }
+    .vd-wrap { padding: 16px var(--card-pad-x) 22px; }
     .vd-bar {
       display: flex;
       height: 20px;
@@ -1368,7 +1593,7 @@
     .divergence-callout {
       background: rgba(245, 158, 11, 0.06);
       border: 1px solid rgba(245, 158, 11, 0.22);
-      border-left: 2px solid #d49010;
+      border-left: 2px solid var(--amber);
       border-radius: 0 8px 8px 0;
       display: flex;
       align-items: flex-start;
@@ -1378,7 +1603,7 @@
       font-size: 13px;
       line-height: 1.6;
     }
-    .divergence-icon { color: #d49010; font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .divergence-icon { color: var(--amber-ink); font-size: 15px; flex-shrink: 0; margin-top: 1px; }
     .divergence-body { color: var(--text); }
 
     /* ── Feature 5: best odds badge ── */
@@ -1386,7 +1611,7 @@
       display: inline-block;
       background: rgba(29, 185, 84, 0.1);
       border: 1px solid rgba(29, 185, 84, 0.3);
-      color: var(--green);
+      color: var(--green-ink);
       font-size: 9px;
       font-weight: 600;
       padding: 2px 6px;
@@ -1425,8 +1650,8 @@
     .diff-changes { color: var(--text); }
     .diff-change-item { padding: 3px 0; }
     .diff-item-name { color: var(--muted); }
-    .diff-up { color: var(--green); font-size: 12px; }
-    .diff-dn { color: var(--red); font-size: 12px; }
+    .diff-up { color: var(--green-ink); font-size: 12px; }
+    .diff-dn { color: var(--red-ink); font-size: 12px; }
 
     /* ── Feature 9: mobile swipeable compare ── */
     .compare-swipe-hint {
@@ -1437,10 +1662,10 @@
     }
 
     /* ── Rule alerts card ── */
-    .rule-alerts-card { border-left: 2px solid #d49010; }
-    .rule-alerts-label { color: #d49010 !important; }
+    .rule-alerts-card { border-left: 2px solid var(--amber); }
+    .rule-alerts-label { color: var(--amber-ink) !important; }
     .rule-flag-item {
-      padding: 13px 30px 15px;
+      padding: 13px var(--card-pad-x) 15px;
       border-top: 1px solid var(--border);
     }
     .rule-flag-item:first-of-type { border-top: none; }
@@ -1450,12 +1675,12 @@
       gap: 8px;
       margin-bottom: 4px;
     }
-    .rule-flag-icon { color: #d49010; font-size: 13px; }
+    .rule-flag-icon { color: var(--amber-ink); font-size: 13px; }
     .rule-flag-label {
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.3px;
-      color: #d49010;
+      color: var(--amber-ink);
       text-transform: uppercase;
     }
     .rule-flag-desc {
@@ -1525,7 +1750,7 @@
       line-height: 1.7;
     }
     .news-hint-link {
-      color: var(--orange);
+      color: var(--accent-ink);
       text-decoration: none;
       font-weight: 600;
     }
@@ -1537,7 +1762,7 @@
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding: 12px 30px;
+      padding: 12px var(--card-pad-x);
       border-bottom: 1px solid var(--border);
       font-size: 13px;
       gap: 12px;
@@ -1560,7 +1785,7 @@
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      padding: 14px 30px;
+      padding: 14px var(--card-pad-x);
       background: rgba(232, 64, 64, 0.05);
       border-bottom: 1px solid rgba(232, 64, 64, 0.15);
     }
@@ -1570,26 +1795,26 @@
       line-height: 1.6;
       color: var(--text);
     }
-    .upset-body strong { color: var(--red); }
+    .upset-body strong { color: var(--red-ink); }
 
     /* ── Round 3: Momentum arrows ── */
     .momentum-arrow { font-size: 11px; margin-left: 4px; font-weight: 700; vertical-align: middle; }
-    .momentum-up  { color: var(--green); }
-    .momentum-dn  { color: var(--red); }
+    .momentum-up  { color: var(--green-ink); }
+    .momentum-dn  { color: var(--red-ink); }
 
     /* ── Round 3: Plain talk probability ── */
     .outcome-left-col { flex: 1; min-width: 0; }
     .outcome-plain-talk { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 400; }
 
     /* ── Round 3: Dead money indicator ── */
-    .dead-money-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--red); border: 1px solid rgba(232,64,64,0.35); border-radius: 4px; padding: 1px 6px; opacity: 0.9; }
-    .liquid-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--green); border: 1px solid rgba(29,185,84,0.35); border-radius: 4px; padding: 1px 6px; opacity: 0.9; }
+    .dead-money-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--red-ink); border: 1px solid color-mix(in srgb, var(--red) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
+    .liquid-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--green-ink); border: 1px solid color-mix(in srgb, var(--green) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
 
     /* ── Round 3: Spread cost note ── */
     .spread-cost-note { font-size: 11px; color: var(--muted); }
 
     /* ── Keyboard shortcut hint ── */
-    .shortcut-hint { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; opacity: 0.7; }
+    .shortcut-hint { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; }
     .shortcut-hint kbd {
       font-family: inherit;
       font-size: 10px;
@@ -1621,21 +1846,21 @@
     .util-summary::-webkit-details-marker { display: none; }
     .util-summary::before { content: "▶"; font-size: 8px; transition: transform 0.15s; }
     .util-details[open] .util-summary::before { transform: rotate(90deg); }
-    .util-summary:hover { border-color: var(--orange); color: var(--orange); }
+    .util-summary:hover { border-color: var(--orange); color: var(--accent-ink); }
     .util-body { margin-top: 12px; }
 
     /* ── Round 3: Volume-weighted consensus ── */
-    .consensus-body { padding: 12px 30px 20px; font-size: 13px; color: var(--text); line-height: 1.5; }
+    .consensus-body { padding: 12px var(--card-pad-x) 20px; font-size: 13px; color: var(--text); line-height: 1.5; }
     .consensus-sep { color: var(--muted); }
 
     /* ── Round 3: Resolution confidence score ── */
-    .resolution-confidence { display: flex; align-items: center; gap: 10px; padding: 10px 30px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .resolution-confidence { display: flex; align-items: center; gap: 10px; padding: 10px var(--card-pad-x) 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .rc-label { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; color: var(--muted); text-transform: uppercase; }
     .rc-val   { font-size: 12px; font-weight: 600; }
     .rc-hint  { font-size: 12px; color: var(--muted); }
 
     /* ── Round 3: Resolution checklist ── */
-    .rule-check-item { display: flex; gap: 12px; padding: 10px 30px; border-top: 1px solid var(--border); }
+    .rule-check-item { display: flex; gap: 12px; padding: 10px var(--card-pad-x); border-top: 1px solid var(--border); }
     .rule-check-item:first-child { border-top: none; }
     .rule-check-item--live { background: rgba(255,255,255,0.03); }
     .rule-check-icon { flex-shrink: 0; color: var(--muted); font-size: 13px; margin-top: 1px; }
@@ -1644,14 +1869,14 @@
 
     /* ── Round 3: Find similar markets ── */
     .similar-markets-card { }
-    .similar-markets-body { padding: 10px 30px 6px; font-size: 13px; color: var(--muted); }
-    .similar-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 30px 18px; }
-    .similar-link { font-size: 12px; font-weight: 500; color: var(--orange); text-decoration: none; border: 1px solid rgba(217,79,32,0.35); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
-    .similar-link:hover { background: rgba(217,79,32,0.08); border-color: var(--orange); }
+    .similar-markets-body { padding: 10px var(--card-pad-x) 6px; font-size: 13px; color: var(--muted); }
+    .similar-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px var(--card-pad-x) 18px; }
+    .similar-link { font-size: 12px; font-weight: 500; color: var(--accent-ink); text-decoration: none; border: 1px solid var(--accent-line); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
+    .similar-link:hover { background: var(--accent-tint); border-color: var(--orange); }
 
     /* ── Round 3: Edge calculator ("What's your edge?") ── */
     .edge-calc-card { }
-    .edge-calc-body { padding: 14px 30px 20px; }
+    .edge-calc-body { padding: 14px var(--card-pad-x) 20px; }
     .edge-input-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
     .edge-input-label { font-size: 13px; color: var(--muted); flex: 1; min-width: 160px; }
     .edge-input-wrap { display: flex; align-items: center; gap: 4px; }
@@ -1667,17 +1892,17 @@
 
     /* ── Round 3: Arb calculator in compare ── */
     .arb-card { border-left: 2px solid var(--green); }
-    .arb-label { color: var(--green) !important; }
-    .arb-body { padding: 10px 30px 6px; font-size: 13px; color: var(--text); line-height: 1.7; }
+    .arb-label { color: var(--green-ink) !important; }
+    .arb-body { padding: 10px var(--card-pad-x) 6px; font-size: 13px; color: var(--text); line-height: 1.7; }
     .arb-cost { font-weight: 600; color: var(--muted); }
-    .arb-profit { font-weight: 600; color: var(--green); }
-    .arb-disclaimer { padding: 6px 30px 16px; font-size: 11px; color: var(--muted); }
+    .arb-profit { font-weight: 600; color: var(--green-ink); }
+    .arb-disclaimer { padding: 6px var(--card-pad-x) 16px; font-size: 11px; color: var(--muted); }
 
     /* ── Same event on other platforms ── */
     .xmatch-card { border-left: 2px solid var(--orange); }
-    .xmatch-body { padding: 4px 30px 20px; }
+    .xmatch-body { padding: 4px var(--card-pad-x) 20px; }
     .xmatch-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 8px 0; }
-    .xmatch-failed { color: var(--red); }
+    .xmatch-failed { color: var(--red-ink); }
     .xmatch-venue { padding: 12px 0; border-bottom: 1px solid var(--border); }
     .xmatch-venue:last-child { border-bottom: none; }
     .xmatch-platform { font-size: 9px; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
@@ -1693,17 +1918,23 @@
     .xmatch-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
     .xmatch-add-btn {
       font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 7px; cursor: pointer;
-      background: var(--orange); border: none; color: #fff; font-family: inherit;
+      background: var(--accent-fill); border: none; color: #fff; font-family: inherit;
     }
     .xmatch-add-btn:hover { opacity: 0.88; }
-    .xmatch-open-link, .xmatch-manual-link { font-size: 11px; color: var(--muted); text-decoration: none; }
-    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--orange); }
+    /* These are the only way out to the other venue, and they were 13px tall —
+       under the 24px WCAG 2.2 minimum for a pointer target. The inline-flex box
+       gives them a real height without changing where they sit. */
+    .xmatch-open-link, .xmatch-manual-link {
+      font-size: 11px; color: var(--muted); text-decoration: none;
+      display: inline-flex; align-items: center; min-height: 24px;
+    }
+    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--accent-ink); }
     .xmatch-all-btn {
       font-size: 11px; font-weight: 600; padding: 7px 14px; border-radius: 7px; cursor: pointer;
-      background: transparent; border: 1px solid var(--orange); color: var(--orange);
+      background: transparent; border: 1px solid var(--orange); color: var(--accent-ink);
       font-family: inherit; margin: 8px 0 4px;
     }
-    .xmatch-all-btn:hover { background: var(--orange); color: #fff; }
+    .xmatch-all-btn:hover { background: var(--accent-fill); color: #fff; }
     .xmatch-manual { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
 
     /* ── Round 3: Platform footnotes in compare ── */
@@ -1711,19 +1942,19 @@
 
     /* ── Round 3: Bookmarks & history panels ── */
     .panel-btn { font-size: 11px; font-weight: 500; padding: 5px 11px; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: inherit; }
-    .panel-btn:hover, .panel-btn.active { border-color: var(--orange); color: var(--orange); }
-    .panel-btn.bookmarked { border-color: var(--green); color: var(--green); }
+    .panel-btn:hover, .panel-btn.active { border-color: var(--orange); color: var(--accent-ink); }
+    .panel-btn.bookmarked { border-color: var(--green); color: var(--green-ink); }
     .panels-bar { display: none; }
     .history-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; background: var(--card); border: 1px solid var(--border); border-radius: 10px; min-width: 340px; max-width: 480px; box-shadow: var(--shadow); display: none; }
     .bookmarks-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; background: var(--card); border: 1px solid var(--border); border-radius: 10px; min-width: 340px; max-width: 480px; box-shadow: var(--shadow); display: none; }
     .history-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
     .history-item:last-child { border-bottom: none; }
     .history-item:hover { background: var(--card-hover); }
-    .history-platform { font-size: 10px; font-weight: 600; color: var(--orange); flex-shrink: 0; }
+    .history-platform { font-size: 10px; font-weight: 600; color: var(--accent-ink); flex-shrink: 0; }
     .history-title { font-size: 12px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .history-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
     .history-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; flex-shrink: 0; }
-    .history-remove:hover { color: var(--red); }
+    .history-remove:hover { color: var(--red-ink); }
     .history-empty { padding: 18px; font-size: 13px; color: var(--muted); text-align: center; }
     .fetched-at { font-size: 11px; color: var(--muted); }
     .info-row { display: flex; flex-wrap: wrap; gap: 4px 0; }
@@ -1736,13 +1967,13 @@
       50%       { opacity: 0.35; }
     }
     .sk-block { background: var(--bar-bg); border-radius: 6px; }
-    .sk-event-head { padding: 28px 30px; }
+    .sk-event-head { padding: 28px var(--card-pad-x); }
     .sk-tags { display: flex; gap: 8px; margin-bottom: 16px; }
     .sk-outcome-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 30px;
+      padding: 20px var(--card-pad-x);
     }
     .sk-stats-grid {
       display: grid;
@@ -1758,6 +1989,9 @@
 
       .app-header { margin-bottom: 24px; }
       .app-title  { font-size: 18px; }
+
+      /* Every card body narrows with the page from this one value. */
+      :root { --card-pad-x: 18px; }
 
       .search-row { flex-direction: column; }
       .search-row button { width: 100%; min-height: 44px; text-align: center; }
@@ -1830,6 +2064,8 @@
       .xmatch-body { padding: 4px 18px 16px; }
       .xmatch-actions { gap: 10px; }
       .xmatch-add-btn { flex: 1; min-width: 140px; }
+
+      .footer { align-items: flex-start; flex-direction: column; gap: 10px; }
     }
 
     /* ── Small phones (< 400px) ── */
@@ -1845,13 +2081,32 @@
     /* ═══════════════════════════════════════════════════════════════════ */
 
     /* Tab navigation */
+    /* The row scrolls when it does not fit — at 390px "Rewards" sits past the
+       right edge — but the scrollbar is hidden, so there was nothing to say more
+       tabs existed: the last one just stopped at the screen edge.
+
+       The four backgrounds are the CSS-only scroll-shadow pair. The two `local`
+       layers are painted in the page colour and scroll with the content; the two
+       `scroll` layers are the shadows and stay pinned to the box. At each end the
+       cover sits over the shadow and hides it, so a hint appears on whichever
+       side has more to reveal and on neither side when it all fits — no
+       scroll listener, and nothing to keep in sync. */
     .tab-bar {
       display: flex;
       gap: 2px;
       margin-bottom: 18px;
       border-bottom: 1px solid var(--border);
       overflow-x: auto;
+      overscroll-behavior-x: contain;
       scrollbar-width: none;
+      background:
+        linear-gradient(to right, var(--bg) 40%, transparent) left center,
+        linear-gradient(to left,  var(--bg) 40%, transparent) right center,
+        radial-gradient(farthest-side at 0 50%,   rgba(0,0,0,0.16), transparent) left center,
+        radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.16), transparent) right center;
+      background-repeat: no-repeat;
+      background-size: 36px 100%, 36px 100%, 13px 100%, 13px 100%;
+      background-attachment: local, local, scroll, scroll;
     }
     .tab-bar::-webkit-scrollbar { display: none; }
     .tab-btn {
@@ -1870,7 +2125,7 @@
     }
     .tab-btn:hover { color: var(--text-bright); }
     .tab-btn.active {
-      color: var(--orange);
+      color: var(--accent-ink);
       border-bottom-color: var(--orange);
     }
     .tab-content { display: none; }
@@ -1883,8 +2138,8 @@
       gap: 10px;
       padding: 10px 16px;
       margin-bottom: 12px;
-      background: rgba(217,79,32,0.06);
-      border: 1px solid rgba(217,79,32,0.2);
+      background: var(--accent-tint);
+      border: 1px solid var(--accent-line);
       border-radius: 8px;
       font-size: 13px;
       color: var(--text);
@@ -2026,7 +2281,7 @@
     .wl-platform {
       font-size: 10px;
       font-weight: 600;
-      color: var(--orange);
+      color: var(--accent-ink);
       margin-bottom: 4px;
       display: block;
     }
@@ -2041,58 +2296,79 @@
     .wl-age { font-size: 11px; color: var(--muted); margin-top: 8px; }
     .wl-no-data { font-size: 12px; color: var(--muted); font-style: italic; }
 
-    /* P&L Calculator */
-    .pnl-body { padding: 16px 30px 22px; }
-    .pnl-input-grid {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px 12px;
-      align-items: center;
-      margin-bottom: 16px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .pnl-input-grid input {
-      width: 100px;
-      padding: 6px 10px;
+    /* ── Panel form controls ──
+       The Tools panels had grown five different text inputs: 100px, 80px, 80px,
+       204px and full-width, each with its own padding, radius and focus colour.
+       Two of them were narrower than their own placeholder, so the Parlay
+       probability field read "Probal" and the webhook fields cut off mid-URL.
+
+       One base, and a width chosen by what the field holds rather than by which
+       panel it landed in: numbers get a fixed column wide enough for the label
+       above them, free text and URLs get the full row. */
+    .field {
+      padding: 8px 12px;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       color: var(--text-bright);
       font-family: inherit;
       font-size: 14px;
-      text-align: center;
+      min-height: 36px;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .pnl-input-grid input:focus { outline: none; border-color: var(--orange); }
-    .pnl-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); }
+    .field::placeholder { color: var(--muted); }
+    .field:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px var(--accent-ring);
+    }
+    .field--num { width: 112px; text-align: right; }
+    .field--wide { width: 100%; }
+    /* Native spinners are a different control language from everything else on
+       the page, and they crowd a right-aligned number. The value stays typable
+       and arrow keys still step it. */
+    .field--num::-webkit-outer-spin-button,
+    .field--num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .field--num { -moz-appearance: textfield; appearance: textfield; }
+
+    /* A label-and-field row keeps a readable measure instead of stretching the
+       label to one edge of a 1450px card and the field to the other. */
+    .panel-form { max-width: 440px; }
+
+    /* P&L Calculator */
+    .pnl-body { padding: 16px var(--card-pad-x) 22px; }
+    .pnl-input-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px 16px;
+      align-items: center;
+      margin-bottom: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 440px;
+    }
+    /* Both result panels are filled in by script after the first input event, so
+       before that they rendered as an empty grey bar with a border — read as a
+       broken element rather than a waiting one. :empty collapses them until they
+       actually hold a result. */
+    .pnl-result:empty, .parlay-result:empty { display: none; }
+    .pnl-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); max-width: 440px; }
     .pnl-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; color: var(--text); }
     .pnl-row strong { color: var(--text-bright); }
 
     /* Parlay Calculator */
-    .parlay-body { padding: 16px 30px 22px; }
-    .parlay-desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .parlay-body { padding: 16px var(--card-pad-x) 22px; }
+    .parlay-desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; max-width: 62ch; }
     .parlay-leg {
       display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 10px;
+      margin-bottom: 10px;
+      max-width: 620px;
     }
-    .parlay-leg input {
-      padding: 8px 12px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text-bright);
-      font-family: inherit;
-      font-size: 13px;
-    }
-    .parlay-leg input:focus { outline: none; border-color: var(--orange); }
-    .parlay-name { flex: 1; }
-    .parlay-prob { width: 80px; text-align: center; }
-    .parlay-actions { display: flex; align-items: center; gap: 12px; margin: 8px 0 14px; }
-    .parlay-bet-row { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
-    .parlay-bet-row input { width: 80px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-family: inherit; font-size: 14px; text-align: center; }
-    .parlay-bet-row input:focus { outline: none; border-color: var(--orange); }
-    .parlay-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); }
+    .parlay-name { flex: 1; min-width: 0; }
+    .parlay-actions { display: flex; align-items: center; gap: 16px; margin: 12px 0 16px; flex-wrap: wrap; }
+    .parlay-bet-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .parlay-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); max-width: 620px; }
     .parlay-combined { text-align: center; margin-bottom: 12px; }
     .parlay-combined-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
     .parlay-combined-pct { font-size: 36px; font-weight: 700; color: var(--text-bright); letter-spacing: -1px; }
@@ -2114,7 +2390,7 @@
     }
     .cal-today { border-color: var(--orange); }
     .cal-day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
-    .cal-today .cal-day-label { color: var(--orange); }
+    .cal-today .cal-day-label { color: var(--accent-ink); }
     .cal-market {
       font-size: 12px;
       color: var(--text);
@@ -2126,8 +2402,10 @@
       gap: 6px;
     }
     .cal-market:last-child { border-bottom: none; }
-    .cal-market:hover { color: var(--orange); }
-    .cal-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+    .cal-market:hover { color: var(--accent-ink); }
+    /* Kept as an alias so existing call sites keep working; both render the one
+       inline empty state. */
+    .cal-empty { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
     .cal-note { font-size: 12px; color: var(--muted); margin-top: 12px; font-style: italic; }
     .cal-market-sub { font-size: 11px; color: var(--muted); margin-left: 6px; }
     .cal-later {
@@ -2147,7 +2425,7 @@
     }
 
     /* Price alerts */
-    .alert-body { padding: 14px 30px 20px; }
+    .alert-body { padding: 14px var(--card-pad-x) 20px; }
     .alert-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--text); margin-bottom: 12px; }
     .alert-select {
       padding: 6px 10px;
@@ -2176,7 +2454,7 @@
     .my-pred-saved { font-size: 12px; color: var(--muted); margin-top: 8px; font-style: italic; }
 
     /* Embed */
-    .embed-body { padding: 14px 30px 20px; }
+    .embed-body { padding: 14px var(--card-pad-x) 20px; }
     .embed-desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
     .embed-code-wrap { display: flex; align-items: flex-start; gap: 8px; }
     .embed-code {
@@ -2205,12 +2483,33 @@
       transition: background 0.12s;
     }
     .corr-item:last-child { border-bottom: none; }
-    .corr-item:hover { background: var(--card-hover); color: var(--orange); }
+    .corr-item:hover { background: var(--card-hover); color: var(--accent-ink); }
 
     /* Webhook settings */
-    .webhook-body { padding: 14px 30px 20px; }
-    .webhook-row { margin-bottom: 10px; }
-    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+    /* URLs and tokens are long, so these rows get the full readable measure
+       rather than a 204px box that cut every placeholder off mid-path. */
+    .webhook-body { padding: 14px var(--card-pad-x) 20px; }
+    .webhook-form { max-width: 560px; }
+    .webhook-row { margin-bottom: 12px; }
+    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .webhook-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* The one primary action style, so a panel's main button does not have to be
+       told apart from its secondary by position alone. */
+    .btn-primary {
+      background: var(--accent-fill);
+      border: 1px solid var(--accent-fill);
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      min-height: 34px;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
 
     /* Arb hint row */
     .arb-hint-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
@@ -2223,13 +2522,6 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 8px;
-    }
-    .discover-platform-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      margin-bottom: 0;
     }
     .discover-platform-count { font-size: 11px; color: var(--muted); }
     .discover-market {
@@ -2254,26 +2546,33 @@
     .discover-market-ticker {
       font-family: 'IBM Plex Mono', ui-monospace, monospace;
       font-size: 10.5px;
-      color: var(--orange);
-      background: rgba(217,79,32,0.08);
+      color: var(--accent-ink);
+      background: var(--accent-tint);
       border-radius: 4px;
       padding: 2px 6px;
     }
     .discover-market-result { color: var(--text-mid); font-weight: 600; }
+    /* The card treatment the Analyze and Rewards tabs already use to introduce
+       themselves. Discover was the one landing panel of the three set directly
+       on the page ground with a rule under it, so moving between tabs changed
+       the shape of the page as well as its contents. Used only here. */
     .section-intro {
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
       gap: 24px;
-      margin: 6px 0 22px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid var(--border);
+      margin: 0 0 12px;
+      padding: 26px var(--card-pad-x);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-sm);
     }
     .section-eyebrow {
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.1em;
-      color: var(--orange);
+      color: var(--accent-ink);
       margin-bottom: 8px;
     }
     .section-intro-title {
@@ -2334,7 +2633,7 @@
       font-weight: 700;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: var(--orange);
+      color: var(--accent-ink);
     }
     .position-news-title {
       margin-top: 4px;
@@ -2353,8 +2652,12 @@
       flex-shrink: 0;
       border: 0;
       background: transparent;
-      color: var(--orange);
+      color: var(--accent-ink);
       cursor: pointer;
+      /* 22px tall, 2px under the WCAG 2.2 pointer-target minimum. */
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
       font: inherit;
       font-size: 12px;
       font-weight: 600;
@@ -2412,7 +2715,7 @@
     }
     .position-news-arrow {
       flex-shrink: 0;
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 14px;
     }
     .position-news-empty {
@@ -2427,16 +2730,18 @@
 
     /* Rewards tab */
     .rewards-shell { display: grid; gap: 18px; }
+    /* No left accent bar. The Analyze hero is a plain card and this one had a
+       3px orange rule down its edge, so the two landing panels of the same app
+       introduced themselves differently. The eyebrow already carries the accent. */
     .rewards-hero {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: end;
       gap: 28px;
-      padding: 28px 30px;
-      border-left: 3px solid var(--orange);
+      padding: 28px var(--card-pad-x);
     }
     .rewards-eyebrow {
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.1em;
@@ -2458,18 +2763,19 @@
       font-size: 13.5px;
       line-height: 1.65;
     }
+    /* Separate cards, matching .start-proof on the Analyze hero. Both were the
+       hairline-split strip, where the internal rules ran into the container's
+       rounded corners. */
     .rewards-summary {
       display: grid;
       grid-template-columns: repeat(3, auto);
-      gap: 1px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--border);
+      gap: 10px;
     }
     .rewards-summary-item {
       min-width: 92px;
       background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       padding: 12px 14px;
     }
     .rewards-summary-value {
@@ -2519,13 +2825,23 @@
       gap: 12px;
       padding: 20px 24px;
     }
+    /* The cards in a row are stretched to a common height by the grid, but their
+       body copy is not the same length, so each "Program details" link landed
+       wherever its own paragraph happened to end — four links at four heights
+       across one row, with dead space under the short ones. Making each card a
+       column and letting the description take the slack pushes every link to the
+       same baseline, which is what makes the row read as a set. */
     .rewards-program-item {
       min-width: 0;
       padding: 16px;
       border: 1px solid var(--border);
       border-radius: 10px;
       background: var(--card);
+      display: flex;
+      flex-direction: column;
     }
+    .rewards-program-desc { flex: 1; }
+    .rewards-program-item .rewards-program-link { margin-top: 14px; align-self: flex-start; }
     .rewards-program-name {
       display: flex;
       align-items: center;
@@ -2542,9 +2858,11 @@
       line-height: 1.6;
     }
     .rewards-program-link {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
       margin-top: 10px;
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 11.5px;
       font-weight: 600;
       text-decoration: none;
@@ -2632,18 +2950,24 @@
       margin-top: 10px;
       border: 0;
       background: transparent;
-      color: var(--orange);
+      color: var(--accent-ink);
       cursor: pointer;
       font: inherit;
       font-size: 11.5px;
       font-weight: 600;
       padding: 3px 0;
     }
+    /* White on the brand green is 3.3:1 at 9px. A green tint behind the green
+       ink does not rescue it either — --green-ink is solved against the card, and
+       a 15% tint drops it to 4.1:1. So the pill keeps the card behind it (where
+       the ink measures 4.83:1) and is drawn with a green hairline instead. Same
+       treatment as .gem-live-pill, so the app's two status pills match. */
     .rewards-badge-pill {
       padding: 2px 7px;
-      border-radius: 10px;
-      background: var(--green);
-      color: #fff;
+      border-radius: 999px;
+      background: transparent;
+      border: 1px solid color-mix(in srgb, var(--green) 45%, transparent);
+      color: var(--green-ink);
       font-size: 9px;
       font-weight: 700;
       letter-spacing: 0.04em;
@@ -2671,44 +2995,84 @@
 
     /* Gemini public data — browse, live book, volume */
     .gem-browse-card { margin-bottom: 20px; }
-    .gem-browse-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+    .gem-browse-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 12px; align-items: stretch; }
     .gem-search-input, .gem-select {
-      background: var(--card); border: 1px solid var(--border); color: var(--text);
-      border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+      background: var(--card); border: 1px solid var(--border); color: var(--text-bright);
+      border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit;
+      min-height: 36px;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .gem-search-input { flex: 1 1 220px; }
-    .gem-search-input:focus, .gem-select:focus { outline: none; border-color: var(--orange); }
+    .gem-search-input { flex: 1 1 240px; min-width: 0; }
+    .gem-search-input::placeholder { color: var(--muted); }
+    .gem-search-input:focus, .gem-select:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px var(--accent-ring);
+    }
+    /* The one native control left on the page — it drew the OS dropdown chrome
+       next to custom-styled fields. Own chevron, drawn from the border colour so
+       it follows the theme. */
+    .gem-select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 32px;
+      background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position: right 14px center, right 9px center;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+      cursor: pointer;
+    }
     .gem-feed-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
     .gem-feed-btn {
       background: transparent; border: 1px solid var(--border); color: var(--muted);
       border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
     }
     .gem-feed-btn:hover { color: var(--text-bright); border-color: var(--orange); }
-    .gem-feed-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .gem-feed-btn.active { background: var(--accent-fill); border-color: var(--orange); color: #fff; }
     .gem-more-btn { margin-top: 6px; }
+    /* A status pill on a --border fill left --muted text at 4.2:1. The fill moves
+       to the page ground, where --muted is already verified, and the pill keeps a
+       hairline so it still reads as a pill. */
     .gem-live-pill {
       font-size: 10px; font-weight: 600; letter-spacing: 0.2px; padding: 2px 8px;
-      border-radius: 10px; background: var(--border); color: var(--muted); margin-left: 8px;
+      border-radius: 999px; background: var(--bg); border: 1px solid var(--border);
+      color: var(--muted); margin-left: 8px;
     }
-    .gem-live-pill.gem-live-on { background: var(--green); color: #fff; }
-    .gem-live-pill.gem-live-off { background: var(--border); color: var(--muted); }
+    .gem-live-pill.gem-live-on {
+      background: transparent;
+      border-color: color-mix(in srgb, var(--green) 45%, transparent);
+      color: var(--green-ink);
+    }
+    .gem-live-pill.gem-live-off { background: var(--bg); border-color: var(--border); color: var(--muted); }
     .gem-strike-row { font-size: 12px; color: var(--text); margin: 4px 0 10px; line-height: 1.6; }
     .gem-book-wrap { overflow-x: auto; }
     .gem-book-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .gem-book-table th, .gem-book-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .gem-book-table th, .gem-book-table td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
     .gem-book-table th:first-child, .gem-book-table td:first-child { text-align: left; }
+    /* The outer columns give up their cell padding so the table's first and last
+       columns start and end on the card's own inset — otherwise "Outcome" sits
+       10px right of the section label above it and "Book size" 10px shy of the
+       card's right margin. Inner columns keep theirs. */
+    .gem-book-table th:first-child, .gem-book-table td:first-child { padding-left: 0; }
+    .gem-book-table th:last-child, .gem-book-table td:last-child { padding-right: 0; }
     .gem-book-table th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; }
     .gem-book-table tr:last-child td { border-bottom: none; }
     .gem-book-name { color: var(--text-bright); }
-    .gem-book-table .gem-bid { color: var(--green); }
-    .gem-book-table .gem-ask { color: var(--red); }
+    .gem-book-table .gem-bid { color: var(--green-ink); }
+    .gem-book-table .gem-ask { color: var(--red-ink); }
+    /* An absent value is an absence, whatever column it is in. */
+    .gem-book-table .gem-no-val { color: var(--muted); }
+    /* The figures line up as a column, so they get tabular digits — without
+       them a 9 is narrower than a 1 and the right edge of the column wanders. */
+    .gem-book-table td { font-variant-numeric: tabular-nums; }
     .gem-depth-wrap { margin-top: 12px; }
     .gem-depth-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.2px; color: var(--muted); margin-bottom: 6px; }
     .gem-depth-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .gem-depth-head { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
     .gem-depth-lvl { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; }
-    .gem-depth-bid .gem-depth-px { color: var(--green); }
-    .gem-depth-ask .gem-depth-px { color: var(--red); }
+    .gem-depth-bid .gem-depth-px { color: var(--green-ink); }
+    .gem-depth-ask .gem-depth-px { color: var(--red-ink); }
     .gem-depth-qty { color: var(--muted); }
     .gem-live-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
     .gem-vol-controls { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
@@ -2770,7 +3134,7 @@
   <div id="tab-analyze" role="tabpanel" aria-labelledby="tabBtn-analyze" style="display:block">
 
   <div class="search-row">
-    <input id="urlInput" aria-label="Prediction market URL" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
+    <input id="urlInput" aria-label="Prediction market URL — Kalshi, Polymarket, Gemini or Coinbase" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." data-placeholder-short="Paste a market URL…" onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
     <button onclick="analyze()">Analyze ↗</button>
   </div>
 
@@ -2884,19 +3248,22 @@
     <div id="rewardsContent"><div class="empty-state">Loading reward programs...</div></div>
   </div>
 
-  <div class="footer"><span class="dot-sm">●</span> PREDARA · <a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">EDISON LABS LLC</a> · 2026</div>
+  <footer class="footer">
+    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-note">Independent analysis software. Not financial advice or a trading venue.</span>
+  </footer>
 
 </div>
 
-<script src="utils.js?v=35"></script>
-<script src="components.js?v=35"></script>
-<script src="adapters.js?v=35"></script>
-<script src="renderers.js?v=35"></script>
-<script src="compare.js?v=35"></script>
-<script src="crossmatch.js?v=35"></script>
-<script src="gemini-live.js?v=35"></script>
-<script src="app.js?v=35"></script>
-<script src="features.js?v=35"></script>
+<script src="utils.js?v=36"></script>
+<script src="components.js?v=36"></script>
+<script src="adapters.js?v=36"></script>
+<script src="renderers.js?v=36"></script>
+<script src="compare.js?v=36"></script>
+<script src="crossmatch.js?v=36"></script>
+<script src="gemini-live.js?v=36"></script>
+<script src="app.js?v=36"></script>
+<script src="features.js?v=36"></script>
 <script>
   (function () {
     // Theme
@@ -2930,6 +3297,21 @@
     localStorage.setItem('predara-odds', isML ? 'ml' : 'pct')
     document.getElementById('oddsToggle').textContent = isML ? 'ML' : '%'
   }
+
+  // The full prompt naming all four venues is 418px wide and the field is 362px
+  // on a phone, so it was cut off mid-word ("…Gemini, or Coinbas"). The long form
+  // stays wherever it fits; the short one is swapped in when it does not. The
+  // accessible name always carries the full list either way.
+  ;(function () {
+    const input = document.getElementById('urlInput')
+    if (!input) return
+    const long = input.placeholder
+    const short = input.dataset.placeholderShort || long
+    const narrow = window.matchMedia('(max-width: 640px)')
+    const apply = () => { input.placeholder = narrow.matches ? short : long }
+    apply()
+    narrow.addEventListener('change', apply)
+  })()
 
   // Feature 1: capture previous state before re-analyzing, then show diff
   function refreshMarket() {

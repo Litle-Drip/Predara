@@ -96,7 +96,7 @@ function renderMarket(norm, accent) {
     <div class="mi-card">
       <div class="event-head">
         <div class="event-tags">
-          <span class="tag-platform" style="background:${accent}">${esc(platformLabel)}</span>
+          <span class="tag-platform" style="background:${accent};color:${platformInk(accent)}">${esc(platformLabel)}</span>
           ${norm.tagsHtml}
           ${norm.exclusiveTag}
           <span class="tag-status"><span class="${norm.statusDot}">●</span> ${esc(norm.statusText)}</span>
@@ -125,7 +125,7 @@ function renderMarket(norm, accent) {
       ${resConfidenceHtml}
       ${hasRules
         ? `<div class="num-list">${resolutionChecklist(norm.ruleSentences, norm.outcomes)}</div>`
-        : `<div class="resolution-fallback">See the market source for resolution details.${norm.sourceUrl ? ` <a href="${esc(norm.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--orange)">View original market ↗</a>` : ""}</div>`
+        : `<div class="resolution-fallback">See the market source for resolution details.${norm.sourceUrl ? ` <a href="${esc(norm.sourceUrl)}" target="_blank" rel="noopener" class="link-accent">View original market ↗</a>` : ""}</div>`
       }
     </div>` : ""}
 

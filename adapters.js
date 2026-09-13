@@ -317,7 +317,7 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
         validSources.map(s => {
           const url  = typeof s === "string" ? s : s.url
           const name = sourceLabel(s)
-          return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(name)}</a>`
+          return `<a href="${esc(url)}" target="_blank" rel="noopener" class="link-accent">${esc(name)}</a>`
         }).join(" · ")
       }</span></div>`
     : ""
@@ -414,7 +414,7 @@ function normalizeKalshi(ev, platformKey = "kalshi", inputUrl = "") {
     const desc = incentivePrograms.map(p => p.incentive_description).find(Boolean)
       || "This market has an active Kalshi liquidity or volume incentive program rewarding resting orders that improve market depth."
     rewardsHtml = rewardsCard(rows,
-      `${esc(desc)} <a href="https://kalshi.com/incentives" target="_blank" rel="noopener" style="color:var(--orange)">View program details ↗</a>`
+      `${esc(desc)} <a href="https://kalshi.com/incentives" target="_blank" rel="noopener" class="link-accent">View program details ↗</a>`
     )
   }
 
@@ -651,7 +651,7 @@ function normalizeGemini(event, inputUrl = "") {
         geminiValidSources.map(s => {
           const url  = typeof s === "string" ? s : s.url
           const name = sourceLabel(s)
-          return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(name)}</a>`
+          return `<a href="${esc(url)}" target="_blank" rel="noopener" class="link-accent">${esc(name)}</a>`
         }).join(" · ")
       }</span></div>`
     : ""
@@ -722,7 +722,7 @@ function normalizeGemini(event, inputUrl = "") {
     <strong>Taker Rewards</strong> (rewards for active trading volume), and a contracted
     <strong>Market Maker Program</strong> for consistent two-sided quoting.
     Eligibility and payouts vary by market and program.
-    <a href="https://developer.gemini.com/prediction-markets/liquidity-rewards-program" target="_blank" rel="noopener" style="color:var(--orange)">View current programs ↗</a>
+    <a href="https://developer.gemini.com/prediction-markets/liquidity-rewards-program" target="_blank" rel="noopener" class="link-accent">View current programs ↗</a>
     <div id="gemEventRewards"></div>
   `) : ""
 
@@ -987,7 +987,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
     pmMaxSpread != null ? { key: "MAX SPREAD", val: `${pmMaxSpread}¢ from midpoint` } : null,
   ].filter(Boolean)
   const rewardsHtml = pmRewardsRows.length ? rewardsCard(pmRewardsRows,
-    `Earn by placing resting limit orders (making markets) near the midpoint — rewarded whether or not they fill. Separate Maker Rebates pay a share of taker fees when your resting order does fill. <a href="https://docs.polymarket.com/market-makers/liquidity-rewards" target="_blank" rel="noopener" style="color:var(--orange)">Program details ↗</a>`
+    `Earn by placing resting limit orders (making markets) near the midpoint — rewarded whether or not they fill. Separate Maker Rebates pay a share of taker fees when your resting order does fill. <a href="https://docs.polymarket.com/market-makers/liquidity-rewards" target="_blank" rel="noopener" class="link-accent">Program details ↗</a>`
   ) : ""
 
   // Bet explainer
@@ -1076,7 +1076,7 @@ function normalizePolymarket(event, markets, platformKey = "polymarket", inputUr
     ? `<div class="info-row" style="border-bottom:none"><span class="info-key">Resolution source${resUrls.length > 1 ? "s" : ""}</span><span class="info-val">${
         resUrls.map(url => {
           const name = sourceLabel(url)
-          return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${esc(name)}</a>`
+          return `<a href="${esc(url)}" target="_blank" rel="noopener" class="link-accent">${esc(name)}</a>`
         }).join(" · ")
       }</span></div>`
     : ""
