@@ -562,6 +562,40 @@ implementation reports a number that is not true. They are pinned by
   substituting it reports a volume number that is not volume. A feed mixing the
   two reports the weaker label and says so.
 
+**The hourly volume feed is a nested hierarchy.** `/volume/{date}/hourly`
+returns rows carrying `periodStart` and a `categoryPath`, and a parent row
+already contains its children:
+
+```
+["Sports"]                       43915.83   <- the rollup
+["Sports","Pro Football"]         4261.52
+["Sports","Pro Baseball"]        14321.95
+["Sports","College Football"]     7666.87
+["Sports","Tennis"]              15800.61
+["Sports","Tennis","US Open"]    15800.61   <- already inside Tennis
+["Sports","Soccer"]               1284.00
+["Sports","MMA"]                   580.88
+```
+
+The depth-2 rows sum to *exactly* the depth-1 total. Summing every row
+double- and triple-counts — 2.36× on that one hour — which is how the panel once
+reported $21.84M across seven days while the events feed showed $1.49M a day. So
+only the shallowest depth present is summed, the deeper rows are kept as the
+per-category breakdown the chart stacks, and `nestedRowsSkipped` records how many
+were held back. Taking the *minimum* depth observed rather than hardcoding 1
+means a response whose top-level rows are absent still totals at its own
+shallowest level instead of coming back empty.
+
+Two related rules earned the same way: the hour comes from `periodStart` (it was
+missing from `HOUR_KEYS`, so every hour was unreadable), and an hour that cannot
+be read is dropped and counted rather than inferred from the row's position. The
+positional fallback survives only for a container of exactly 24 rows, where
+position genuinely implies the hour. It used to apply always, and with more than
+24 rows per day the index ran past 23 and invented hours days into the future —
+seven days plotted across a ~33-day axis under a series that still looked
+plausible. The chart now takes its time axis from the requested window rather
+than from the data, so a misread field cannot distort it again.
+
 **Not computed, and deliberately not estimated:** order-book depth and
 everything built on it — depth in dollars, depth imbalance, and thin/one-sided/
 skewed/drought signals. The public feed carries top-of-book prices with no sizes
@@ -585,13 +619,23 @@ disagreed with the unfiltered one would make both untrustworthy. That is why
 each event summary carries an unrounded `spreadSum` alongside its mean —
 averaging the per-event averages would not give the platform average.
 
-On colour: the heat map shades tiles by **quote coverage on one sequential
-ramp**, not by category. A treemap is an all-pairs colour form (any block can
-touch any other), and the eight-slot categorical palette fails that case on this
-page's own surfaces — magenta against aqua at a CVD ΔE of 1.6, red against
-orange at 7.1 for normal vision. Category identity is printed on each block
-instead, so hue is free to carry a second variable. Every shaded value in the
-matrix is also printed as text; no figure on the page depends on colour.
+On colour, the two visualizations are gated differently and it matters which.
+The stacked volume chart uses the eight-slot categorical palette in fixed order
+with a legend, because a stacked band only ever touches the one below and above
+it — the **adjacent** pairlist, which those eight pass on this page's surfaces.
+The heat map cannot: a treemap block can touch any other block, so it is an
+**all-pairs** form, and against that case the same eight fail on the same
+surfaces (magenta vs aqua at CVD ΔE 1.6; red vs orange at 7.1 for *normal*
+vision, the floor that direct labels do not excuse). So the treemap spends hue
+on quote coverage via a one-hue sequential ramp and prints category names on the
+blocks. Neither cycles: a ninth category folds into `--series-other`. Every
+shaded value in the matrix is also printed as text; no figure on the page
+depends on colour.
+
+Also: reveal a panel before drawing into it. A hidden element measures
+`clientWidth` 0, and the heat map — positioned in absolute pixels rather than
+scaled by a viewBox — kept the fallback layout and left a dead band down the
+right of the panel on every first load.
 
 ## Secrets
 - `KALSHI_API_KEY_ID` — Kalshi API key member ID

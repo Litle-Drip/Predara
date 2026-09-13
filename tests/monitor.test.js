@@ -572,6 +572,85 @@ test("hourly volume is read structurally, and an unreadable body yields nothing"
   assert.equal(monitor.parseHourlyVolume(null, date), null)
 })
 
+// The live response, verbatim in shape: one hour of one category, with the
+// nesting that makes naive summing wrong.
+const LIVE_VOLUME_ROWS = [
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports"], volume: "43915.83000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Pro Football"], volume: "4261.52000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Pro Baseball"], volume: "14321.95000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "College Football"], volume: "7666.87000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Tennis"], volume: "15800.61000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Tennis", "US Open"], volume: "15800.61000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Soccer"], volume: "1284.00000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "MMA"], volume: "580.88000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Crypto"], volume: "26711.59000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Crypto", "Bitcoin"], volume: "23947.14000000" },
+  { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Crypto", "Ether"], volume: "1628.45000000" },
+]
+
+test("the hour comes from periodStart, which is what the live feed actually sends", () => {
+  // periodStart was missing from HOUR_KEYS, so every row's hour was unreadable
+  // and the parser fell back to inventing one from the row's position.
+  const parsed = monitor.parseHourlyVolume(LIVE_VOLUME_ROWS, "2026-09-12")
+  assert.equal(parsed.unresolved, 0, "no row's hour should need guessing")
+  assert.equal(parsed.buckets.length, 1, "every row here is the same hour")
+  assert.equal(parsed.buckets[0].hour, Date.parse("2026-09-12T00:00:00Z"))
+})
+
+test("a nested category hierarchy is not double-counted", () => {
+  // The feed is a hierarchy: ["Sports"] already contains ["Sports","Tennis"],
+  // which already contains ["Sports","Tennis","US Open"]. The depth-2 rows sum
+  // to EXACTLY the depth-1 total, so summing every row inflates the figure —
+  // 2.2x on this one hour. That is how the panel reported $21.84M across seven
+  // days while the events feed showed $1.49M a day.
+  const parsed = monitor.parseHourlyVolume(LIVE_VOLUME_ROWS, "2026-09-12")
+
+  assert.equal(parsed.depthUsed, 1, "only the shallowest rows are totals")
+  assert.equal(parsed.nestedRowsSkipped, 9)
+  assert.equal(parsed.buckets[0].volume, 70627.42, "Sports 43915.83 + Crypto 26711.59, and nothing else")
+
+  const naive = LIVE_VOLUME_ROWS.reduce((a, r) => a + parseFloat(r.volume), 0)
+  assert.ok(naive > parsed.total * 2, `naive summing gives ${naive.toFixed(2)} — over twice the truth`)
+
+  // The children really do sum to the parent, which is what makes the nesting
+  // unambiguous rather than a guess about the feed's intent.
+  const sportsChildren = LIVE_VOLUME_ROWS
+    .filter((r) => r.categoryPath.length === 2 && r.categoryPath[0] === "Sports")
+    .reduce((a, r) => a + parseFloat(r.volume), 0)
+  assert.ok(Math.abs(sportsChildren - 43915.83) < 0.01,
+    "premise: the depth-2 rows are a breakdown of the depth-1 total, not additions to it")
+})
+
+test("the per-category breakdown is kept, and only at the total's own depth", () => {
+  const parsed = monitor.parseHourlyVolume(LIVE_VOLUME_ROWS, "2026-09-12")
+  assert.deepEqual(parsed.buckets[0].byCategory, { Sports: 43915.83, Crypto: 26711.59 },
+    "sub-categories belong to their parent, not to the top-level breakdown")
+})
+
+test("a response that starts deeper than depth 1 still totals correctly", () => {
+  // Taking the minimum depth present, rather than hardcoding 1, means a feed
+  // whose top-level rows are absent is summed at its own shallowest level
+  // instead of coming back empty.
+  const rows = [
+    { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Tennis"], volume: "100" },
+    { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Soccer"], volume: "50" },
+    { periodStart: "2026-09-12T00:00:00Z", categoryPath: ["Sports", "Tennis", "US Open"], volume: "100" },
+  ]
+  const parsed = monitor.parseHourlyVolume(rows, "2026-09-12")
+  assert.equal(parsed.depthUsed, 2)
+  assert.equal(parsed.buckets[0].volume, 150)
+  assert.equal(parsed.nestedRowsSkipped, 1)
+})
+
+test("a flat response with no hierarchy sums every row", () => {
+  // No categoryPath means no nesting, so nothing should be held back.
+  const rows = Array.from({ length: 24 }, (_, h) => ({ periodStart: `2026-09-12T${String(h).padStart(2, "0")}:00:00Z`, volume: "10" }))
+  const parsed = monitor.parseHourlyVolume(rows, "2026-09-12")
+  assert.equal(parsed.buckets.length, 24)
+  assert.equal(parsed.total, 240)
+  assert.equal(parsed.nestedRowsSkipped, 0)
+})
+
 test("an unreadable hour is dropped, never invented from the entry's position", () => {
   // The bug this pins shipped and was caught against live data. The fallback was
   // `dayStart + index * 1h`, which is harmless for a clean 24-entry day but
@@ -625,6 +704,35 @@ test("only completed UTC days are requested, oldest first", () => {
   const days = monitor.completedUtcDays(3, Date.parse("2026-09-13T04:00:00Z"))
   assert.deepEqual(days, ["2026-09-10", "2026-09-11", "2026-09-12"])
   assert.ok(!days.includes("2026-09-13"), "today has not closed; the endpoint 404s for it")
+})
+
+// ── Volume series ─────────────────────────────────────────────────────────────
+
+test("volume series take fixed slots and fold the tail rather than cycling hues", () => {
+  const many = { categories: Array.from({ length: 11 }, (_, i) => ({ name: `Cat${i}`, total: 100 - i })) }
+  const series = client.monVolumeSeries(many)
+
+  assert.equal(series.length, client.MON_VOLUME_SLOTS + 1, "eight slots plus one Other band")
+  assert.equal(series[series.length - 1].name, "Other")
+  const colors = series.slice(0, client.MON_VOLUME_SLOTS).map((s) => s.color)
+  assert.equal(new Set(colors).size, client.MON_VOLUME_SLOTS, "no slot is handed out twice")
+  assert.deepEqual(colors, Array.from({ length: 8 }, (_, i) => `var(--series-${i + 1})`),
+    "slots are assigned in fixed order")
+})
+
+test("the Other band carries the whole tail so the stack still sums to the hour", () => {
+  const history = { categories: Array.from({ length: 10 }, (_, i) => ({ name: `Cat${i}`, total: 10 })) }
+  const series = client.monVolumeSeries(history)
+  const bucket = { volume: 100, byCategory: Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`Cat${i}`, 10])) }
+
+  const stacked = series.reduce((sum, s) => sum + client.monSeriesValue(bucket, s), 0)
+  assert.equal(stacked, 100, "the bands must add up to the hour's real total")
+  assert.equal(client.monSeriesValue(bucket, series[series.length - 1]), 20, "Cat8 + Cat9")
+})
+
+test("a feed with no breakdown yields no series, so the chart stays single-line", () => {
+  assert.deepEqual(client.monVolumeSeries({ categories: [] }), [])
+  assert.deepEqual(client.monVolumeSeries({}), [])
 })
 
 // ── Overround sample size ─────────────────────────────────────────────────────
