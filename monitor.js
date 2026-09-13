@@ -60,6 +60,38 @@ function monSpread(value) {
   return `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(3)}`
 }
 
+// ── Volume series ─────────────────────────────────────────────────────────────
+
+// The hourly feed carries a per-category breakdown, so the chart stacks it
+// rather than plotting one undifferentiated total. Stacked bands are the
+// ADJACENT-pair case — a band only ever touches the one below and above it —
+// which the eight-slot categorical order passes on this page's surfaces. That
+// is why the palette is legitimate here and was not in the treemap, where any
+// block can touch any other.
+const MON_VOLUME_SLOTS = 8
+
+function monVolumeSeries(history) {
+  const named = (history.categories || []).map((c) => c.name)
+  if (!named.length) return []
+
+  // Slots go to the largest categories in a fixed order; the tail shares one
+  // neutral band rather than a generated ninth hue.
+  const slotted = named.slice(0, MON_VOLUME_SLOTS)
+  const series = slotted.map((name, i) => ({ name, color: `var(--series-${i + 1})` }))
+  if (named.length > MON_VOLUME_SLOTS) {
+    series.push({ name: "Other", color: "var(--series-other)", rest: named.slice(MON_VOLUME_SLOTS) })
+  }
+  return series
+}
+
+// Value of one series in one hour. "Other" is the sum of everything past the
+// eight slots, so the stack always adds up to the hour's real total.
+function monSeriesValue(bucket, series) {
+  const by = bucket.byCategory || {}
+  if (!series.rest) return by[series.name] || 0
+  return series.rest.reduce((sum, name) => sum + (by[name] || 0), 0)
+}
+
 // ── Tile shading ──────────────────────────────────────────────────────────────
 
 // The heat map used to colour tiles by category identity. That was wrong: any
@@ -534,6 +566,9 @@ function monRenderAlerts(extra) {
       })
     }
     const vh = _mon.volumeHistory
+    if (vh && vh.available && vh.nestedRowsSkipped > 0 && vh.buckets && !vh.buckets.length) {
+      items.push({ level: "warn", text: "The hourly volume feed carried only nested category rows, with no top-level totals to sum." })
+    }
     if (vh && vh.available && vh.unresolved > 0) {
       items.push({
         level: "warn",
@@ -846,6 +881,7 @@ function monRenderVolume() {
   const xMax = history.window ? Date.parse(history.window.end) : buckets[buckets.length - 1].hour
   const yMax = Math.max(...buckets.map((b) => b.volume)) || 1
   const span = xMax - xMin || 1
+  const series = monVolumeSeries(history)
 
   const px = (h) => pad.left + ((h - xMin) / span) * plotW
   const py = (v) => pad.top + plotH - (v / yMax) * plotH
@@ -858,8 +894,32 @@ function monRenderVolume() {
     return
   }
 
+  // Bands are built bottom-up over a running cumulative, so each one sits on the
+  // one below rather than being drawn from the baseline and overlapping it.
+  let bandsHtml = ""
+  if (series.length) {
+    const cumulative = plotted.map(() => 0)
+    for (const s of series) {
+      const tops = plotted.map((b, i) => cumulative[i] + monSeriesValue(b, s))
+      const topEdge = plotted.map((b, i) => `${i ? "L" : "M"}${px(b.hour).toFixed(1)} ${py(tops[i]).toFixed(1)}`).join(" ")
+      const bottomEdge = plotted.map((b, i) => `L${px(b.hour).toFixed(1)} ${py(cumulative[i]).toFixed(1)}`)
+        .reverse().join(" ")
+      bandsHtml +=
+        `<path d="${topEdge} ${bottomEdge} Z" fill="${s.color}" opacity="0.85"/>` +
+        // A 2px surface-coloured rule along the top edge separates the bands,
+        // instead of outlining every mark with a border.
+        `<path d="${topEdge}" fill="none" stroke="var(--card)" stroke-width="2" stroke-linejoin="round"/>`
+      plotted.forEach((b, i) => { cumulative[i] = tops[i] })
+    }
+  }
+
+  // No breakdown in the feed: one total series, which needs no legend because
+  // the panel title names it.
   const line = plotted.map((b, i) => `${i ? "L" : "M"}${px(b.hour).toFixed(1)} ${py(b.volume).toFixed(1)}`).join(" ")
   const area = `${line} L${px(plotted[plotted.length - 1].hour).toFixed(1)} ${py(0).toFixed(1)} L${px(plotted[0].hour).toFixed(1)} ${py(0).toFixed(1)} Z`
+  const totalHtml = series.length
+    ? `<path class="series-line" d="${line}" stroke="var(--text-mid)" stroke-width="1.25" opacity="0.5"/>`
+    : `<path class="series-fill" d="${area}"/><path class="series-line" d="${line}"/>`
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax)
   const gridHtml = yTicks.map((v) =>
@@ -885,20 +945,23 @@ function monRenderVolume() {
   wrap.innerHTML = `<svg class="chart" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
       aria-label="Hourly traded volume over the last ${history.days.length} completed UTC days">
       ${gridHtml}
-      <path class="series-fill" d="${area}"/>
-      <path class="series-line" d="${line}"/>
+      ${bandsHtml}
+      ${totalHtml}
       <line class="axis-line" x1="${pad.left}" y1="${(pad.top + plotH).toFixed(1)}" x2="${(pad.left + plotW).toFixed(1)}" y2="${(pad.top + plotH).toFixed(1)}"/>
       ${xHtml}
       <line class="crosshair" id="volCross" x1="0" y1="${pad.top}" x2="0" y2="${(pad.top + plotH).toFixed(1)}" style="opacity:0"/>
       <circle class="cursor-dot" id="volDot" r="4" cx="0" cy="0" style="opacity:0"/>
       <rect id="volHit" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" fill="transparent"/>
     </svg>
-    <div class="tip" id="volTip"></div>`
+    <div class="tip" id="volTip"></div>
+    ${series.length ? `<div class="legend">${series.map((s) =>
+      `<span class="legend-item"><span class="legend-swatch" style="background:${s.color}"></span>${MON_ESC(s.name)}</span>`
+    ).join("")}<span class="legend-item sub">outline = hourly total</span></div>` : ""}`
 
-  monWireChartTips(wrap, plotted, { px, py, pad, plotW })
+  monWireChartTips(wrap, plotted, { px, py, pad, plotW }, series)
 }
 
-function monWireChartTips(wrap, buckets, geom) {
+function monWireChartTips(wrap, buckets, geom, series) {
   const hit = wrap.querySelector("#volHit")
   const cross = wrap.querySelector("#volCross")
   const dot = wrap.querySelector("#volDot")
@@ -925,9 +988,19 @@ function monWireChartTips(wrap, buckets, geom) {
     if (cross) { cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.style.opacity = "1" }
     if (dot) { dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.style.opacity = "1" }
     const at = new Date(b.hour)
+    // Only the categories that actually traded in this hour, largest first —
+    // a list of zeroes is noise.
+    const breakdown = (series || [])
+      .map((s) => ({ name: s.name, value: monSeriesValue(b, s), color: s.color }))
+      .filter((r) => r.value > 0)
+      .sort((a, c) => c.value - a.value)
+      .slice(0, 6)
+      .map((r) => `<span class="legend-swatch" style="background:${r.color}"></span>${MON_ESC(r.name)} ${MON_ESC(monMoney(r.value))}`)
+      .join("<br>")
+
     tip.innerHTML = `<b>${MON_ESC(monMoney(b.volume))}</b><br>${MON_ESC(at.toLocaleString("en-US", {
       month: "short", day: "numeric", hour: "numeric", timeZone: "UTC",
-    }))} UTC`
+    }))} UTC${breakdown ? `<br><span class="tip-rule"></span>${breakdown}` : ""}`
     const box = wrap.getBoundingClientRect()
     const svgBox = hit.getBoundingClientRect()
     tip.style.left = `${Math.min(Math.max(0, svgBox.left - box.left + (x - geom.pad.left) / geom.plotW * svgBox.width - 60), box.width - 170)}px`
@@ -1194,6 +1267,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     monMoney, monCount, monPct, monPrice, monSpread,
     monTileCoverage, monTileBg,
+    monVolumeSeries, monSeriesValue, MON_VOLUME_SLOTS,
     monRollup, monRollupByCategory, monOverroundExclusionKey,
     MON_OVERROUND_MIN_SAMPLE,
     monFilterEvents, monFilterRows,

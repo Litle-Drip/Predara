@@ -39,15 +39,24 @@
       --rec-bg:      rgba(255,255,255,0.03);
 
       /* ── Data-viz palette ──
-         Only ONE categorical slot is in use. There is no eight-hue categorical
-         encoding on this page and there should not be: the heat map is a
-         treemap, where any block can touch any other, and the validator fails
-         the full eight against that "all pairs" case on this page's own
+         The eight categorical slots are the validated default order, stepped
+         for a dark surface and re-validated against THIS page's card colour
+         (#18181c dark, #ffffff light): all six checks pass in both modes on the
+         ADJACENT pairlist.
+         
+         Adjacent is the right gate for the volume chart, where a stacked band
+         only ever touches the one below and above it. It is NOT the right gate
+         for the heat map: a treemap block can touch any other block, and
+         against that "all pairs" case these same eight fail on these same
          surfaces — magenta vs aqua at CVD ΔE 1.6, red vs orange at 7.1 for
-         normal vision. Category identity is carried by the printed block
-         labels; hue carries quote coverage on the sequential ramp below.
-         Slot 1 is validated against both card colours (#18181c / #ffffff).  */
-      --series-1: #3987e5;
+         normal vision. So the treemap spends hue on quote coverage via the
+         sequential ramp below and prints category names on the blocks, while
+         the stacked chart uses these slots in fixed order with a legend.
+         Neither cycles: a ninth category folds into --series-other.          */
+      --series-1: #3987e5;  --series-2: #d95926;  --series-3: #199e70;
+      --series-4: #c98500;  --series-5: #d55181;  --series-6: #008300;
+      --series-7: #9085e9;  --series-8: #e66767;
+      --series-other: #5a5a66;
       --tile-base: #23232a;
       --tile-ink: #ffffff;
       --tile-ink-dim: rgba(255,255,255,0.82);
@@ -90,8 +99,14 @@
       --shadow-sm:   0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
       --rec-bg:      rgba(0,0,0,0.03);
 
-      /* Light mode is a selected step of the same hue, not an automatic flip. */
-      --series-1: #2a78d6;
+      /* Light mode is a selected step of the same hues, not an automatic flip.
+         Three of these sit below 3:1 on white, which obliges visible labels —
+         the stacked chart always carries a legend and the contracts table is
+         the table view. */
+      --series-1: #2a78d6;  --series-2: #eb6834;  --series-3: #1baf7a;
+      --series-4: #eda100;  --series-5: #e87ba4;  --series-6: #008300;
+      --series-7: #4a3aa7;  --series-8: #e34948;
+      --series-other: #9a9aa6;
       --tile-base: #f4f3f1;
       --tile-ink: #16161a;
       --tile-ink-dim: #4a4a52;
@@ -502,6 +517,8 @@
     }
     .legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; font-size: 11.5px; color: var(--muted); }
     .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
+    .tip-rule { display: block; height: 1px; background: var(--border); margin: 5px 0; }
 
     /* ── Area chart ── */
     .chart-wrap { position: relative; }
