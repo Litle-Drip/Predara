@@ -19,7 +19,15 @@
       --text:        #b4b4c0;
       --text-mid:    #d0d0da;
       --text-bright: #ededf2;
-      --muted:       #6b6b7a;
+      --muted:       #8d8d99;
+      --accent-ink:  #de643b;
+      --accent-fill: #ce4b1e;
+      --accent-tint: rgba(217,79,32,0.10);
+      --accent-line: rgba(217,79,32,0.32);
+      --accent-ring: rgba(217,79,32,0.34);
+      --green-ink:   #1db954;
+      --red-ink:     #e84444;
+      --amber-ink:   #d49010;
       --orange:      #d94f20;
       --orange-dim:  rgba(217,79,32,0.12);
       --orange-bg:   rgba(217,79,32,0.08);
@@ -41,7 +49,15 @@
       --text:        #4a4a52;
       --text-mid:    #2e2e38;
       --text-bright: #16161a;
-      --muted:       #8e8e9a;
+      --muted:       #6b6b74;
+      --accent-ink:  #c8421a;
+      --accent-fill: #c8421a;
+      --accent-tint: rgba(200,66,26,0.07);
+      --accent-line: rgba(200,66,26,0.30);
+      --accent-ring: rgba(200,66,26,0.30);
+      --green-ink:   #10833e;
+      --red-ink:     #d43232;
+      --amber-ink:   #99680c;
       --orange:      #c8421a;
       --orange-dim:  rgba(200,66,26,0.1);
       --orange-bg:   rgba(200,66,26,0.06);
@@ -73,11 +89,20 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    /* The header is deliberately anchored on the same 1200px grid as the Analyze
+       page so the logo and the page tabs do not jump when you move between the
+       three pages — tests/navigation.test.js pins that.
+
+       What was wrong is that the 800px content column was *centred* inside that
+       1200px frame, so every card started about 280px to the right of the logo
+       above it and the footer rule lined up with neither. The column keeps its
+       readable 800px measure and its own left edge now sits under the header's,
+       which leaves the header anchored and the page aligned. */
     .app {
       max-width: 1200px;
       margin: 0 auto;
     }
-    .app > :not(.app-header) { width: min(800px, 100%); margin-left: auto; margin-right: auto; }
+    .app > :not(.app-header) { width: min(800px, 100%); margin-left: 0; margin-right: auto; }
 
     /* ── Header ── */
     .app-header {
@@ -145,7 +170,7 @@
     }
 
     .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
-    .tab-nav a.active { background: var(--orange); color: #fff; }
+    .tab-nav a.active { background: var(--accent-fill); color: #fff; }
     .tab-nav a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; }
 
     /* ── Theme toggle ── */
@@ -225,7 +250,7 @@
     }
 
     .btn-review {
-      background: var(--orange);
+      background: var(--accent-fill);
       color: #fff;
       border: none;
       border-radius: 10px;
@@ -254,7 +279,10 @@
       gap: 8px;
       background: none;
       border: none;
-      padding: 0;
+      /* 21px tall with padding: 0 — under the 24px WCAG 2.2 pointer minimum,
+         and this is the only way to reach the API-key panel. */
+      padding: 3px 0;
+      min-height: 28px;
       font: inherit;
       font-size: 12px;
       color: var(--muted);
@@ -277,13 +305,13 @@
       border: 1px solid var(--border);
     }
 
-    .key-status.active { background: var(--orange-dim); color: var(--orange); border-color: transparent; }
+    .key-status.active { background: var(--orange-dim); color: var(--accent-ink); border-color: transparent; }
 
     .key-body { display: none; margin-top: 12px; }
     .key-panel.open .key-body { display: block; }
 
     .key-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
-    .key-desc a { color: var(--orange); text-decoration: none; }
+    .key-desc a { color: var(--accent-ink); text-decoration: none; }
     .key-desc a:hover { text-decoration: underline; }
 
     .key-row { display: flex; gap: 8px; }
@@ -318,35 +346,50 @@
     }
 
     .btn-key:hover { color: var(--text-bright); border-color: var(--border-hi); }
-    .btn-key.primary { background: var(--orange); border-color: transparent; color: #fff; }
+    .btn-key.primary { background: var(--accent-fill); border-color: transparent; color: #fff; }
     .btn-key.primary:hover { opacity: 0.88; }
 
     .key-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
-    .key-note.err { color: var(--orange); }
+    .key-note.err { color: var(--accent-ink); }
 
     /* ── Empty state ── */
-    .empty-state { text-align: center; padding: 56px 0; color: var(--muted); font-size: 14px; }
+    /* Same empty state as the Analyze page: a card, a title, one line of copy.
+       This was bare centred text floating on the page ground while the other
+       page put its equivalent in a card, so the same "nothing here yet" moment
+       looked like two different products. The magnifier keeps its place but is
+       drawn at the app's hairline weight rather than a 2px ring at 0.8 opacity. */
+    .empty-state {
+      text-align: center;
+      padding: 52px 30px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-sm);
+    }
     .empty-state-mark {
-      width: 30px;
-      height: 30px;
-      margin: 0 auto 14px;
-      border: 2px solid var(--border-hi);
+      width: 26px;
+      height: 26px;
+      margin: 0 auto 16px;
+      border: 1px solid var(--border-hi);
       border-radius: 50%;
       position: relative;
-      opacity: 0.8;
     }
     .empty-state-mark::after {
       content: "";
       position: absolute;
-      width: 8px;
-      height: 2px;
+      width: 9px;
+      height: 1px;
       right: -6px;
-      bottom: 1px;
-      border-radius: 2px;
+      bottom: 2px;
+      border-radius: 1px;
       background: var(--border-hi);
       transform: rotate(45deg);
     }
-    .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; letter-spacing: -0.1px; }
+    .empty-state > div:last-child { max-width: 46ch; margin: 0 auto; }
 
     /* ── Case cards ── */
     .case-list { display: flex; flex-direction: column; gap: 10px; }
@@ -371,7 +414,7 @@
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
     .discover-market-ticker {
       font-family: 'IBM Plex Mono', ui-monospace, monospace;
-      font-size: 10.5px; color: var(--orange); background: var(--orange-bg);
+      font-size: 10.5px; color: var(--accent-ink); background: var(--orange-bg);
       border-radius: 4px; padding: 2px 6px;
     }
     .discover-market-result { color: var(--text-mid); font-weight: 600; }
@@ -415,7 +458,7 @@
       font-family: 'IBM Plex Mono', 'Courier New', monospace;
       font-size: 12px;
       font-weight: 500;
-      color: var(--orange);
+      color: var(--accent-ink);
       background: var(--orange-bg);
       padding: 2px 7px;
       border-radius: 4px;
@@ -449,7 +492,7 @@
     .pill-error        { background: var(--error-pill-bg);       color: var(--error-pill-text); }
     .pill-pending {
       background: var(--orange-dim);
-      color: var(--orange);
+      color: var(--accent-ink);
       animation: pulse 1.2s ease-in-out infinite;
     }
 
@@ -487,7 +530,7 @@
       content: "·";
       position: absolute;
       left: 0;
-      color: var(--orange);
+      color: var(--accent-ink);
       font-size: 16px;
       line-height: 1;
       top: 1px;
@@ -537,12 +580,19 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-top: 42px;
+      flex-wrap: wrap;
+      margin-top: 56px;
       padding-top: 18px;
       border-top: 1px solid var(--border);
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--muted);
     }
+    .footer-brand { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .footer-sep { color: var(--muted); opacity: 0.55; }
+    .footer-note { color: var(--muted); }
+    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
+    .footer a:hover { color: var(--accent-ink); }
+    .footer .dot-sm { font-size: 6px; color: var(--accent-ink); line-height: 1; }
 
     @media (max-width: 760px) {
       .app-header {
@@ -614,8 +664,9 @@
       <input
         id="tickerInput"
         type="text"
-        aria-label="Prediction market ticker or URL"
+        aria-label="Prediction market ticker or URL — Gemini, Kalshi, Polymarket or Coinbase"
         placeholder="Paste ticker or URL — Gemini, Kalshi, Polymarket, Coinbase…"
+        data-placeholder-short="Paste a ticker or URL…"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
@@ -662,14 +713,26 @@
   <div id="caseList" class="case-list"></div>
 
   <footer class="footer">
-    <span>Independent, read-only settlement analysis.</span>
-    <span>Confirm final outcomes with the venue.</span>
+    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-note">Independent, read-only settlement analysis. Confirm final outcomes with the venue.</span>
   </footer>
 
 </div>
 
-<script src="gemini-live.js?v=36"></script>
+<script src="gemini-live.js?v=37"></script>
 <script>
+  ;(function () {
+    const input = document.getElementById('tickerInput')
+    if (input) {
+      const long = input.placeholder
+      const short = input.dataset.placeholderShort || long
+      const narrow = window.matchMedia('(max-width: 640px)')
+      const apply = () => { input.placeholder = narrow.matches ? short : long }
+      apply()
+      narrow.addEventListener('change', apply)
+    }
+  })()
+
   /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {
     if (localStorage.getItem('predara-theme') === 'dark') {

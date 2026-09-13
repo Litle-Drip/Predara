@@ -1,8 +1,47 @@
+// Each venue keeps its own brand hue — the pill is how a reader tells at a glance
+// which exchange a row came from, so the fill is not ours to restyle. What varies
+// is the label colour on top of it. A single white label fails badly on the two
+// bright fills: white on Kalshi green is 2.27:1 and on Gemini cyan 1.66:1, against
+// the 4.5:1 WCAG AA needs at 11px. Near-black clears both (8.67:1 and 11.82:1) and
+// is what each venue uses on these colours itself; the two blues keep white
+// (4.55:1 and 6:1) because near-black would fail on them instead.
+// tests/contrast.test.js computes every pairing.
+const PLATFORM_INK_DARK = "#0b0b0d"
 const PLATFORMS = {
-  kalshi:     { label: "KALSHI",     accent: "#00C805" },
-  polymarket: { label: "POLYMARKET", accent: "#0070f3" },
-  gemini:     { label: "GEMINI",     accent: "#00DCFA" },
-  coinbase:   { label: "COINBASE",   accent: "#1652F0" },
+  kalshi:     { label: "KALSHI",     accent: "#00C805", ink: PLATFORM_INK_DARK },
+  polymarket: { label: "POLYMARKET", accent: "#0070f3", ink: "#ffffff" },
+  gemini:     { label: "GEMINI",     accent: "#00DCFA", ink: PLATFORM_INK_DARK },
+  coinbase:   { label: "COINBASE",   accent: "#1652F0", ink: "#ffffff" },
+}
+
+// The pill fill can arrive from anywhere (a venue accent, a cross-match fallback,
+// a colour a caller computed), so the label colour is derived from the fill rather
+// than trusted to be paired correctly at every call site.
+function platformInk(fill) {
+  const hex = String(fill || "").trim().replace(/^#/, "")
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return "#ffffff"
+  const lin = [0, 2, 4].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  })
+  const lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+  // Contrast against white vs against near-black; pick whichever reads better.
+  return (1.05 / (lum + 0.05)) >= ((lum + 0.05) / 0.0543) ? "#ffffff" : PLATFORM_INK_DARK
+}
+
+// One venue identifier, used everywhere a row needs to say which exchange it came
+// from: the event header, the compare columns, the cross-match blocks, the Rewards
+// sections and the Discover groups. Discover used to render the venue name as bare
+// accent-coloured text instead, which put Gemini cyan on the page background at
+// 1.66:1 — the chip carries the same hue as a fill, where a readable label colour
+// is available, and makes the five surfaces look like one product.
+function venueChip(platform, extraClass = "") {
+  const key = String(platform || "").toLowerCase()
+  const meta = PLATFORMS[key] || {}
+  const label = meta.label || String(platform || "").toUpperCase()
+  const fill = meta.accent || "#555"
+  const cls = `tag-platform${extraClass ? ` ${extraClass}` : ""}`
+  return `<span class="${cls}" style="background:${fill};color:${platformInk(fill)}">${esc(label)}</span>`
 }
 
 // ── Gemini ticker input ───────────────────────────────────────────────────────
@@ -63,6 +102,13 @@ const GLOSSARY = {
   "MAX SPREAD":       "How far from the midpoint a resting order can be and still qualify for liquidity rewards. Tighter values require closer-to-market quotes.",
   "MAKER REBATE":     "A rebate paid on resting limit orders that get filled — a share of the taker fee your liquidity generated.",
   "TAKER REWARD":     "A reward paid for orders that fill immediately against resting liquidity, encouraging active trading volume.",
+  // A label with no entry here renders without the dotted underline the others
+  // carry, so the stat rows looked randomly underlined — RUNNERS sat plain next
+  // to five underlined siblings, and TIME REMAINING and YOUR EDGE did the same in
+  // Trader Analytics. tests/glossary.test.js asserts every displayed label has one.
+  "RUNNERS":          "How many outcomes this market lists. Only one can pay out — the more runners, the lower each one's starting odds.",
+  "TIME REMAINING":   "How long until trading closes. Prices tend to move faster as this shortens, and a position cannot be exited after close.",
+  "YOUR EDGE":        "The gap between your own probability estimate and what the market is charging. Only defined once you enter an estimate — Predara does not guess it for you.",
 }
 
 function fmtMarketAge(isoOrDate) {
@@ -152,7 +198,7 @@ function linkKnownSources(sentence) {
     const url = urlByName.get(match)
     if (!url) return match
     changed = true
-    return `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--orange)">${match}</a>`
+    return `<a href="${esc(url)}" target="_blank" rel="noopener" class="link-accent">${match}</a>`
   })
   return changed ? result : null
 }

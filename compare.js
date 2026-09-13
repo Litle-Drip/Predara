@@ -451,7 +451,7 @@ function renderComparison(results) {
       : ""
     const footnote = PLATFORM_FOOTNOTES[platform] || ""
     return `<div class="compare-col">
-      <span class="tag-platform" style="background:${accent};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
+      <span class="tag-platform" style="background:${accent};color:${platformInk(accent)};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
       <div class="compare-col-title">${esc(meta.title || "")}</div>
       ${outcomesHtml}
       ${statsHtml}

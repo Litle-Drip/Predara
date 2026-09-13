@@ -513,13 +513,17 @@ function betSimulatorHtml(outcomes) {
   if (window._simMarket) window._simMarket.outcome = { pct: first.pct, bid: first.bid, ask: first.ask, label: first.label }
   const isBinary = capped.length <= 2
   const tabsHtml = !isBinary && capped.length > 1
-    ? `<div class="bet-sim-tabs">${capped.map((o, i) => {
+    ? `<div class="bet-sim-tabs" role="group" aria-label="Outcome to price">${capped.map((o, i) => {
         const active = i === 0
-        const s = active ? `border-color:${o.color};color:${o.color};background:${o.color}22` : ``
-        return `<button class="bet-sim-tab${active ? " active" : ""}" style="${s}"
+        // Which chip is selected is said in the accent, the way selection is said
+        // everywhere else in the app — not in that outcome's decorative palette
+        // colour, which made the selected chip green at 2.3:1 and made selection
+        // look like a different thing in this one card. The outcome's own colour
+        // stays on the dot.
+        return `<button class="bet-sim-tab${active ? " active" : ""}" aria-pressed="${active}"
           data-pct="${o.pct}" data-label="${esc(o.label)}" data-color="${esc(o.color)}"
           data-bid="${Number.isFinite(o.bid) ? o.bid : ""}" data-ask="${Number.isFinite(o.ask) ? o.ask : ""}"
-          onclick="selectBetSimOutcome(this)">${esc(o.label)} · ${o.pct}%</button>`
+          onclick="selectBetSimOutcome(this)"><span class="bet-sim-tab-dot" style="background:${esc(o.color)}"></span>${esc(o.label)} · ${o.pct}%</button>`
       }).join("")}</div>`
     : ""
   const yesPct = first.pct
@@ -559,7 +563,6 @@ function betSimulatorHtml(outcomes) {
 window._simMarket = { amount: 10, pct: 0, platform: "", side: "yes" }
 window.selectBetSimOutcome = function(btn) {
   const pct = parseFloat(btn.dataset.pct)
-  const color = btn.dataset.color
   const bid = parseFloat(btn.dataset.bid)
   const ask = parseFloat(btn.dataset.ask)
   window._simMarket.pct = pct
@@ -571,14 +574,10 @@ window.selectBetSimOutcome = function(btn) {
   }
   document.querySelectorAll(".bet-sim-tab").forEach(t => {
     t.classList.remove("active")
-    t.style.borderColor = ""
-    t.style.color = ""
-    t.style.background = ""
+    t.setAttribute("aria-pressed", "false")
   })
   btn.classList.add("active")
-  btn.style.borderColor = color
-  btn.style.color = color
-  btn.style.background = color + "22"
+  btn.setAttribute("aria-pressed", "true")
   const side = window._simMarket.side || "yes"
   const yesBtn = document.getElementById("betSimSideYes")
   const noBtn = document.getElementById("betSimSideNo")
@@ -734,13 +733,18 @@ function renderAnalyticsEdge(myProb, platform, forLabel) {
     // An estimate is about one outcome. On a multi-outcome market, applying the
     // same number to every row would be nonsense, so only the row the estimate
     // was made for gets EV and Kelly.
+    // Both of these sit in the column that otherwise holds "37%" and "11.4%", so
+    // they are kept to the width of a value. They used to be full sentences set
+    // in italics \u2014 the longer one wrapped the column, and on a four-outcome
+    // market the other repeated verbatim on every row that was not the target.
+    // The reason moves to the row's tooltip, where there is room for it.
     const isTarget = !forLabel || !slot.dataset.label || slot.dataset.label === forLabel
     if (!isTarget) {
-      slot.innerHTML = `<div class="info-row analytics-edge-prompt"><span class="info-key">YOUR EDGE</span><span class="info-val val-muted">estimate applies to \u201c${esc(forLabel)}\u201d</span></div>`
+      slot.innerHTML = `<div class="info-row analytics-edge-prompt"><span class="info-key">${tip("YOUR EDGE")}</span><span class="info-val val-none" title="Your estimate was entered for \u201c${esc(forLabel)}\u201d. Expected value and Kelly sizing are only defined against the outcome you estimated.">\u2014</span></div>`
       return
     }
     if (!Number.isFinite(myProb) || myProb <= 0 || myProb >= 1) {
-      slot.innerHTML = `<div class="info-row analytics-edge-prompt"><span class="info-key">YOUR EDGE</span><span class="info-val val-muted">needs your probability \u2014 see \u201cWhat\u2019s your edge?\u201d below</span></div>`
+      slot.innerHTML = `<div class="info-row analytics-edge-prompt"><span class="info-key">${tip("YOUR EDGE")}</span><span class="info-val val-none" title="Enter your own probability in \u201cWhat\u2019s your edge?\u201d below. Expected value and Kelly sizing are only defined against your estimate, not against the market\u2019s own price.">Add your estimate</span></div>`
       return
     }
     slot.innerHTML = analyticsEdgeRowsHtml(myProb, ask, platform)
@@ -800,14 +804,18 @@ function analyticsCard(rows, timeLeft, overround) {
       parts.push(`<div class="info-row"><span class="info-key">${tip("SPREAD QUALITY")}</span><span class="info-val ${spClass}">${r.spread}%</span></div>`)
     }
     const dotStyle = r.color ? ` style="color:${esc(r.color)}"` : ""
-    const sepStyle = rows.length > 1 && idx > 0 ? "border-top:1px solid var(--border);margin-top:4px;padding-top:8px;" : ""
+    // Styled by class rather than inline, so the rule above a group heading can
+    // be suppressed in CSS. Inline border-top on the heading stacked with the
+    // border-bottom the preceding row already had, which drew two hairlines with
+    // a 4px gap between them at every group boundary.
+    const sepClass = rows.length > 1 && idx > 0 ? " analytics-group-head--sep" : ""
     const labelHeader = rows.length > 1
-      ? `<div class="info-row" style="border-bottom:none;padding-bottom:4px;${sepStyle}"><span class="info-key" style="font-weight:600"><span${dotStyle}>●</span> ${esc(r.label)}</span></div>`
+      ? `<div class="info-row analytics-group-head${sepClass}"><span class="info-key"><span class="analytics-group-dot"${dotStyle}>●</span> ${esc(r.label)}</span></div>`
       : ""
     return labelHeader + parts.join("")
   }).join("")
   const timeRow = timeLeft
-    ? `<div class="info-row"><span class="info-key">TIME REMAINING</span><span class="info-val urgency-text-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</span></div>`
+    ? `<div class="info-row"><span class="info-key">${tip("TIME REMAINING")}</span><span class="info-val urgency-text-${timeLeft.urgency}">⏱ ${esc(timeLeft.text)}</span></div>`
     : ""
   // Feature 3: overround prominently in analytics (key quality signal)
   let overroundRow = ""
@@ -1007,7 +1015,7 @@ function outcomeRow(label, sub, pct, color, delta = null, extras = {}) {
           ${plainTalkHtml}
         </div>
         <div class="outcome-right">
-          <div class="odds-display"${extras.rank === 0 ? ` style="color:${color}"` : ""}>
+          <div class="odds-display${extras.rank === 0 ? " odds-display--lead" : ""}">
             <span class="outcome-pct">${pct}%${estTag}</span>
             ${mlBlock}
           </div>
@@ -1085,4 +1093,25 @@ function tradeCtaHtml(sourceUrl, platform, isResolved) {
       </a>
       <div class="trade-cta-note">Opens the original market. Predara does not take orders or hold funds.</div>
     </div>`
+}
+
+
+// ── Empty states ──────────────────────────────────────────────────────────────
+// One function for "a whole panel has nothing in it", so Watchlist, Calendar and
+// Discover stop each inventing their own. A title says what is empty and the
+// copy says how to fill it; an action is offered where there is a next step to
+// take, because an empty panel with no way out is a dead end.
+function emptyStateHtml(title, copy, actionHtml = "") {
+  return `
+    <div class="empty-state" role="status">
+      <div class="empty-state-title">${esc(title)}</div>
+      ${copy ? `<div class="empty-state-copy">${esc(copy)}</div>` : ""}
+      ${actionHtml ? `<div class="empty-state-action">${actionHtml}</div>` : ""}
+    </div>`
+}
+
+// "A region inside a card has nothing in it" — one muted line, on the card's
+// own inset. Takes plain text and escapes it.
+function emptyInlineHtml(text) {
+  return `<div class="empty-inline">${esc(text)}</div>`
 }

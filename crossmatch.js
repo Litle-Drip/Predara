@@ -159,7 +159,8 @@ function _xmatchResultsHtml(source, results) {
   const blocks = results.map(r => {
     const meta = PLATFORMS[r.platform] || {}
     const label = meta.label || r.platform.toUpperCase()
-    const head = `<span class="tag-platform xmatch-platform" style="background:${meta.accent || "#555"}">${esc(label)}</span>`
+    const fill = meta.accent || "#555"
+    const head = `<span class="tag-platform xmatch-platform" style="background:${fill};color:${platformInk(fill)}">${esc(label)}</span>`
 
     if (r.error) {
       return `<div class="xmatch-venue">${head}<div class="xmatch-none">${esc(r.error)}</div></div>`
