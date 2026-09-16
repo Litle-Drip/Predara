@@ -42,13 +42,60 @@ test("the static server refuses dotted paths instead of serving the repo", async
   }
   try {
     assert.ok(up, "server never came up")
-    for (const p of ["/.git/config", "/.git/HEAD", "/.replit", "/.env"]) {
+    for (const p of ["/.git/config", "/.git/HEAD", "/.replit", "/.env",
+      "/server.js", "/tests/review-fixes.test.js", "/package-lock.json",
+      "/attached_assets/Pasted-file.txt", "/kyle-themes/README.md"]) {
       const res = await get(p)
       assert.equal(res.status, 403, `${p} must not be served (got ${res.status})`)
       assert.ok(!/remote "origin"/.test(res.body), `${p} leaked git config`)
     }
     // The real pages still work.
     assert.equal((await get("/index.html")).status, 200)
+    assert.equal((await get("/kyle-themes/astro.jpg")).status, 200)
+  } finally {
+    proc.kill()
+  }
+})
+
+test("settlement review rejects an oversized body with one 413 response", async () => {
+  const port = 5500 + (process.pid % 200)
+  const proc = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+    env: { ...process.env, PORT: String(port) },
+    stdio: "ignore",
+  })
+  const post = (body) => new Promise((resolve, reject) => {
+    const req = http.request({
+      host: "127.0.0.1", port, path: "/api/settlement-review", method: "POST",
+      headers: {
+        Origin: "https://predara.org", "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      },
+    }, (res) => {
+      let response = ""
+      res.on("data", c => { response += c })
+      res.on("end", () => resolve({ status: res.statusCode, response }))
+    })
+    req.on("error", reject)
+    req.setTimeout(4000, () => { req.destroy(); reject(new Error("timeout")) })
+    req.end(body)
+  })
+  try {
+    let up = false
+    for (let i = 0; i < 40 && !up; i++) {
+      try {
+        const probe = await new Promise((resolve, reject) => {
+          http.get({ host: "127.0.0.1", port, path: "/index.html" }, (res) => {
+            res.resume()
+            res.on("end", () => resolve(res.statusCode))
+          }).on("error", reject)
+        })
+        up = probe === 200
+      } catch { await new Promise(r => setTimeout(r, 100)) }
+    }
+    assert.ok(up, "server never came up")
+    const result = await post(JSON.stringify({ input: "x".repeat(17000) }))
+    assert.equal(result.status, 413)
+    assert.match(result.response, /request body too large/i)
   } finally {
     proc.kill()
   }

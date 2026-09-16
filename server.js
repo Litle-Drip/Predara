@@ -18,6 +18,23 @@ const { relay: relayNotification } = require("./lib/notify")
 const PORT = process.env.PORT || 5000
 const STATIC_ROOT = __dirname
 const REQUEST_TIMEOUT_MS = 10000
+// Keep settlement intake deliberately small: it contains one ticker or URL,
+// never an uploaded document. This also bounds work spent parsing untrusted
+// JSON before the request can reach an upstream API.
+const SETTLEMENT_BODY_LIMIT = 16 * 1024
+
+// Do not use STATIC_ROOT as a web root. The local server is published by
+// Replit, so an extension or directory based filter would expose source,
+// tests, lockfiles, attached_assets, and task metadata. Keep this list in sync
+// with the files referenced by the shipped pages and service worker.
+const PUBLIC_ASSETS = new Set([
+  "index.html", "kyle.html", "monitor.html", "settlement.html",
+  "manifest.json", "sw.js", "og-image.png",
+  "adapters.js", "app.js", "compare.js", "components.js", "crossmatch.js",
+  "features.js", "gemini-live.js", "kyle.js", "monitor.js", "renderers.js",
+  "utils.js",
+  "kyle-themes/astro.jpg", "kyle-themes/mars.jpg", "kyle-themes/seas.jpg",
+])
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -606,13 +623,41 @@ const server = http.createServer((req, res) => {
     const userApiKey = userKey.key
 
     let rawBody = ""
-    req.on("data", chunk => { rawBody += chunk })
+    let bodyTooLarge = false
+    let responseSent = false
+    const sendBodyError = (status, summary) => {
+      if (responseSent || res.headersSent) return
+      responseSent = true
+      res.writeHead(status, { "Content-Type": "application/json", ...CORS_HEADERS })
+      res.end(JSON.stringify({ verdict: "error", summary }))
+    }
+    const declaredLength = Number(req.headers["content-length"])
+    if (Number.isFinite(declaredLength) && declaredLength > SETTLEMENT_BODY_LIMIT) {
+      sendBodyError(413, `Request body too large. The settlement review limit is ${SETTLEMENT_BODY_LIMIT} bytes.`)
+      return
+    }
+    req.on("data", chunk => {
+      if (bodyTooLarge) return
+      if (Buffer.byteLength(rawBody) + chunk.length > SETTLEMENT_BODY_LIMIT) {
+        bodyTooLarge = true
+        // Keep consuming the socket so Node can send the response cleanly.
+        // The end handler below is intentionally a no-op after this response.
+        sendBodyError(413, `Request body too large. The settlement review limit is ${SETTLEMENT_BODY_LIMIT} bytes.`)
+        return
+      }
+      rawBody += chunk
+    })
     req.on("end", async () => {
+      if (bodyTooLarge || responseSent) return
       const sendError = (summary) => {
+        if (responseSent || res.headersSent) return
+        responseSent = true
         res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify({ verdict: "error", summary }))
       }
       const sendJson = (obj) => {
+        if (responseSent || res.headersSent) return
+        responseSent = true
         res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS })
         res.end(JSON.stringify(obj))
       }
@@ -622,6 +667,7 @@ const server = http.createServer((req, res) => {
         const parsed_body = JSON.parse(rawBody)
         input = (typeof parsed_body.input === "string" ? parsed_body.input : "").trim()
       } catch {
+        responseSent = true
         res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS })
         return res.end(JSON.stringify({ verdict: "error", summary: "Invalid request body — expected JSON with an `input` field." }))
       }
@@ -880,26 +926,14 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
     return
   }
 
-  // ── Static file server (path traversal safe) ──
+  // ── Static file server (explicit public allowlist) ──
   let reqPath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
-
-  // STATIC_ROOT is the repo root, so a dotted segment is never a web asset and
-  // serving one hands out the repository: /.git/config alone exposes the remote
-  // and enough of .git/ to reconstruct history, and .replit publishes this
-  // server on port 80. Checked before resolve() so the segments are still
-  // visible, and it covers the traversal spellings too.
-  if (reqPath.split("/").some((seg) => seg.startsWith("."))) {
+  const assetPath = reqPath.replace(/^\/+/, "")
+  if (!PUBLIC_ASSETS.has(assetPath) || assetPath.split("/").some(seg => seg.startsWith("."))) {
     res.writeHead(403, { "Content-Type": "text/plain" })
     return res.end("Forbidden")
   }
-
-  const filePath = path.resolve(STATIC_ROOT, "." + reqPath)
-
-  // Reject anything that escapes the static root
-  if (!filePath.startsWith(STATIC_ROOT + path.sep) && filePath !== STATIC_ROOT) {
-    res.writeHead(403, { "Content-Type": "text/plain" })
-    return res.end("Forbidden")
-  }
+  const filePath = path.join(STATIC_ROOT, assetPath)
 
   fs.readFile(filePath, (err, data) => {
     if (err) {

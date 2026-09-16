@@ -446,9 +446,19 @@
       padding: 14px 16px;
       cursor: pointer;
       user-select: none;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
     }
 
     .case-header:hover { background: rgba(128,128,128,0.04); }
+    .case-header:focus-visible {
+      outline: 2px solid var(--orange);
+      outline-offset: -2px;
+    }
 
     .case-meta { flex: 1; min-width: 0; }
 
@@ -711,6 +721,9 @@
 
   <div id="gemSettledSlot"></div>
 
+  <div id="storageNotice" class="key-note err" role="status" hidden>
+    Browser storage is unavailable or full. Settlement cases will remain visible for this session, but will not persist after you close or refresh this page.
+  </div>
   <div id="caseList" class="case-list"></div>
 
   <footer class="footer">
@@ -720,7 +733,7 @@
 
 </div>
 
-<script src="gemini-live.js?v=37"></script>
+<script src="gemini-live.js?v=38"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')
@@ -736,22 +749,32 @@
 
   /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {
-    if (localStorage.getItem('predara-theme') === 'dark') {
-      document.body.classList.remove('light')
-      const btn = document.getElementById('themeToggle')
-      if (btn) btn.textContent = '☾'
-    }
+    try {
+      if (localStorage.getItem('predara-theme') === 'dark') {
+        document.body.classList.remove('light')
+        const btn = document.getElementById('themeToggle')
+        if (btn) btn.textContent = '☾'
+      }
+    } catch {}
   })()
 
   function toggleTheme() {
     const isLight = document.body.classList.toggle('light')
-    localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
+    try { localStorage.setItem('predara-theme', isLight ? 'light' : 'dark') } catch {}
     document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
   }
 
   const STORAGE_KEY = "predara-settlement-cases"
   const API_KEY_STORAGE = "predara-anthropic-key"
   const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+  let inMemoryCases = []
+  let storageUnavailable = false
+
+  function showStorageNotice() {
+    storageUnavailable = true
+    const notice = document.getElementById("storageNotice")
+    if (notice) notice.hidden = false
+  }
 
   /* ── Bring-your-own API key ──
      The key lives only in this browser. It is sent as a request header on each
@@ -831,11 +854,26 @@
 
   /* ── Storage ── */
   function loadCases() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]") } catch { return [] }
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")
+      if (Array.isArray(stored)) {
+        inMemoryCases = stored
+        return stored
+      }
+    } catch {
+      showStorageNotice()
+      return inMemoryCases
+    }
+    return inMemoryCases
   }
 
   function saveCases(cases) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cases)) } catch {}
+    inMemoryCases = Array.isArray(cases) ? cases : []
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(inMemoryCases))
+    } catch {
+      showStorageNotice()
+    }
   }
 
   /* ── Render helpers ── */
@@ -881,7 +919,7 @@
       const facts = Array.isArray(c.keyFacts) ? c.keyFacts : []
       const factItems = facts.map(f => `<li>${esc(f)}</li>`).join("")
       bodyHtml = `
-        <div class="case-body">
+        <div class="case-body" id="case-panel-${esc(c.id)}" role="region" aria-hidden="true" aria-label="Settlement details">
           ${facts.length ? `<div class="case-section-label">Key Facts</div><ul class="key-facts">${factItems}</ul>` : ""}
           ${c.recommendation ? `<div class="case-section-label">Recommendation</div><div class="recommendation">${esc(c.recommendation)}</div>` : ""}
           <div class="case-footer">${removeBtn}</div>
@@ -890,14 +928,14 @@
     }
 
     card.innerHTML = `
-      <div class="case-header" onclick="${isPending ? "" : "toggleCard(this)"}">
-        <div class="case-meta">
-          <div class="case-top">${topRow}</div>
-          <div class="case-summary">${summary}</div>
-          <div class="case-timestamp">${formatTs(c.ts)}</div>
-        </div>
+      <button type="button" class="case-header" ${isPending ? "disabled" : `aria-expanded="false" aria-controls="case-panel-${esc(c.id)}" onclick="toggleCard(this)"`}>
+        <span class="case-meta">
+          <span class="case-top">${topRow}</span>
+          <span class="case-summary">${summary}</span>
+          <span class="case-timestamp">${formatTs(c.ts)}</span>
+        </span>
         ${!isPending ? '<div class="case-chevron">▾</div>' : ""}
-      </div>
+      </button>
       ${bodyHtml}
     `
     return card
@@ -909,7 +947,12 @@
 
   function toggleCard(headerEl) {
     const card = headerEl.closest(".case-card")
-    if (card) card.classList.toggle("expanded")
+    if (!card) return
+    const expanded = card.classList.toggle("expanded")
+    headerEl.setAttribute("aria-expanded", expanded ? "true" : "false")
+    const panelId = headerEl.getAttribute("aria-controls")
+    const panel = panelId && document.getElementById(panelId)
+    if (panel) panel.setAttribute("aria-hidden", expanded ? "false" : "true")
   }
 
   /* ── Empty state ── */

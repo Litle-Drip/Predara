@@ -35,6 +35,15 @@ function _gemDateTime(iso) {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
+// A recently-settled feed can contain an event whose status/close timestamp is
+// ahead of the contract resolution data.  Only an explicit winning contract is
+// a result we can attribute to Gemini; a closed event is not evidence of a
+// winner by itself.
+function _gemPublishedWinner(event) {
+  const contracts = Array.isArray(event && event.contracts) ? event.contracts : []
+  return contracts.find((c) => (c && c.resolutionSide || "").toLowerCase() === "yes") || null
+}
+
 // UTC day string offset from today — Gemini's volume endpoints are keyed by UTC
 // date and only expose completed days.
 function _gemUtcDate(daysAgo) {
@@ -743,16 +752,16 @@ async function renderGeminiRecentlySettled(containerId = "gemSettledSlot", onPic
   }
   if (!events.length) { slot.innerHTML = ""; return }
   const items = events.map((e) => {
-    const contracts = Array.isArray(e.contracts) ? e.contracts : []
-    const winner = contracts.find((c) => (c.resolutionSide || "").toLowerCase() === "yes")
+    const winner = _gemPublishedWinner(e)
     const target = onPick ? e.ticker : GEMINI_EVENT_URL(e.ticker)
     return `
       <button type="button" class="discover-market" data-target="${_gemEsc(target)}"
+        aria-label="${_gemEsc(`${e.title || e.ticker || "Gemini market"}${winner ? " — result published" : " — awaiting result data"}`)}"
         onclick="${onPick ? `${onPick}(this.dataset.target)` : "_loadAndAnalyze(this.dataset.target);switchTab('analyze')"}">
         <div class="discover-market-title">${_gemEsc(e.title || e.ticker)}</div>
         <div class="discover-market-meta">
           ${e.ticker ? `<span class="discover-market-ticker">${_gemEsc(e.ticker)}</span>` : ""}
-          ${winner ? `<span class="discover-market-result">Result: ${_gemEsc(winner.abbreviatedName || winner.label || winner.ticker)}</span>` : `<span>Result unavailable</span>`}
+          ${winner ? `<span class="discover-market-result">Result: ${_gemEsc(winner.abbreviatedName || winner.label || winner.ticker)}</span>` : `<span class="discover-market-result">Awaiting result data</span>`}
           ${e.category ? `<span>${_gemEsc(e.category)}</span>` : ""}
           ${e.resolvedAt ? `<span>${_gemEsc(_gemDateTime(e.resolvedAt))}</span>` : ""}
         </div>
@@ -760,8 +769,8 @@ async function renderGeminiRecentlySettled(containerId = "gemSettledSlot", onPic
   }).join("")
   slot.innerHTML = `
     <div class="mi-card">
-      <div class="section-label">RECENT GEMINI SETTLEMENTS</div>
+      <div class="section-label">RECENT GEMINI MARKETS</div>
       ${items}
-      <div class="cal-note">Public settlement results from Gemini${onPick ? " — select one to open an independent audit." : "."}</div>
+      <div class="cal-note">Gemini's recently closed-market feed. A card says "Result" only when Gemini publishes a winning side; otherwise it is awaiting result data.${onPick ? " Selecting a card starts a review — it does not mean Predara has verified the result." : ""}</div>
     </div>`
 }
