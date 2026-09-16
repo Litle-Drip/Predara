@@ -1,0 +1,44 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4HKL69rXvj1Kgcx-LAYNG"
+uri = "file://screenshots/final-review-analyze.jpg"
+type = "image"
+title = "Final review — Analyze"
+description = "Desktop launch-state evidence showing the main value proposition, primary analysis action, and shared navigation."
+logical_id = "bfb602bd-9a28-460d-b53d-0b18b9de64c6"
+content_hash = "sha256:1213728d5c31dbcc86e85636648a373e247b4d82ad98a4105c003abf46e42c7d"
+size = 84849
+mtime_ms = 1789573016022
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:d6a25412-17f9-429e-af96-10e72213e99b/bfb602bd-9a28-460d-b53d-0b18b9de64c6/4354693a-5f0d-4f42-a59d-d07c7e91b68c"
+storage_version_token = "1789573054147286"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "vaZj-8EwVe8ybVIiB5di2"
+uri = "file://screenshots/final-review-settlement.jpg"
+type = "image"
+title = "Final review — Settlement Desk"
+description = "Desktop launch-state evidence showing the audit intake and recent settlements feed, including visible unavailable-result states."
+logical_id = "18f6bb90-567c-46e8-80f3-6f5439734917"
+content_hash = "sha256:ae21bcd768e8b825caba5230940796bd20624e150af34498823b2c474ecb5a7e"
+size = 61622
+mtime_ms = 1789573018102
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:d6a25412-17f9-429e-af96-10e72213e99b/18f6bb90-567c-46e8-80f3-6f5439734917/7263f199-cec8-4057-b289-2d28ebce9b76"
+storage_version_token = "1789573054738591"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "qMOootLUri6EWlIMroi_E"
+uri = "file://screenshots/final-review-kyle.jpg"
+type = "image"
+title = "Final review — Kyle"
+description = "Desktop launch-state evidence showing the support-focused lookup experience and Gemini theme."
+logical_id = "03e4ce76-a898-4e10-8b68-06851368b502"
+content_hash = "sha256:c9adfc1812fe6df3efcba6176cfadea2fbf4b8c462816ee4114cb33a4dab373f"
+size = 51872
+mtime_ms = 1789573019658
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:d6a25412-17f9-429e-af96-10e72213e99b/03e4ce76-a898-4e10-8b68-06851368b502/400646e4-4aff-4bae-9326-eb31d61cca42"
+storage_version_token = "1789573055375636"
+content_type = "image/jpeg"
