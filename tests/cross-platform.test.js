@@ -70,11 +70,10 @@ test("candidates come back ranked and labelled, never pre-selected", async () =>
   })
 
   const pm = results.find(r => r.platform === "polymarket")
-  assert.equal(pm.candidates.length, 2, "the podium market is dropped, not ranked")
+  assert.equal(pm.candidates.length, 1, "different bet types and dated races are dropped")
   assert.equal(pm.candidates[0].title, "Monaco GP Winner")
   assert.equal(pm.candidates[0].confidence, "strong")
   assert.ok(pm.candidates[0].reasons.length, "a candidate always says why it matched")
-  assert.equal(pm.candidates[1].confidence, "weak")
   // Nothing in the payload marks a candidate as chosen — that is the reader's call.
   assert.ok(!("selected" in pm.candidates[0]))
 })
@@ -234,6 +233,43 @@ test("the index is filtered on the search terms, not returned whole", async () =
   assert.equal(found[0].url, "https://kalshi.com/markets/kxf1race-spagp26")
 })
 
+test("the Azerbaijan Kalshi event keeps its event identity and URL", async () => {
+  clearIndex()
+  const get = pagedSignedGet([{
+    events: [{
+      event_ticker: "KXF1RACE-AZEGP26",
+      title: "Formula 1 Azerbaijan Grand Prix Winner",
+      strike_date: "2026-09-26T11:00:00Z",
+    }],
+  }])
+  const found = await searchKalshi(["azerbaijan", "grand", "prix"], get)
+  assert.equal(found.length, 1)
+  assert.equal(found[0].ref, "KXF1RACE-AZEGP26")
+  assert.equal(found[0].url, "https://kalshi.com/markets/kxf1race-azegp26")
+})
+
+test("a Grand Prix search supplements the broad Kalshi index with the F1 series", async () => {
+  clearIndex()
+  const calls = []
+  const get = async path => {
+    calls.push(path)
+    if (path.includes("series_ticker=KXF1RACE")) {
+      return {
+        status: 200,
+        body: JSON.stringify({ events: [{
+          event_ticker: "KXF1RACE-AZEGP26",
+          title: "Azerbaijan Grand Prix Winner",
+          strike_date: "2026-09-26T11:00:00Z",
+        }] }),
+      }
+    }
+    return { status: 200, body: JSON.stringify({ events: [], cursor: "" }) }
+  }
+  const found = await searchKalshi(["azerbaijan", "grand", "prix", "gp"], get)
+  assert.equal(found[0].ref, "KXF1RACE-AZEGP26")
+  assert.ok(calls.some(path => path.includes("series_ticker=KXF1RACE")))
+})
+
 test("enrichment fills in the outcomes a Kalshi listing never carries", async () => {
   // Without this, every race of the season ties on title alone.
   const candidates = [{ ref: "KXF1RACE-SPAGP26", title: "Spanish Grand Prix Winner", outcomes: [], date: "" }]
@@ -248,6 +284,20 @@ test("enrichment fills in the outcomes a Kalshi listing never carries", async ()
   }))
   assert.deepEqual(candidates[0].outcomes, ["Lando Norris", "Lewis Hamilton"])
   assert.equal(candidates[0].date, "2026-09-13")
+})
+
+test("Kalshi enrichment uses the scheduled race date before its settlement deadline", async () => {
+  const listing = [{ ref: "KXF1RACE-AZEGP26", title: "Azerbaijan Grand Prix Winner", outcomes: [], date: "" }]
+  await enrichKalshi(listing, async () => ({
+    status: 200,
+    body: JSON.stringify({ event: { markets: [{
+      occurrence_datetime: "2026-09-26T17:00:00Z",
+      expected_expiration_time: "2026-09-26T17:00:00Z",
+      close_time: "2026-10-03T13:00:00Z",
+      yes_sub_title: "Oscar Piastri",
+    }] } }),
+  }))
+  assert.equal(listing[0].date, "2026-09-26")
 })
 
 test("a candidate that fails to enrich keeps the score it already had", async () => {
@@ -495,7 +545,7 @@ test("the search term list is not truncated a second time by its caller", () => 
   assert.match(source, /match\.searchTerms\(source\)/)
 })
 
-test("an empty result names some of what it checked, not just how much", async () => {
+test("an empty result does not name unrelated markets as plausible near misses", async () => {
   // Counting rejections cannot separate "the right event was never in the pool"
   // from "it was there and the scoring rejected it", which is the difference
   // between a retrieval bug and a scoring bug. The titles say which.
@@ -515,7 +565,7 @@ test("an empty result names some of what it checked, not just how much", async (
 
   const gem = results.find(r => r.platform === "gemini")
   assert.deepEqual(gem.candidates, [])
-  assert.deepEqual(gem.checkedTitles, ["Tour de France Winner", "Giro d'Italia Winner"])
+  assert.deepEqual(gem.checkedTitles, [])
 })
 
 test("both spellings of an abbreviated name are asked for", async () => {
@@ -629,7 +679,7 @@ test("the listings named in an empty result are the closest ones, not an arbitra
 
   const pm = results.find(r => r.platform === "polymarket")
   assert.deepEqual(pm.candidates, [], "none of them is the race")
-  assert.equal(pm.checkedTitles.length, 3)
+  assert.equal(pm.checkedTitles.length, 2)
   // The two markets about this sport come first; the coincidental "winner"
   // matches do not displace them. Every one of these is disqualified and so
   // scores zero, which is why closeness() ranks them instead of the score.
@@ -637,6 +687,50 @@ test("the listings named in an empty result are the closest ones, not an arbitra
   assert.ok(pm.checkedTitles.includes("F1: Action of the Year"))
   assert.ok(!pm.checkedTitles.includes("Best Picture Winner"),
     "a coincidental word match does not outrank a market about the same sport")
+  assert.ok(!pm.checkedTitles.includes("Saanich, BC Mayoral Election Winner"),
+    "generic winner wording is not a plausible near miss")
+})
+
+test("Polymarket US F1 cards expose the supplied Azerbaijan event", () => {
+  const { polymarketUsF1Candidates } = require("../lib/cross-platform")
+  const html = `<script>self.__next_f.push([1,"{\\"cell\\":{\\"id\\":\\"111425\\",\\"slug\\":\\"f1-qaagp-2026-09-26-w\\",\\"href\\":\\"/sports/f1/f1-qaagp-2026-09-26-w\\",\\"title\\":\\"Qatar Airways Azerbaijan Grand Prix Winner\\"}}"])</script>`
+  const found = polymarketUsF1Candidates(html)
+  assert.equal(found.length, 1)
+  assert.equal(found[0].date, "2026-09-26")
+  assert.equal(found[0].url, "https://polymarket.us/sports/f1/f1-qaagp-2026-09-26-w")
+})
+
+test("the exact Azerbaijan race outranks elections and season F1 markets", async () => {
+  const drivers = ["Kimi Antonelli", "Lando Norris", "Max Verstappen"]
+  const { results } = await findCrossPlatform({
+    platform: "gemini",
+    title: "Azerbaijan Grand Prix Winner",
+    date: "2026-09-26",
+    outcomes: drivers,
+  }, {
+    signedGet: null,
+    searchKalshi: async () => [
+      candidate("kalshi", "New York City mayoral election winner?", { date: "", outcomes: [] }),
+      candidate("kalshi", "2028 U.S. Presidential Election winner?", { date: "", outcomes: [] }),
+      candidate("kalshi", "Formula 1 Azerbaijan Grand Prix Winner", {
+        date: "2026-09-26", outcomes: drivers,
+        ref: "KXF1RACE-AZEGP26", url: "https://kalshi.com/markets/kxf1race-azegp26",
+      }),
+    ],
+    searchPolymarket: async () => [
+      candidate("polymarket", "F1 Drivers Champion", { date: "2026-12-06", outcomes: drivers }),
+      candidate("polymarket", "Qatar Airways Azerbaijan Grand Prix Winner", {
+        date: "2026-09-26", outcomes: [],
+        ref: "f1-qaagp-2026-09-26-w",
+        url: "https://polymarket.us/sports/f1/f1-qaagp-2026-09-26-w",
+      }),
+    ],
+  })
+  const kalshi = results.find(r => r.platform === "kalshi")
+  const polymarket = results.find(r => r.platform === "polymarket")
+  assert.deepEqual(kalshi.candidates.map(c => c.ref), ["KXF1RACE-AZEGP26"])
+  assert.deepEqual(polymarket.candidates.map(c => c.ref), ["f1-qaagp-2026-09-26-w"])
+  assert.equal(polymarket.candidates[0].confidence, "strong")
 })
 
 test("an empty venue row offers a way to check that venue by hand", () => {

@@ -53,6 +53,16 @@ test("the podium market is not the winner market, however well everything else l
   assert.match(result.disqualified, /different market type/)
 })
 
+test("the constructor market is not the driver winner market", () => {
+  const result = match.scoreMatch(SPANISH_GP, {
+    title: "Spanish Grand Prix Winning Constructor",
+    date: SPANISH_GP.date,
+    outcomes: SPANISH_GP.outcomes,
+  })
+  assert.equal(result.confidence, "none")
+  assert.match(result.disqualified, /different market type/)
+})
+
 test("last week's race is never a confident match for this week's", () => {
   // Every race of the season shares a driver list and most of a title, so
   // title and outcome overlap alone would rank this as strong.
@@ -62,8 +72,8 @@ test("last week's race is never a confident match for this week's", () => {
     outcomes: SPANISH_GP.outcomes,
   }
   const result = match.scoreMatch(SPANISH_GP, lastWeek)
-  assert.equal(result.confidence, "weak")
-  assert.ok(result.reasons.some(r => /7 days apart/.test(r)))
+  assert.equal(result.confidence, "none")
+  assert.match(result.disqualified, /different race dates/)
 })
 
 test("sharing nothing but a date is not evidence of anything", () => {
@@ -89,20 +99,54 @@ test("ranking drops the disqualified and keeps the best first", () => {
     { title: "Will Bitcoin reach $200k?", date: "2026-09-13", outcomes: ["Yes", "No"] },
   ], 3)
 
-  assert.equal(ranked.length, 2)
+  assert.equal(ranked.length, 1)
   assert.equal(ranked[0].title, "F1 Spanish GP Winner")
   assert.equal(ranked[0].confidence, "strong")
-  assert.equal(ranked[1].confidence, "weak")
 })
 
 test("search terms drop stopwords, years and duplicates", () => {
   const terms = match.searchTerms({ title: "Who will be the 2026 Spanish Grand Prix winner?" })
   assert.ok(terms.includes("spanish"))
-  assert.ok(terms.includes("winner"))
+  assert.ok(!terms.includes("winner"), "market type is not event identity")
   assert.ok(!terms.includes("2026"))
   assert.ok(!terms.includes("the"))
 })
 
 test("Grand Prix and GP are the same words", () => {
   assert.equal(match.normalizeTitle("Spanish Grand Prix"), "spanish gp")
+})
+
+test("generic winner wording does not connect an F1 race to an election", () => {
+  const result = match.scoreMatch({
+    title: "Azerbaijan Grand Prix Winner",
+    date: "2026-09-26",
+    outcomes: ["Kimi Antonelli", "Lando Norris"],
+  }, {
+    title: "New York City mayoral election winner?",
+    outcomes: [],
+  })
+  assert.equal(result.confidence, "none")
+})
+
+test("Azerbaijan and sponsored Azerbaijan GP titles identify the same dated race", () => {
+  const result = match.scoreMatch({
+    title: "Azerbaijan Grand Prix Winner",
+    date: "2026-09-26",
+    outcomes: ["Kimi Antonelli", "Lando Norris"],
+  }, {
+    title: "Qatar Airways Azerbaijan Grand Prix Winner",
+    date: "2026-09-26",
+    outcomes: [],
+  })
+  assert.equal(result.confidence, "strong")
+})
+
+test("race and season winner markets have different event scope", () => {
+  const result = match.scoreMatch(SPANISH_GP, {
+    title: "F1 Drivers Champion",
+    date: "2026-12-06",
+    outcomes: SPANISH_GP.outcomes,
+  })
+  assert.equal(result.confidence, "none")
+  assert.match(result.disqualified, /different event scope/)
 })

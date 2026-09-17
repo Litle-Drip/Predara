@@ -29,6 +29,16 @@ test("an instrument symbol resolves to its event ticker, not a 404", () => {
     "https://www.gemini.com/predictions/F1-MADGP-WIN-20260913")
 })
 
+test("Similar Markets uses the event date embedded in a Gemini instrument URL", () => {
+  const ctx = loadUiContext(["utils.js", "crossmatch.js"])
+  ctx.window._analyzedUrl = "https://www.gemini.com/predictions/F1-AZEGP-WIN-20260926"
+  ctx.window._lastCloseIso = "2026-09-28T00:00:00Z"
+  ctx._currentPlatform = () => "gemini"
+  ctx._currentTitle = () => "Azerbaijan Grand Prix Winner"
+  const source = ctx._xmatchSource()
+  assert.equal(source.date, "2026-09-26")
+})
+
 test("a bare event ticker is accepted as it stands", () => {
   const ctx = loadUiContext(["utils.js"])
   assert.equal(

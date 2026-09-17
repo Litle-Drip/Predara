@@ -31,11 +31,15 @@ function _xmatchSource() {
     const name = typeof _outcomeNameText === "function" ? _outcomeNameText(row) : ""
     if (name) outcomes.push(name)
   })
+  const analyzedRef = (typeof window !== "undefined" && window._analyzedUrl) ||
+    ((document.getElementById("urlInput") || {}).value || "")
+  const packedDate = (String(analyzedRef).match(/(?:^|[^0-9])(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?:[^0-9]|$)/) || [])
+  const eventDate = packedDate.length ? `${packedDate[1]}-${packedDate[2]}-${packedDate[3]}` : ""
   return {
     platform,
     title,
     // A close timestamp is an ISO instant; the matcher compares calendar days.
-    date: (closeIso.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || "",
+    date: eventDate || (closeIso.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || "",
     outcomes: outcomes.slice(0, 16),
   }
 }
