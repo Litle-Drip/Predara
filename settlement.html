@@ -555,7 +555,7 @@
       padding: 10px 12px;
     }
 
-    .case-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+    .case-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
     .btn-remove {
       background: none;
@@ -570,6 +570,7 @@
     }
 
     .btn-remove:hover { border-color: var(--discrepancy-pill-bg); color: #f87171; }
+    .btn-export:hover { border-color: var(--orange); color: var(--accent-ink); }
 
     .spinner {
       display: inline-block;
@@ -768,6 +769,7 @@
   const STORAGE_KEY = "predara-settlement-cases"
   const API_KEY_STORAGE = "predara-anthropic-key"
   const ANTHROPIC_KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,250}$/
+  const EXPORTABLE_VERDICTS = new Set(["confirmed", "discrepancy", "needs_review"])
   let inMemoryCases = []
   let storageUnavailable = false
 
@@ -910,8 +912,11 @@
       <span class="${pillClass(c.verdict)}">${isPending ? '<span class="spinner"></span>' : ""}${esc(verdictLabel(c.verdict))}</span>
     `
 
-    // Remove button always available on every card (pending or resolved)
+    // Remove is always available; only completed verdicts have an audit to export.
     const removeBtn = `<button class="btn-remove" onclick="removeCase('${c.id}', event)" style="margin-top:${isPending ? "10px" : "0"}">Remove</button>`
+    const exportBtn = EXPORTABLE_VERDICTS.has(c.verdict)
+      ? `<button class="btn-remove btn-export" onclick="exportCase('${c.id}', event)">Export</button>`
+      : ""
 
     let bodyHtml = ""
     if (isPending) {
@@ -923,7 +928,7 @@
         <div class="case-body" id="case-panel-${esc(c.id)}" role="region" aria-hidden="true" aria-label="Settlement details">
           ${facts.length ? `<div class="case-section-label">Key Facts</div><ul class="key-facts">${factItems}</ul>` : ""}
           ${c.recommendation ? `<div class="case-section-label">Recommendation</div><div class="recommendation">${esc(c.recommendation)}</div>` : ""}
-          <div class="case-footer">${removeBtn}</div>
+          <div class="case-footer">${exportBtn}${removeBtn}</div>
         </div>
       `
     }
@@ -1059,6 +1064,49 @@
     const cases = loadCases().filter(c => c.id !== id)
     saveCases(cases)
     renderAll()
+  }
+
+  function casePlatform(c) {
+    if (c.platform) return c.platform
+    const value = String(c.input || c.ticker || "").toLowerCase()
+    const summary = String(c.summary || "").toLowerCase()
+    if (value.includes("coinbase.com") || value.includes("predict.coinbase.com")) return "Coinbase"
+    if (value.includes("kalshi.com") || summary.includes("kalshi")) return "Kalshi"
+    if (value.includes("polymarket.com") || summary.includes("polymarket") || /^[a-z][a-z0-9-]{4,}$/.test(String(c.ticker || ""))) return "Polymarket"
+    if (summary.includes("coinbase")) return "Coinbase"
+    return "Gemini"
+  }
+
+  function exportCase(id, event) {
+    event.stopPropagation()
+    const c = loadCases().find(item => item.id === id)
+    if (!c || !EXPORTABLE_VERDICTS.has(c.verdict)) return
+
+    const record = {
+      ticker: c.ticker || c.input || "",
+      title: c.title || "",
+      platform: casePlatform(c),
+      verdict: c.verdict,
+      summary: c.summary || "",
+      keyFacts: Array.isArray(c.keyFacts) ? c.keyFacts : [],
+      recommendation: c.recommendation || "",
+      input: c.input || "",
+      ts: c.ts || "",
+      exportedAt: new Date().toISOString(),
+    }
+    const ticker = String(record.ticker || "market")
+      .replace(/[^a-z0-9_-]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "market"
+    const date = /^\d{4}-\d{2}-\d{2}/.test(record.ts) ? record.ts.slice(0, 10) : record.exportedAt.slice(0, 10)
+    const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2) + "\n"], { type: "application/json" }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `predara-settlement-${ticker}-${date}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
   }
 
   /* ── Boot: sweep stale pending cases ── */

@@ -27,3 +27,16 @@ test("Resolved cases use accessible disclosure buttons and linked panels", () =>
   assert.match(html, /headerEl\.getAttribute\("aria-controls"\)/)
   assert.match(html, /\.case-header:focus-visible/)
 })
+
+test("only completed settlement verdicts can be exported as JSON audit records", () => {
+  assert.match(html, /const EXPORTABLE_VERDICTS = new Set\(\["confirmed", "discrepancy", "needs_review"\]\)/)
+  assert.match(html, /EXPORTABLE_VERDICTS\.has\(c\.verdict\)[\s\S]*?exportCase\('\$\{c\.id\}', event\)/)
+  assert.match(html, /function exportCase\(id, event\)/)
+  assert.match(html, /const c = loadCases\(\)\.find\(item => item\.id === id\)/)
+  for (const field of ["ticker", "title", "platform", "verdict", "summary", "keyFacts", "recommendation", "input", "ts", "exportedAt"]) {
+    assert.match(html, new RegExp(`\\b${field}:`), `export is missing ${field}`)
+  }
+  assert.match(html, /new Blob\(\[JSON\.stringify\(record, null, 2\)/)
+  assert.match(html, /link\.download = `predara-settlement-\$\{ticker\}-\$\{date\}\.json`/)
+  assert.match(html, /URL\.revokeObjectURL\(url\)/)
+})
