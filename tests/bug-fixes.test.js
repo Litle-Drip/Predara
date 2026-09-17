@@ -71,6 +71,25 @@ test("plainEnglishRules sentence-cases fragments that start lowercase", () => {
   assert.equal(sentences[0][0], "T", `expected capitalized sentence, got: ${sentences[0]}`)
 })
 
+test("plainEnglishRules removes a resolution criterion repeated in prose and a list item", () => {
+  const ctx = loadUiContext()
+  const raw = [
+    "The market resolves YES if Team A wins the championship.",
+    "",
+    "- The market resolves YES if Team A wins the championship!",
+  ].join("\n")
+  const sentences = ctx.plainEnglishRules(raw)
+  const normalize = text => text.replace(/[\s.,;:!?]+/g, " ").trim().toLowerCase()
+  const normalized = sentences.map(normalize)
+
+  assert.equal(
+    new Set(normalized).size,
+    normalized.length,
+    `expected no duplicate resolution criteria, got: ${JSON.stringify(sentences)}`,
+  )
+  assert.equal(normalized.length, 1, `expected the repeated criterion once, got: ${JSON.stringify(sentences)}`)
+})
+
 test("tagChipsHtml caps visible chips and keeps reward chips", () => {
   const ctx = loadUiContext()
   const html = ctx.tagChipsHtml(
