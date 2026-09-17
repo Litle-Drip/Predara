@@ -6,7 +6,7 @@
 // every change to that file, so support agents were reading a stale Kyle.
 // Bump this and the ?v= in EVERY page together, always — see
 // tests/asset-versions.test.js.
-const CACHE_NAME = "predara-v21"
+const CACHE_NAME = "predara-v22"
 
 // Pages, cached so the app opens offline — but always fetched fresh first when
 // the network is there. See the navigation rule in the fetch handler.
@@ -19,7 +19,7 @@ const PAGE_URLS = [
 ]
 
 const ASSET_URLS = [
-  "/shared-shell.css?v=40",
+  "/shared-shell.css?v=41",
   "/utils.js",
   "/components.js",
   "/adapters.js",

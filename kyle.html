@@ -33,20 +33,12 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* The header is deliberately anchored on the same 1200px grid as the Analyze
-       page so the logo and the page tabs do not jump when you move between the
-       three pages — tests/navigation.test.js pins that.
-
-       What was wrong is that the 800px content column was *centred* inside that
-       1200px frame, so every card started about 280px to the right of the logo
-       above it and the footer rule lined up with neither. The column keeps its
-       readable 800px measure and its own left edge now sits under the header's,
-       which leaves the header anchored and the page aligned. */
+    /* The shared shell centers this page's readable column independently of the
+       1200px header grid, so the body is balanced without moving the navigation. */
     .app {
       max-width: 1200px;
       margin: 0 auto;
     }
-    .app > :not(.app-header) { width: min(800px, 100%); margin-left: 0; margin-right: auto; }
 
     .tab-nav a.active { background: var(--k-fill); color: var(--k-on-fill); }
 
@@ -548,9 +540,6 @@
     .k-primer dt { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-top: 12px; }
     .k-primer dd { font-size: 13px; color: var(--text); line-height: 1.7; margin-top: 2px; }
 
-    @media (max-width: 640px) {
-    }
-
     @media (max-width: 560px) {
       .intake { padding: 20px 16px; }
       .intake-row { flex-direction: column; }
@@ -567,7 +556,7 @@
       .k-swatch { transition: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=40" rel="stylesheet">
+  <link href="/shared-shell.css?v=41" rel="stylesheet">
 </head>
 <body data-theme="gemini">
 <script>

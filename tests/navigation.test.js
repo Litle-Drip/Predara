@@ -54,6 +54,8 @@ test("the shared header stays anchored while narrow pages keep readable content"
     assert.match(html, /\.app\s*\{\s*max-width:\s*1200px/)
     assert.ok(html.includes('class="app app--narrow"'))
     assert.ok(html.includes("padding: 52px 32px 96px"))
+    assert.doesNotMatch(html, /\.app\s*>\s*:not\(\.app-header\)/,
+      `${page} must not override the shared centered column`)
   }
   assert.match(sharedShell, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)/)
   assert.match(sharedShell, /width:\s*min\(800px,\s*100%\)/)
@@ -72,7 +74,7 @@ test("page switching is softened and respects reduced-motion preferences", () =>
 test("all page headers switch to the same non-overlapping two-row layout", () => {
   for (const page of PAGES) {
     const html = read(page)
-    assert.ok(html.includes('/shared-shell.css?v=40'), `${page} does not load the shared shell`)
+    assert.ok(html.includes('/shared-shell.css?v=41'), `${page} does not load the shared shell`)
   }
   const responsiveHeader = sharedShell.slice(sharedShell.indexOf("@media (max-width: 760px)"))
   assert.ok(responsiveHeader.includes("grid-template-columns: minmax(0, 1fr) auto"))
@@ -83,18 +85,20 @@ test("all page headers switch to the same non-overlapping two-row layout", () =>
 test("all page shells keep identical geometry through the phone breakpoint", () => {
   for (const page of PAGES) {
     const html = read(page)
-    assert.ok(html.includes('/shared-shell.css?v=40'), `${page} does not share phone shell geometry`)
+    assert.ok(html.includes('/shared-shell.css?v=41'), `${page} does not share phone shell geometry`)
   }
   const phone = sharedShell.slice(sharedShell.indexOf("@media (max-width: 640px)"))
   assert.match(phone, /body\s*\{\s*padding:\s*20px 14px 64px/)
   assert.match(phone, /\.app-header\s*\{\s*margin-bottom:\s*24px/)
   assert.match(phone, /\.app-title\s*\{\s*font-size:\s*18px/)
+  assert.match(phone, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)\s*\{[^}]*width:\s*100%/)
+  assert.match(phone, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)\s*\{[^}]*min-width:\s*0/)
 })
 
 test("shared shell is available offline and from the public server", () => {
   const sw = read("sw.js")
   const server = read("server.js")
-  assert.ok(sw.includes('"/shared-shell.css?v=40"'))
+  assert.ok(sw.includes('"/shared-shell.css?v=41"'))
   assert.ok(server.includes('"shared-shell.css"'))
 })
 

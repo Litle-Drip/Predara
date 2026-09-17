@@ -167,6 +167,11 @@
   .app-title {
     font-size: 18px;
   }
+
+  .app.app--narrow > :not(.app-header) {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 380px) {
