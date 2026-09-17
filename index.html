@@ -157,43 +157,6 @@
       ::view-transition-new(root) { animation: none; }
     }
 
-    /* ── App header ── */
-    .app-header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 32px;
-    }
-    .app-logo {
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .app-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-    }
-    .app-title {
-      font-size: 20px;
-      font-weight: 600;
-      color: var(--text-bright);
-      letter-spacing: -0.4px;
-    }
-    .app-subtitle {
-      font-size: 12px;
-      font-weight: 400;
-      color: var(--muted);
-      letter-spacing: 0.2px;
-      margin-top: 2px;
-    }
-
     /* ── Search row ── */
     .search-row {
       display: flex;
@@ -1073,35 +1036,10 @@
       text-transform: uppercase;
     }
 
-    /* ── Theme toggle ── */
-    .theme-toggle {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      padding: 7px 10px;
-      transition: border-color 0.18s, color 0.18s;
-    }
-    .theme-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
-    .header-controls {
-      margin-left: auto;
-      display: grid;
-      grid-template-columns: auto 126px;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .page-tools { width: 126px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-    .mode-tabs { display: flex; align-items: center; gap: 3px; background: var(--bar-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; flex-shrink: 0; }
-    .mode-tab { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 5px 11px; border-radius: 5px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
-    .mode-tab:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
     .mode-tab.active { background: var(--accent-fill); color: #fff; }
-    .mode-tab, .theme-toggle, .odds-toggle { min-height: 34px; }
-    .mode-tab:focus-visible,
-    .theme-toggle:focus-visible,
+    .odds-toggle { min-height: 34px; }
+    .theme-toggle { background: var(--card); }
+    .theme-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
     .odds-toggle:focus-visible,
     .search-row button:focus-visible,
     .tab-btn:focus-visible,
@@ -1110,20 +1048,6 @@
       outline: 2px solid var(--orange);
       outline-offset: 2px;
     }
-    @media (max-width: 760px) {
-      .app-header {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 10px;
-      }
-      .header-controls {
-        display: contents;
-      }
-      .mode-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; }
-      .mode-tab { flex: 1; text-align: center; }
-      .page-tools { grid-column: 2; grid-row: 1; width: auto; margin-left: auto; }
-    }
-
     /* ── Footer ── */
     /* One footer for Analyze, Settlement Desk and Kyle. It used to be a single
        brand line here and a two-column disclaimer on the other two pages, at
@@ -1985,11 +1909,6 @@
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
-      body { padding: 20px 14px 64px; }
-
-      .app-header { margin-bottom: 24px; }
-      .app-title  { font-size: 18px; }
-
       /* Every card body narrows with the page from this one value. */
       :root { --card-pad-x: 18px; }
 
@@ -2073,7 +1992,6 @@
       .stats-grid   { grid-template-columns: 1fr; }
       .outcome-pct  { font-size: 30px; }
       .outcome-right { gap: 8px; }
-      .app-subtitle { display: none; }
     }
 
     /* ═══════════════════════════════════════════════════════════════════ */
@@ -3096,7 +3014,7 @@
       .embed-code-wrap { flex-direction: column; }
     }
   </style>
-  <link href="/shared-shell.css?v=39" rel="stylesheet">
+  <link href="/shared-shell.css?v=40" rel="stylesheet">
 </head>
 <body class="light">
 

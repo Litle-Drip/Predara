@@ -72,7 +72,7 @@ test("page switching is softened and respects reduced-motion preferences", () =>
 test("all page headers switch to the same non-overlapping two-row layout", () => {
   for (const page of PAGES) {
     const html = read(page)
-    assert.ok(html.includes('/shared-shell.css?v=39'), `${page} does not load the shared shell`)
+    assert.ok(html.includes('/shared-shell.css?v=40'), `${page} does not load the shared shell`)
   }
   const responsiveHeader = sharedShell.slice(sharedShell.indexOf("@media (max-width: 760px)"))
   assert.ok(responsiveHeader.includes("grid-template-columns: minmax(0, 1fr) auto"))
@@ -83,7 +83,7 @@ test("all page headers switch to the same non-overlapping two-row layout", () =>
 test("all page shells keep identical geometry through the phone breakpoint", () => {
   for (const page of PAGES) {
     const html = read(page)
-    assert.ok(html.includes('/shared-shell.css?v=39'), `${page} does not share phone shell geometry`)
+    assert.ok(html.includes('/shared-shell.css?v=40'), `${page} does not share phone shell geometry`)
   }
   const phone = sharedShell.slice(sharedShell.indexOf("@media (max-width: 640px)"))
   assert.match(phone, /body\s*\{\s*padding:\s*20px 14px 64px/)
@@ -94,8 +94,31 @@ test("all page shells keep identical geometry through the phone breakpoint", () 
 test("shared shell is available offline and from the public server", () => {
   const sw = read("sw.js")
   const server = read("server.js")
-  assert.ok(sw.includes('"/shared-shell.css?v=39"'))
+  assert.ok(sw.includes('"/shared-shell.css?v=40"'))
   assert.ok(server.includes('"shared-shell.css"'))
+})
+
+test("Analyze, Settlement Desk, and Kyle do not redefine shared header geometry", () => {
+  const sharedSelectors = [
+    ".app-header",
+    ".logo-link",
+    ".app-logo",
+    ".app-title",
+    ".app-subtitle",
+    ".page-tools",
+  ]
+
+  for (const page of ["index.html", "settlement.html", "kyle.html"]) {
+    const inlineStyles = read(page).match(/<style>([\s\S]*?)<\/style>/)?.[1] || ""
+    for (const selector of sharedSelectors) {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      assert.doesNotMatch(
+        inlineStyles,
+        new RegExp(`(^|[},]\\s*)${escaped}\\s*\\{`, "m"),
+        `${page} redefines shared selector ${selector}`
+      )
+    }
+  }
 })
 
 // ── Service worker ────────────────────────────────────────────────────────────

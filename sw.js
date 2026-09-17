@@ -19,7 +19,7 @@ const PAGE_URLS = [
 ]
 
 const ASSET_URLS = [
-  "/shared-shell.css?v=39",
+  "/shared-shell.css?v=40",
   "/utils.js",
   "/components.js",
   "/adapters.js",
@@ -71,7 +71,7 @@ function putInCache(request, response) {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return
-  const url = new URL(e.request.url)
+  const url = e.notification.data?.url || "/"
   if (url.pathname.startsWith("/api/")) return
   if (url.origin !== self.location.origin) return
 

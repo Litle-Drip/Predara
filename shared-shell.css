@@ -95,6 +95,31 @@
   justify-content: flex-end;
 }
 
+.theme-toggle {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px 9px;
+  background: var(--bar-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.theme-toggle:hover {
+  color: var(--text-bright);
+  border-color: var(--border-hi);
+}
+
+:is(.logo-link, .tab-nav a, .mode-tab, .theme-toggle):focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
 /* Kyle and Settlement Desk use a readable measure, centered in the full shell. */
 .app.app--narrow > :not(.app-header) {
   width: min(800px, 100%);
