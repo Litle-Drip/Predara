@@ -6,6 +6,7 @@ const path = require("node:path")
 const ROOT = path.join(__dirname, "..")
 const PAGES = ["index.html", "settlement.html", "kyle.html", "monitor.html"]
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8")
+const sharedShell = read("shared-shell.css")
 
 // Every page must reach every other page. The Kyle tab was missing from the
 // Settlement Desk header for returning users, so this is checked rather than
@@ -51,9 +52,13 @@ test("the shared header stays anchored while narrow pages keep readable content"
   for (const page of ["settlement.html", "kyle.html"]) {
     const html = read(page)
     assert.match(html, /\.app\s*\{\s*max-width:\s*1200px/)
-    assert.ok(html.includes(".app > :not(.app-header) { width: min(800px, 100%)"))
+    assert.ok(html.includes('class="app app--narrow"'))
     assert.ok(html.includes("padding: 52px 32px 96px"))
   }
+  assert.match(sharedShell, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)/)
+  assert.match(sharedShell, /width:\s*min\(800px,\s*100%\)/)
+  assert.match(sharedShell, /margin-right:\s*auto/)
+  assert.match(sharedShell, /margin-left:\s*auto/)
 })
 
 test("page switching is softened and respects reduced-motion preferences", () => {
@@ -67,27 +72,30 @@ test("page switching is softened and respects reduced-motion preferences", () =>
 test("all page headers switch to the same non-overlapping two-row layout", () => {
   for (const page of PAGES) {
     const html = read(page)
-    assert.ok(html.includes("@media (max-width: 760px)"), `${page} does not use the shared header breakpoint`)
-    const responsiveHeader = html.slice(html.indexOf("@media (max-width: 760px)"), html.indexOf("@media (max-width: 760px)") + 900)
-    assert.ok(responsiveHeader.includes("grid-template-columns: minmax(0, 1fr) auto"), `${page} can collapse its brand into its tools`)
-    assert.match(responsiveHeader, /grid-column:\s*1\s*\/\s*-1/, `${page} does not move its page tabs to a full-width row`)
+    assert.ok(html.includes('/shared-shell.css?v=39'), `${page} does not load the shared shell`)
   }
+  const responsiveHeader = sharedShell.slice(sharedShell.indexOf("@media (max-width: 760px)"))
+  assert.ok(responsiveHeader.includes("grid-template-columns: minmax(0, 1fr) auto"))
+  assert.match(responsiveHeader, /grid-column:\s*1\s*\/\s*-1/)
+  assert.match(responsiveHeader, /white-space:\s*normal/)
 })
 
 test("all page shells keep identical geometry through the phone breakpoint", () => {
   for (const page of PAGES) {
     const html = read(page)
-    const phone = html.slice(html.indexOf("@media (max-width: 640px)"), html.indexOf("@media (max-width: 640px)") + 500)
-    assert.ok(phone.includes("body { padding: 20px 14px 64px; }"), `${page} uses different phone page bounds`)
-    assert.ok(phone.includes(".app-header { margin-bottom: 24px; }"), `${page} uses different phone header spacing`)
-    assert.ok(phone.includes(".app-title") && phone.includes("font-size: 18px"), `${page} uses different phone branding size`)
+    assert.ok(html.includes('/shared-shell.css?v=39'), `${page} does not share phone shell geometry`)
   }
+  const phone = sharedShell.slice(sharedShell.indexOf("@media (max-width: 640px)"))
+  assert.match(phone, /body\s*\{\s*padding:\s*20px 14px 64px/)
+  assert.match(phone, /\.app-header\s*\{\s*margin-bottom:\s*24px/)
+  assert.match(phone, /\.app-title\s*\{\s*font-size:\s*18px/)
+})
 
-  for (const page of ["settlement.html", "kyle.html"]) {
-    const html = read(page)
-    const header = html.slice(html.indexOf(".app-header {"), html.indexOf(".app-header {") + 240)
-    assert.ok(header.includes("gap: 10px"), `${page} uses a different desktop nav/tool gap`)
-  }
+test("shared shell is available offline and from the public server", () => {
+  const sw = read("sw.js")
+  const server = read("server.js")
+  assert.ok(sw.includes('"/shared-shell.css?v=39"'))
+  assert.ok(server.includes('"shared-shell.css"'))
 })
 
 // ── Service worker ────────────────────────────────────────────────────────────

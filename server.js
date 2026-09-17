@@ -29,7 +29,7 @@ const SETTLEMENT_BODY_LIMIT = 16 * 1024
 // with the files referenced by the shipped pages and service worker.
 const PUBLIC_ASSETS = new Set([
   "index.html", "kyle.html", "monitor.html", "settlement.html",
-  "manifest.json", "sw.js", "og-image.png",
+  "manifest.json", "sw.js", "shared-shell.css", "og-image.png",
   "adapters.js", "app.js", "compare.js", "components.js", "crossmatch.js",
   "features.js", "gemini-live.js", "kyle.js", "monitor.js", "renderers.js",
   "utils.js",
