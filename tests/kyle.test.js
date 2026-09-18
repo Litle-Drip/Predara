@@ -468,17 +468,31 @@ test("settlement is described as what the contract does, never as a completed pa
   assert.match(settled.status.plain, /cannot see whether an individual account has been credited/i)
 })
 
-test("the settlement value is read from the payload, not assumed to be $1", () => {
-  assert.equal(kyle.kyleSettlement({ contracts: [{ label: "Yes" }] }).known, false)
-  assert.match(kyle.kyleSettlement({ contracts: [{ label: "Yes" }] }).each, /full settlement value/i)
+test("`settlementValue` is never read as a payout — it is the measured value", () => {
+  // This test used to assert the opposite, and the opposite was a live defect:
+  // on a crypto market settlementValue carries the BTC price that decided the
+  // outcome, so reading it as the payout made Kyle tell an agent "winning
+  // contracts settle at $64,493.48 per contract". The name collides with a
+  // parameter in lib/gemini.js that DOES mean the $1 payout; the API field does
+  // not. No payout figure is invented from it.
+  const crypto = {
+    settlement: { value: "64493.48440000002" },
+    contracts: [{ label: "Up", settlementValue: "64493.48440000002", strike: { type: "reference", value: "64527.43" } }],
+  }
+  const settlement = kyle.kyleSettlement(crypto)
+  assert.equal(settlement.known, false, "no payout is published on this event")
+  assert.match(settlement.each, /full settlement value/i)
+  assert.doesNotMatch(settlement.each, /64,?493/, "the measured price must never be quoted as a payout")
 
-  const published = kyle.kyleSettlement({ settlementValue: 1, contracts: [{ label: "Yes" }] })
-  assert.equal(published.known, true)
-  assert.equal(published.amount, "$1.00")
+  const brief = kyle.kyleBrief(crypto, NOW)
+  for (const text of [brief.status.plain, kyle.kyleHeadline(brief, NOW), kyle.kyleSummaryText(brief, NOW)]) {
+    assert.doesNotMatch(text, /settles at \$64/, "the measured price must not reach any payout sentence")
+  }
+})
 
-  const nonStandard = kyle.kyleSettlement({ contracts: [{ label: "Yes", settlementValue: 5 }] })
-  assert.equal(nonStandard.amount, "$5.00")
-  assert.match(kyle.kyleType({ type: "binary", settlementValue: 5, contracts: [{ label: "Yes" }] }).plain, /\$5\.00/)
+test("a genuine payout field would still be honoured", () => {
+  assert.equal(kyle.kyleSettlement({ contracts: [{ label: "Yes", payoutValue: 5 }] }).amount, "$5.00")
+  assert.equal(kyle.kyleSettlement({ payoutValue: 1, contracts: [{ label: "Yes" }] }).amount, "$1.00")
 })
 
 test("an undecided market never displays 0% or 100%", () => {
@@ -806,4 +820,85 @@ test("type labels stay short enough to sit on one line", () => {
   }
   assert.equal(kyle.kyleType(PODIUM_EVENT).label, "Several can win")
   assert.equal(kyle.kyleType(REAL_EVENT).label, "Pick one — only one can win")
+})
+
+// ══ Threshold markets: crypto and weather ═════════════════════════════════════
+// These resolve by comparing a measured value against a threshold, and publish
+// both numbers plus the index they came from. That is the answer to "why did
+// this resolve No?", which is what a customer disputing a result is asking.
+const CRYPTO_EVENT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "fixtures", "gemini-settled-crypto.json"), "utf8")
+)
+
+test("a crypto market shows the threshold, the measured value and the gap", () => {
+  const reading = kyle.kyleSettlementReading(CRYPTO_EVENT)
+  assert.equal(reading.thresholdText, "64,527.43", "the strike is the threshold")
+  assert.equal(reading.measuredText, "64,493.48", "float noise is not shown to an agent")
+  assert.equal(reading.difference.direction, "below")
+  assert.equal(reading.difference.amount, "33.95")
+  assert.equal(reading.index, "GRR-KAIKO_RFR_BTCUSD_60S")
+  assert.equal(reading.agency, "Kaiko")
+})
+
+test("Kyle states the gap but never invents which side of it wins", () => {
+  // The strike here is type "reference"; the contract terms, not the strike
+  // type, say which direction resolves Yes.
+  const html = kyle.kyleBriefHtml(kyle.kyleBrief(CRYPTO_EVENT, NOW))
+  assert.match(html, /64,527\.43/)
+  assert.match(html, /64,493\.48/)
+  assert.match(html, /set by the contract terms/i)
+  assert.doesNotMatch(html, /so it resolved|therefore resolved/i, "no synthesised causal claim")
+})
+
+test("the settlement figures reach the ticket text", () => {
+  const text = kyle.kyleSummaryText(kyle.kyleBrief(CRYPTO_EVENT, NOW), NOW)
+  assert.match(text, /THRESHOLD: 64,527\.43/)
+  assert.match(text, /MEASURED: 64,493\.48 \(33\.95 below the threshold\)/)
+  assert.match(text, /PRICE SOURCE: GRR-KAIKO_RFR_BTCUSD_60S \(Kaiko\)/)
+})
+
+test("a threshold not yet captured says so rather than showing nothing", () => {
+  const pending = {
+    contracts: [{ label: "Up", strike: { type: "reference", availableAt: "2026-09-10T00:50:00.000Z" } }],
+    source: "GRR-KAIKO_RFR_BTCUSD_60S",
+  }
+  const reading = kyle.kyleSettlementReading(pending)
+  assert.equal(reading.threshold, null)
+  assert.ok(reading.pendingAt, "the capture time must be surfaced")
+  assert.match(kyle.kyleBriefHtml(kyle.kyleBrief(pending, NOW)), /has not been published yet/i)
+})
+
+test("a non-price threshold is shown as what it is, not as money", () => {
+  // A podium market's strike is a finishing position (top 3), not a price. It
+  // is worth showing — "top 3" is the whole rule — but "3.00" reads as dollars,
+  // and there is no price index to name on a sports event.
+  const reading = kyle.kyleSettlementReading(PODIUM_EVENT)
+  assert.equal(reading.thresholdText, "3", "a finishing position has no decimals")
+  assert.equal(reading.measuredText, "", "no measured value is published")
+  assert.equal(reading.index, "", "sourceDetails.index is a category here, not a price index")
+  assert.match(reading.rule, /at or under the line/)
+})
+
+test("an event with no threshold and no index has no settlement figures", () => {
+  assert.equal(kyle.kyleSettlementReading(REAL_EVENT), null, "the winner market has no strike")
+  assert.doesNotMatch(kyle.kyleBriefHtml(kyle.kyleBrief(REAL_EVENT, REAL_NOW)), /How it settled/)
+})
+
+test("a losing contract is marked in red, a winning one in green", () => {
+  const html = kyle.kyleBriefHtml(kyle.kyleBrief(PODIUM_EVENT, REAL_NOW))
+  assert.match(html, /k-tag k-tag-won">WON</)
+  assert.match(html, /k-tag k-tag-lost">LOST</)
+
+  const lost = kyle.kyleBrief(PODIUM_EVENT, REAL_NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-ALB" })
+  assert.match(kyle.kyleBriefHtml(lost), /k-focus-lost/)
+  const won = kyle.kyleBrief(PODIUM_EVENT, REAL_NOW, { focusSymbol: "GEMI-F1-ITAGP-POD-20260906-ANT" })
+  assert.match(kyle.kyleBriefHtml(won), /k-focus-won/)
+})
+
+test("the win and loss colours are the ones the page defines for each", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "kyle.html"), "utf8")
+  assert.match(css, /\.k-tag-won\s*\{[^}]*background:\s*#0f8a5e/, "won is green")
+  assert.match(css, /\.k-tag-lost\s*\{[^}]*background:\s*#c73a2f/, "lost is red")
+  assert.match(css, /\.k-focus-won\s*\{[^}]*#0f8a5e/)
+  assert.match(css, /\.k-focus-lost\s*\{[^}]*#c73a2f/)
 })
