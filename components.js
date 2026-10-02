@@ -168,7 +168,7 @@ function resolvedInsightsCard(resolvedInfo, stats, outcomes) {
         <span class="ri-val val-green">~${fmt(transfer)}</span>
       </div>
       <div class="ri-row" style="margin-top:-2px">
-        <span class="ri-label" style="font-size:10px;opacity:.6">zero-sum: winners gain what losers paid</span>
+        <span class="ri-label" style="font-size:11px;opacity:.6">zero-sum: winners gain what losers paid</span>
         <span class="ri-val"></span>
       </div>`
   } else if (totalVol > 0) {

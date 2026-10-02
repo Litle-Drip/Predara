@@ -927,7 +927,10 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
   }
 
   // ── Static file server (explicit public allowlist) ──
-  let reqPath = parsed.pathname === "/" ? "/index.html" : parsed.pathname
+  // Clean page routes. Kyle is not in the public nav; support agents reach it
+  // by direct link at /kyle.
+  const PAGE_ROUTES = { "/": "/index.html", "/kyle": "/kyle.html" }
+  let reqPath = PAGE_ROUTES[parsed.pathname] || parsed.pathname
   const assetPath = reqPath.replace(/^\/+/, "")
   if (!PUBLIC_ASSETS.has(assetPath) || assetPath.split("/").some(seg => seg.startsWith("."))) {
     res.writeHead(403, { "Content-Type": "text/plain" })

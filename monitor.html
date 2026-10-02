@@ -7,7 +7,7 @@
   <link rel="icon" href="/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -123,7 +123,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.5;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
@@ -140,68 +140,21 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* A dashboard is the one page that earns the full viewport: the contracts
-       table has eight columns and the matrix has seven. The 800px reading
-       measure the narrow pages use would put both in a permanent scroller. */
-    .app { max-width: 1600px; margin: 0 auto; }
-
-    /* ── Header ── */
-    .app-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 28px;
-      position: relative;
-    }
-
-    .logo-link {
+    /* ── Page bar ── page title on the left, this page's own status and refresh
+       on the right. These used to sit in the global header, where they
+       overlapped the nav. */
+    .page-bar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: inherit;
-      flex-shrink: 0;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      margin-bottom: 20px;
     }
+    .page-title { font-size: var(--fs-xl); font-weight: 600; color: var(--text-bright); letter-spacing: -0.4px; }
+    .page-bar-tools { display: flex; align-items: center; gap: 12px; }
 
-    .app-logo { width: 40px; height: 40px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
-    .app-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-
-    .app-title { font-size: 20px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.4px; }
-    .app-subtitle { font-size: 12px; color: var(--muted); letter-spacing: 0.2px; margin-top: 2px; }
-
-    /* ── Tab nav ── */
-    .tab-nav {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      background: var(--bar-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 3px;
-    }
-
-    .tab-nav a {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--muted);
-      text-decoration: none;
-      padding: 5px 11px;
-      border-radius: 5px;
-      transition: background 0.15s, color 0.15s;
-      white-space: nowrap;
-      min-height: 34px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
-    .tab-nav a.active { background: var(--accent-fill); color: #fff; }
-
-    .page-tools { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-
-    .theme-toggle, .btn-refresh {
+    .btn-refresh {
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -213,8 +166,7 @@
       padding: 0 10px;
       transition: color 0.15s, border-color 0.15s;
     }
-    .theme-toggle { min-width: 34px; padding: 0; }
-    .theme-toggle:hover, .btn-refresh:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .btn-refresh:hover { color: var(--text-bright); border-color: var(--border-hi); }
     .btn-refresh[disabled] { opacity: 0.5; cursor: default; }
 
     .live-pill {
@@ -222,7 +174,7 @@
       align-items: center;
       gap: 6px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       white-space: nowrap;
@@ -235,15 +187,12 @@
     .live-pill.stale .live-dot { background: var(--amber); box-shadow: 0 0 0 3px rgba(212,144,16,0.18); }
     .live-pill.failed .live-dot { background: var(--red); box-shadow: 0 0 0 3px rgba(232,64,64,0.18); }
 
-    .logo-link:focus-visible,
-    .tab-nav a:focus-visible,
-    .theme-toggle:focus-visible,
     .btn-refresh:focus-visible,
     .mon-filters select:focus-visible,
     .mon-filters input:focus-visible,
     .btn-csv:focus-visible,
     th.sortable:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: 2px;
       border-radius: 6px;
     }
@@ -252,11 +201,11 @@
     .mon-source {
       background: var(--card);
       border: 1px solid var(--border);
-      border-left: 3px solid var(--orange);
+      border-left: 1px solid var(--border);
       border-radius: 10px;
       padding: 14px 18px;
       margin-bottom: 20px;
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.65;
       color: var(--text);
     }
@@ -270,7 +219,7 @@
       border-radius: 10px;
       padding: 12px 16px;
       margin-bottom: 20px;
-      font-size: 12.5px;
+      font-size: 13px;
       color: var(--text-mid);
     }
     .mon-warn.err { background: rgba(232,64,64,0.09); border-color: rgba(232,64,64,0.38); }
@@ -291,7 +240,7 @@
       box-shadow: var(--shadow-sm);
     }
     .kpi-label {
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.7px;
       text-transform: uppercase;
@@ -303,18 +252,18 @@
     /* Proportional figures on the hero numbers — tabular digits make a large
        standalone value look loose. tabular-nums is for the table columns. */
     .kpi-value {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 600;
       letter-spacing: -0.6px;
       margin-top: 7px;
       color: var(--text-bright);
       line-height: 1.15;
     }
-    .kpi-value.na { color: var(--muted); font-size: 19px; font-weight: 500; }
+    .kpi-value.na { color: var(--muted); font-size: 18px; font-weight: 400; }
     .kpi-value.good { color: var(--green-ink); }
     .kpi-value.warning { color: var(--amber-ink); }
     .kpi-value.critical { color: var(--red-ink); }
-    .kpi-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+    .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
 
     .info {
       display: inline-flex;
@@ -323,7 +272,7 @@
       width: 13px; height: 13px;
       border: 1px solid var(--border-hi);
       border-radius: 50%;
-      font-size: 9px;
+      font-size: 11px;
       color: var(--muted);
       cursor: help;
       flex-shrink: 0;
@@ -346,9 +295,9 @@
       flex-wrap: wrap;
       margin-bottom: 4px;
     }
-    .panel-title { font-size: 14.5px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.1px; }
-    .panel-desc { font-size: 11.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
-    .panel-meta { font-size: 11.5px; color: var(--muted); text-align: right; }
+    .panel-title { font-size: 15px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.1px; }
+    .panel-desc { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+    .panel-meta { font-size: 12px; color: var(--muted); text-align: right; }
 
     /* ── Filters: one row above everything it scopes ── */
     .mon-filters {
@@ -364,7 +313,7 @@
       border-radius: 7px;
       color: var(--text-mid);
       font-family: inherit;
-      font-size: 12.5px;
+      font-size: 13px;
       min-height: 34px;
       padding: 0 10px;
     }
@@ -377,7 +326,7 @@
       color: var(--text-mid);
       cursor: pointer;
       font-family: inherit;
-      font-size: 12.5px;
+      font-size: 13px;
       min-height: 34px;
       padding: 0 12px;
     }
@@ -391,9 +340,9 @@
        sticky header has nothing to stick to. Its own scroll container bounds
        the page and gives the header something to pin against. */
     .table-scroll { overflow: auto; max-height: 560px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead th {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.6px;
       text-transform: uppercase;
@@ -409,7 +358,7 @@
     thead th:first-child, td:first-child { text-align: left; }
     th.sortable { cursor: pointer; user-select: none; }
     th.sortable:hover { color: var(--text-bright); }
-    th .arrow { opacity: 0.45; font-size: 9px; margin-left: 2px; }
+    th .arrow { opacity: 0.45; font-size: 11px; margin-left: 2px; }
     tbody td {
       padding: 7px 10px;
       border-bottom: 1px solid var(--border);
@@ -420,7 +369,7 @@
     }
     tbody tr:hover td { background: var(--rec-bg); }
     td.name { max-width: 320px; overflow: hidden; text-overflow: ellipsis; color: var(--text-bright); font-variant-numeric: normal; }
-    td.sym { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11.5px; color: var(--muted); }
+    td.sym { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
     td.na, .na-cell { color: var(--muted); }
     .sub { font-size: 11px; color: var(--muted); }
 
@@ -428,7 +377,7 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.2px;
       padding: 2px 7px;
@@ -442,7 +391,7 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.4px;
       padding: 2px 7px;
@@ -488,7 +437,7 @@
        from the tile's measured height in monitor.js, so a label is never cut
        mid-character. line-height here must match the LINE constant there. */
     .tile-label {
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 600;
       line-height: 14px;
       color: var(--tile-ink);
@@ -496,7 +445,7 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    .tile-value { font-size: 10.5px; line-height: 14px; color: var(--tile-ink-dim); }
+    .tile-value { font-size: 11px; line-height: 14px; color: var(--tile-ink-dim); }
     .tile-group {
       position: absolute;
       pointer-events: none;
@@ -506,8 +455,8 @@
     .tile-group-label {
       position: absolute;
       top: 0; left: 0;
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.6px;
       text-transform: uppercase;
       padding: 2px 6px;
@@ -515,7 +464,7 @@
       background: var(--card);
       border-bottom-right-radius: 5px;
     }
-    .legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; font-size: 11.5px; color: var(--muted); }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; font-size: 12px; color: var(--muted); }
     .legend-item { display: inline-flex; align-items: center; gap: 5px; }
     .legend-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
     .tip-rule { display: block; height: 1px; background: var(--border); margin: 5px 0; }
@@ -525,7 +474,7 @@
     .chart { display: block; width: 100%; height: auto; }
     .chart .grid-line { stroke: var(--grid); stroke-width: 1; }
     .chart .axis-line { stroke: var(--axis); stroke-width: 1; }
-    .chart .tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
     .chart .series-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; }
     .chart .series-fill { fill: var(--series-1); opacity: 0.16; }
     .chart .crosshair { stroke: var(--axis); stroke-width: 1; }
@@ -540,7 +489,7 @@
       border-radius: 8px;
       box-shadow: var(--shadow);
       padding: 8px 10px;
-      font-size: 11.5px;
+      font-size: 12px;
       color: var(--text-mid);
       white-space: nowrap;
       opacity: 0;
@@ -549,25 +498,12 @@
     .tip.on { opacity: 1; }
     .tip b { color: var(--text-bright); font-weight: 600; }
 
-    .empty { padding: 28px 4px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
-    .skeleton { color: var(--muted); font-size: 12.5px; padding: 28px 4px; text-align: center; }
+    .empty { padding: 28px 4px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .skeleton { color: var(--muted); font-size: 13px; padding: 28px 4px; text-align: center; }
 
     /* Holding the previous render at reduced opacity beats a skeleton flash:
        no layout jump while a refresh is in flight. */
     .refreshing { opacity: 0.72; transition: opacity 0.15s; }
-
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      margin-top: 26px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-    }
-    .footer a { color: var(--accent-ink); }
 
     .sr-only {
       position: absolute; width: 1px; height: 1px;
@@ -579,34 +515,14 @@
       .treemap { height: 340px; }
     }
 
-    @media (max-width: 760px) {
-      .app-header {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 10px;
-      }
-      .tab-nav {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        width: 100%;
-      }
-      .tab-nav a { flex: 1; text-align: center; padding: 5px 6px; }
-      .page-tools { grid-column: 2; grid-row: 1; width: auto; margin-left: auto; }
-    }
-
     @media (max-width: 640px) {
-      body { padding: 20px 14px 64px; }
-      .app-header { margin-bottom: 24px; }
-      .app-title { font-size: 18px; }
       .panel { padding: 15px 14px 16px; }
       .treemap { height: 300px; }
       .table-scroll { max-height: 420px; }
-      .kpi-value { font-size: 22px; }
+      .kpi-value { font-size: 24px; }
       .mon-filters input { flex-basis: 100%; }
     }
 
-    @media (max-width: 380px) {
-      .app-subtitle { display: none; }
-    }
 
     @media (prefers-reduced-motion: reduce) {
       ::view-transition-old(root),
@@ -614,34 +530,34 @@
       .refreshing, .tip { transition: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body class="light">
 
-<div class="app">
+<div class="app app--wide">
 
-  <div class="app-header">
-    <a class="logo-link" href="/" title="Back to Analyze">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
     </a>
-    <nav class="tab-nav" aria-label="App sections">
+    <nav class="primary-nav" aria-label="Primary">
       <a href="/">Analyze</a>
       <a href="/monitor.html" class="active" aria-current="page">Monitor</a>
       <a href="/settlement.html">Settlement Desk</a>
-      <a href="/kyle.html">Kyle</a>
     </nav>
-    <div class="page-tools">
-      <span class="live-pill" id="livePill"><span class="live-dot"></span><span id="liveText">Loading</span></span>
-      <button class="btn-refresh" id="btnRefresh" onclick="monRefresh()" title="Fetch a fresh sweep">↻ Refresh</button>
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="header-utils">
+      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Light / dark theme">☀</button>
+    </div>
+  </header>
+
+  <div class="page-bar">
+    <h1 class="page-title">Gemini market monitor</h1>
+    <div class="page-bar-tools">
+      <span class="live-pill" id="livePill" role="status"><span class="live-dot"></span><span id="liveText">Loading</span></span>
+      <button class="btn-refresh" id="btnRefresh" onclick="monRefresh()" title="Fetch a fresh sweep">Refresh</button>
     </div>
   </div>
-
-  <h1 class="sr-only">Gemini Prediction Markets Monitor</h1>
 
   <div class="mon-source">
     <strong>Gemini prediction markets · book quality.</strong>
@@ -744,15 +660,15 @@
     <div class="table-scroll"><table id="contractsTable"></table></div>
   </section>
 
-  <div class="footer">
-    <div>Predara · book quality from the public Gemini feed</div>
-    <div><a href="/">Analyze a market →</a></div>
-  </div>
+  <footer class="footer">
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
+    <span class="footer-note">Figures computed from Gemini’s public Prediction Markets API only.</span>
+  </footer>
 
 </div>
 
-<script src="utils.js?v=39"></script>
-<script src="monitor.js?v=39"></script>
+<script src="utils.js?v=40"></script>
+<script src="monitor.js?v=40"></script>
 <script>
   /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {

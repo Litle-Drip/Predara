@@ -8,7 +8,7 @@
   <link rel="icon" href="/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -16,7 +16,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.5;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
@@ -33,14 +33,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* The shared shell centers this page's readable column independently of the
-       1200px header grid, so the body is balanced without moving the navigation. */
-    .app {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
 
-    .tab-nav a.active { background: var(--k-fill); color: var(--k-on-fill); }
 
     .btn-review:focus-visible,
     .k-swatch:focus-visible,
@@ -63,14 +56,14 @@
     .intake-label {
       color: var(--text-bright);
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-bright);
       margin-bottom: 6px;
       letter-spacing: -0.7px;
     }
 
     .intake-desc {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
       line-height: 1.65;
       margin-bottom: 20px;
@@ -120,24 +113,6 @@
 
     .shortcut-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
 
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-top: 56px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-    }
-    .footer-brand { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .footer-sep { color: var(--muted); opacity: 0.55; }
-    .footer-note { color: var(--muted); }
-    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
-    .footer a:hover { color: var(--k-ink); }
-    .footer .dot-sm { font-size: 6px; color: var(--k-ink); line-height: 1; }
 
 
     .sr-only {
@@ -318,7 +293,7 @@
 
     .k-pill {
       display: inline-block;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
       padding: 4px 9px; border-radius: 999px; white-space: nowrap;
       background: var(--bar-bg); color: var(--muted); border: 1px solid var(--border);
     }
@@ -343,9 +318,9 @@
     .k-answer.k-done { border-top-color: var(--orange); }
 
     .k-answer-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .k-answer-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--k-ink); }
-    .k-title { font-size: 24px; font-weight: 700; color: var(--text-bright); letter-spacing: -0.6px; margin: 12px 0 0; line-height: 1.22; }
-    .k-headline { font-size: 15.5px; color: var(--text-bright); line-height: 1.6; margin-top: 12px; }
+    .k-answer-ticker { font-family: var(--font-mono); font-size: 11px; color: var(--k-ink); }
+    .k-title { font-size: 24px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.6px; margin: 12px 0 0; line-height: 1.22; }
+    .k-headline { font-size: 15px; color: var(--text-bright); line-height: 1.6; margin-top: 12px; }
     .k-desc { font-size: 13px; color: var(--text); line-height: 1.65; margin-top: 14px; }
 
     /* ── The customer's contract ──
@@ -366,11 +341,11 @@
     .k-focus-unknown { border-left-color: #c73a2f; }
 
     .k-focus-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--muted); margin-bottom: 6px;
     }
     .k-focus-name {
-      font-size: 19px; font-weight: 650; color: var(--text-bright);
+      font-size: 18px; font-weight: 600; color: var(--text-bright);
       letter-spacing: -0.3px; line-height: 1.25;
     }
     .k-focus-line { font-size: 15px; color: var(--text-bright); line-height: 1.55; margin-top: 6px; }
@@ -378,12 +353,12 @@
 
     /* The event's own result, demoted once a contract is named. */
     .k-eventline {
-      font-size: 13.5px; color: var(--text); line-height: 1.65;
+      font-size: 13px; color: var(--text); line-height: 1.65;
       margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
     }
     .k-eventline-label {
       display: block;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--muted); margin-bottom: 4px;
     }
 
@@ -394,7 +369,7 @@
     }
 
     /* How old this reading is. Quiet while fresh, insistent once it is not. */
-    .k-freshness { font-size: 11.5px; color: var(--muted); }
+    .k-freshness { font-size: 12px; color: var(--muted); }
     .k-freshness.k-stale {
       color: var(--text-bright); font-weight: 600;
       background: var(--orange-bg); border: 1px solid var(--border-hi);
@@ -403,7 +378,7 @@
 
     .k-disclaimer {
       margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
-      font-size: 11.5px; color: var(--muted); line-height: 1.6;
+      font-size: 12px; color: var(--muted); line-height: 1.6;
     }
 
     /* Anything an agent needs only sometimes is one click away, not in the way. */
@@ -417,7 +392,7 @@
 
     .k-explain { margin-top: 12px; }
     .k-explain summary {
-      font-size: 13px; font-weight: 500; color: var(--text-mid); cursor: pointer; list-style: none;
+      font-size: 13px; font-weight: 400; color: var(--text-mid); cursor: pointer; list-style: none;
       display: flex; align-items: center; gap: 8px;
     }
     .k-explain summary::-webkit-details-marker { display: none; }
@@ -437,15 +412,15 @@
     }
     .k-card-flag { border-color: #a37012; }
     .k-card-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
-      color: var(--k-ink); margin-bottom: 12px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
     }
     .k-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 12px; }
 
     /* ── Details grid ── two columns of short facts beat ten full-width rows. */
     .k-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px 28px; }
     .k-fact-key { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
-    .k-fact-val { font-size: 13.5px; color: var(--text-bright); overflow-wrap: anywhere; line-height: 1.45; }
+    .k-fact-val { font-size: 13px; color: var(--text-bright); overflow-wrap: anywhere; line-height: 1.45; }
     .k-fact-hint { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
 
     /* ── Flags ── */
@@ -465,8 +440,8 @@
     .k-outcome-lost  { opacity: 0.55; }
     .k-outcome-focus { border-color: var(--orange); background: var(--orange-bg); opacity: 1; }
     .k-outcome-name { font-size: 13px; color: var(--text-bright); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .k-outcome-pct  { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--k-ink); }
-    .k-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
+    .k-outcome-pct  { font-family: var(--font-mono); font-size: 13px; color: var(--k-ink); }
+    .k-tag { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
     .k-tag-won   { background: #0f8a5e; color: #eafaf3; border-color: transparent; }
     .k-tag-focus { background: var(--k-fill); color: var(--k-on-fill); border-color: transparent; }
 
@@ -485,7 +460,7 @@
     }
     .k-apiurl {
       flex: 1; min-width: 0;
-      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+      font-family: var(--font-mono); font-size: 12px;
       color: var(--k-ink); overflow-wrap: anywhere; user-select: all;
     }
     .k-copy {
@@ -507,7 +482,7 @@
     .k-btn-quiet { background: var(--bar-bg); color: var(--text-mid); border: 1px solid var(--border); }
 
     .k-summary {
-      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.7;
+      font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
       color: var(--text); background: var(--bg);
       border: 1px solid var(--border); border-radius: 9px;
       padding: 14px 16px; margin-top: 10px;
@@ -525,7 +500,7 @@
     .k-result:hover { border-color: var(--orange); background: var(--rec-bg); }
     .k-result .k-pill { flex: 0 0 74px; text-align: center; }
     .k-result-body { flex: 1; min-width: 0; }
-    .k-result-title { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
+    .k-result-title { display: block; font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
     .k-result-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); }
 
     /* ── Empty / error / primer ── */
@@ -534,7 +509,7 @@
       padding: 20px 22px; box-shadow: var(--shadow-sm);
     }
     .k-empty-err { border-color: #c73a2f; }
-    .k-empty-title { font-size: 14px; font-weight: 600; color: var(--text-bright); margin-bottom: 5px; }
+    .k-empty-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 5px; }
     .k-empty-body { font-size: 13px; color: var(--text); line-height: 1.7; }
 
     .k-primer dt { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-top: 12px; }
@@ -547,7 +522,6 @@
       .btn-review { width: 100%; min-height: 44px; }
       .k-answer, .k-card { padding: 16px; }
       .k-facts { grid-template-columns: 1fr; }
-      .footer { align-items: flex-start; flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -556,7 +530,7 @@
       .k-swatch { transition: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body data-theme="gemini">
 <script>
@@ -572,27 +546,25 @@
 
 <div class="app app--narrow">
 
-  <div class="app-header">
-    <a class="logo-link" href="/" title="Back to Analyze">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
     </a>
-    <nav class="tab-nav" aria-label="App sections">
+    <!-- Kyle is a support tool reached by direct link (/kyle), so it is not an
+         item in the public nav; the nav still takes an agent anywhere else. -->
+    <nav class="primary-nav" aria-label="Primary">
       <a href="/">Analyze</a>
       <a href="/monitor.html">Monitor</a>
       <a href="/settlement.html">Settlement Desk</a>
-      <a href="/kyle.html" class="active" aria-current="page">Kyle</a>
     </nav>
-    <div class="k-themes" role="group" aria-label="Kyle theme">
+    <div class="header-utils k-themes" role="group" aria-label="Kyle theme">
       <button class="k-swatch k-swatch-gemini" data-k-theme="gemini" onclick="kyleSetTheme('gemini')" aria-pressed="true"  title="Gemini — blue and white"><span class="sr-only">Gemini</span></button>
       <button class="k-swatch k-swatch-mars"   data-k-theme="mars"   onclick="kyleSetTheme('mars')"   aria-pressed="false" title="Mars Safaris"><span class="sr-only">Mars Safaris</span></button>
       <button class="k-swatch k-swatch-seas"   data-k-theme="seas"   onclick="kyleSetTheme('seas')"   aria-pressed="false" title="Other Seas, Other Suns"><span class="sr-only">Other Seas, Other Suns</span></button>
       <button class="k-swatch k-swatch-astro"  data-k-theme="astro"  onclick="kyleSetTheme('astro')"  aria-pressed="false" title="Astro Mountain"><span class="sr-only">Astro Mountain</span></button>
     </div>
-  </div>
+  </header>
 
   <div class="intake">
     <div class="intake-label">Kyle</div>
@@ -608,7 +580,7 @@
         spellcheck="false"
         onkeydown="if(event.key==='Enter')kyleSubmit()"
       />
-      <button class="btn-review" id="kyleBtn" onclick="kyleSubmit()">Look up ↗</button>
+      <button class="btn-review" id="kyleBtn" onclick="kyleSubmit()">Look up</button>
     </div>
     <div class="shortcut-hint">Read-only — Kyle cannot change an event, a position, or a payout.</div>
   </div>
@@ -637,13 +609,13 @@
   </div>
 
   <footer class="footer">
-    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
     <span class="footer-note">Read-only event information for support use. Confirm results and payouts with the settlement team.</span>
   </footer>
 
 </div>
 
-<script src="kyle.js?v=39"></script>
+<script src="kyle.js?v=40"></script>
 <script>
   /* ── Kyle themes ──
      Kyle keeps its own theme, separate from the shared light/dark setting the

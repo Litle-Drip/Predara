@@ -1463,10 +1463,24 @@ function _injectStructuredData(title) {
 // ════════════════════════════════════════════════════════════════════════════════
 let _currentTab = "analyze"
 
+// Every Analyze view. Analyze itself is reached from the primary nav and
+// Rewards from the footer link (/#rewards); the sub-tab row carries the other
+// four. Each view is addressable by hash so those links land on it.
+const _TABS = ["analyze", "discover", "watchlist", "calendar", "tools", "rewards"]
+
+function _tabFromHash() {
+  const t = (location.hash || "").slice(1)
+  return _TABS.includes(t) ? t : "analyze"
+}
+
 function switchTab(tab) {
+  if (!_TABS.includes(tab)) tab = "analyze"
   _currentTab = tab
-  const tabs = ["analyze", "discover", "watchlist", "calendar", "tools", "rewards"]
-  tabs.forEach((t) => {
+  const hash = tab === "analyze" ? "" : `#${tab}`
+  if (location.hash !== hash) {
+    try { history.replaceState(null, "", location.pathname + location.search + hash) } catch { /* sandboxed — the view still switches */ }
+  }
+  _TABS.forEach((t) => {
     const el = document.getElementById(`tab-${t}`)
     const btn = document.getElementById(`tabBtn-${t}`)
     if (el) el.style.display = t === tab ? "block" : "none"
@@ -1809,6 +1823,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Price alerts poll in the background for as long as this tab is open, so
   // they fire on markets the user is not currently looking at.
   startAlertPoller()
-  // Set default tab
-  switchTab("analyze")
+  // Open the view the URL names (/#rewards from the footer), else Analyze.
+  switchTab(_tabFromHash())
+  window.addEventListener("hashchange", () => switchTab(_tabFromHash()))
 })

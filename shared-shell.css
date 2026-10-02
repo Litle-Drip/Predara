@@ -1,31 +1,75 @@
-/* Shared page shell and primary navigation.
-   Page-specific colors and controls stay in each page; geometry lives here. */
+/* Shared design system and page shell.
+   Every page loads this after its own <style>, so the rules here win over any
+   page copy. Page-specific colours (the palette tokens) and page-specific
+   controls stay in each page; type, widths, header, nav, utility buttons and
+   footer live here so the four pages cannot drift apart again. */
+
+/* ── Type and layout tokens ──
+   Two weights (regular, semibold) and one size scale. Large numeric read-outs
+   (a price, a KPI) are data, not type, and may sit above --fs-xl. */
+:root {
+  --fs-xs: 11px;   /* eyebrows, chips, table meta */
+  --fs-sm: 12px;   /* secondary text, captions, footer */
+  --fs-md: 13px;   /* UI text: buttons, nav, table cells */
+  --fs-base: 15px; /* body copy, inputs */
+  --fs-lg: 18px;   /* card and section titles */
+  --fs-xl: 24px;   /* page titles */
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* One content width for Analyze, Settlement Desk and Kyle; the Monitor
+     dashboard alone gets the wide layout. Settlement Desk and Kyle centre a
+     narrower reading column inside the same shell. */
+  --shell-width: 1200px;
+  --shell-width-wide: 1440px;
+  --reading-width: 800px;
+}
+
+b, strong, h1, h2, h3, h4, h5, h6, th { font-weight: var(--fw-semibold); }
+
+.app { max-width: var(--shell-width); margin: 0 auto; }
+.app.app--wide { max-width: var(--shell-width-wide); }
+
+/* Settlement Desk and Kyle: page content in a readable measure; the header and
+   footer stay on the shared shell width so they line up across every page. */
+.app.app--narrow > :not(.app-header):not(.footer) {
+  width: min(var(--reading-width), 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+/* ── Header ──
+   Logo · primary nav · utility buttons. Nothing page-specific belongs here:
+   status read-outs and refresh controls live in the page itself, which is
+   what kept the Monitor header from overlapping its own nav. */
 .app-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 126px;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
-  position: relative;
+  flex-wrap: nowrap;
+  gap: 28px;
+  min-height: 40px;
+  margin-bottom: 36px;
 }
 
 .logo-link {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: none;
   color: inherit;
   text-decoration: none;
-  min-width: 0;
+  cursor: pointer;
 }
 
 .app-logo {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -38,129 +82,157 @@
 
 .app-title {
   color: var(--text-bright);
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.4px;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.3px;
 }
 
-.app-subtitle {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.2px;
-}
-
-.header-controls {
-  display: contents;
-}
-
-:is(.tab-nav, .mode-tabs) {
+/* Primary navigation: Analyze · Monitor · Settlement Desk. The active item is
+   one of the two places the accent colour appears (the other is the page's
+   primary action). */
+.primary-nav {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 3px;
-  background: var(--bar-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.primary-nav::-webkit-scrollbar { display: none; }
 
-:is(.tab-nav a, .mode-tab) {
+.primary-nav a {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 5px 11px;
-  border-radius: 5px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
   text-decoration: none;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
-:is(.tab-nav a, .mode-tab):hover {
+.primary-nav a:hover { color: var(--text-bright); background: var(--tag-bg, var(--bar-bg)); }
+
+.primary-nav a.active {
   color: var(--text-bright);
-  background: rgba(128, 128, 128, 0.12);
+  font-weight: var(--fw-semibold);
 }
 
-.page-tools,
-.k-themes {
-  width: 126px;
+.primary-nav a.active::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--orange);
+}
+
+/* Utility buttons: same size, same place, same quiet style on every page. */
+.header-utils {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-}
-
-.theme-toggle {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 6px 9px;
-  background: var(--bar-bg);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.theme-toggle:hover {
-  color: var(--text-bright);
-  border-color: var(--border-hi);
-}
-
-:is(.logo-link, .tab-nav a, .mode-tab, .theme-toggle):focus-visible {
-  outline: 2px solid var(--orange);
-  outline-offset: 2px;
-}
-
-/* Kyle and Settlement Desk use a readable measure, centered in the full shell. */
-.app.app--narrow > :not(.app-header) {
-  width: min(800px, 100%);
-  margin-right: auto;
+  gap: 4px;
+  flex: none;
   margin-left: auto;
 }
 
-@media (max-width: 760px) {
-  .app-header {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  :is(.tab-nav, .mode-tabs) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-  }
-
-  :is(.tab-nav a, .mode-tab) {
-    flex: 1 1 0;
-    min-width: 0;
-    padding-right: 6px;
-    padding-left: 6px;
-    white-space: normal;
-  }
-
-  .page-tools,
-  .k-themes {
-    grid-column: 2;
-    grid-row: 1;
-    width: auto;
-    margin-left: auto;
-  }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
 }
 
+.icon-btn:hover { color: var(--text-bright); background: var(--tag-bg, var(--bar-bg)); }
+
+:is(.logo-link, .primary-nav a, .icon-btn, .footer a):focus-visible {
+  outline: 2px solid var(--text-bright);
+  outline-offset: 2px;
+}
+
+/* ── Neutral building blocks shared by every page ── */
+
+/* Small uppercase label. Neutral grey; used sparingly. */
+.eyebrow {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Tickers, symbols and URLs: monospace, neutral, no chip. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--text);
+  background: none;
+}
+
+/* ── Footer ── one format on every page: brand line, links, one disclaimer. */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  flex-wrap: wrap;
+  margin-top: 64px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.footer-sep { color: var(--muted); opacity: 0.55; }
+.footer-note { color: var(--muted); }
+
+.footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.footer a:hover { color: var(--text-bright); }
+
+/* ── Responsive ── */
 @media (max-width: 640px) {
   body {
     padding: 20px 14px 64px;
   }
 
+  /* Two rows: logo + utilities, then the nav across the full width. */
   .app-header {
+    flex-wrap: wrap;
+    gap: 12px;
     margin-bottom: 24px;
   }
 
@@ -168,14 +240,19 @@
     font-size: 18px;
   }
 
-  .app.app--narrow > :not(.app-header) {
+  .primary-nav {
+    order: 3;
+    flex: 1 1 100%;
+    margin: 0 -12px;
+  }
+
+  .app.app--narrow > :not(.app-header):not(.footer) {
     width: 100%;
     min-width: 0;
   }
-}
 
-@media (max-width: 380px) {
-  .app-subtitle {
-    display: none;
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

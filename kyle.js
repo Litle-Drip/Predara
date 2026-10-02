@@ -1112,7 +1112,7 @@ function _kSet(html) {
 
 function _kBusy(on, text) {
   const btn = document.getElementById("kyleBtn")
-  if (btn) { btn.disabled = !!on; btn.textContent = on ? "Looking…" : "Look up ↗" }
+  if (btn) { btn.disabled = !!on; btn.textContent = on ? "Looking…" : "Look up" }
   if (on) _kSet(`<div class="k-empty"><div class="k-empty-title">${_kEsc(text || "Looking this up…")}</div></div>`)
 }
 

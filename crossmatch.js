@@ -186,7 +186,7 @@ function _xmatchResultsHtml(source, results) {
         </div>
         ${reasons ? `<div class="xmatch-reasons">${esc(reasons)}</div>` : ""}
         <div class="xmatch-actions">
-          <button class="xmatch-add-btn" onclick="xmatchAdd('${esc(id)}')">Add to compare ↗</button>
+          <button class="xmatch-add-btn" onclick="xmatchAdd('${esc(id)}')">Add to compare</button>
           <a href="${esc(c.url)}" target="_blank" rel="noopener" class="xmatch-open-link">Open on ${esc(label)} ↗</a>
         </div>
       </div>`
@@ -205,7 +205,7 @@ function _xmatchResultsHtml(source, results) {
   })
   window._xmatchStrong = strong.map(s => s.url)
   const bulk = strong.length
-    ? `<button class="xmatch-all-btn" onclick="xmatchCompareAll()">Compare all ${strong.length + 1} venues ↗</button>`
+    ? `<button class="xmatch-all-btn" onclick="xmatchCompareAll()">Compare all ${strong.length + 1} venues</button>`
     : ""
 
   return `${bulk}${blocks}${anyCandidates ? "" : _xmatchManualLinks(source)}`

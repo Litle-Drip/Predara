@@ -7,7 +7,7 @@
   <link rel="icon" href="/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -31,6 +31,7 @@
       --orange:      #d94f20;
       --orange-dim:  rgba(217,79,32,0.12);
       --orange-bg:   rgba(217,79,32,0.08);
+      --focus-ring:  rgba(255,255,255,0.08);
       --bar-bg:      #222228;
       --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25);
       --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
@@ -61,6 +62,7 @@
       --orange:      #c8421a;
       --orange-dim:  rgba(200,66,26,0.1);
       --orange-bg:   rgba(200,66,26,0.06);
+      --focus-ring:  rgba(0,0,0,0.06);
       --bar-bg:      #eeeeed;
       --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
       --shadow-sm:   0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
@@ -72,7 +74,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.5;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
@@ -89,20 +91,13 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* The shared shell centers this page's readable column independently of the
-       1200px header grid, so the body is balanced without moving the navigation. */
-    .app {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
 
-    .tab-nav a.active { background: var(--accent-fill); color: #fff; }
 
     .btn-review:focus-visible,
     .key-toggle:focus-visible,
     .btn-key:focus-visible,
     .btn-remove:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: 2px;
     }
 
@@ -118,14 +113,14 @@
 
     .intake-label {
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-bright);
       margin-bottom: 6px;
       letter-spacing: -0.7px;
     }
 
     .intake-desc {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
       line-height: 1.65;
       margin-bottom: 20px;
@@ -150,8 +145,8 @@
     .intake-row input::placeholder { color: var(--muted); }
 
     .intake-row input:focus {
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--orange-dim);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
 
     .btn-review {
@@ -199,7 +194,7 @@
     .key-panel.open .key-toggle .caret { transform: rotate(180deg); }
 
     .key-status {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -210,13 +205,13 @@
       border: 1px solid var(--border);
     }
 
-    .key-status.active { background: var(--orange-dim); color: var(--accent-ink); border-color: transparent; }
+    .key-status.active { background: var(--bar-bg); color: var(--text-bright); border-color: transparent; }
 
     .key-body { display: none; margin-top: 12px; }
     .key-panel.open .key-body { display: block; }
 
     .key-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
-    .key-desc a { color: var(--accent-ink); text-decoration: none; }
+    .key-desc a { color: var(--text-bright); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 2px; }
     .key-desc a:hover { text-decoration: underline; }
 
     .key-row { display: flex; gap: 8px; }
@@ -229,12 +224,12 @@
       border-radius: 8px;
       padding: 10px 12px;
       color: var(--text-bright);
-      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
       outline: none;
     }
 
-    .key-row input::placeholder { color: var(--muted); font-family: 'Inter', sans-serif; }
+    .key-row input::placeholder { color: var(--muted); font-family: inherit; }
     .key-row input:focus { border-color: var(--border-hi); }
 
     .btn-key {
@@ -255,7 +250,7 @@
     .btn-key.primary:hover { opacity: 0.88; }
 
     .key-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
-    .key-note.err { color: var(--accent-ink); }
+    .key-note.err { color: var(--amber-ink); }
 
     /* ── Empty state ── */
     /* Same empty state as the Analyze page: a card, a title, one line of copy.
@@ -314,13 +309,13 @@
       padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: border-color 0.15s;
       font-family: inherit; text-align: left;
     }
-    .discover-market:hover, .discover-market:focus-visible { border-color: var(--orange); outline: none; }
-    .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
+    .discover-market:hover, .discover-market:focus-visible { border-color: var(--border-hi); outline: none; }
+    .discover-market-title { font-size: 15px; font-weight: 400; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
     .discover-market-ticker {
-      font-family: 'IBM Plex Mono', ui-monospace, monospace;
-      font-size: 10.5px; color: var(--accent-ink); background: var(--orange-bg);
-      border-radius: 4px; padding: 2px 6px;
+      font-family: var(--font-mono);
+      font-size: 11px; color: var(--muted); background: none;
+      border-radius: 0; padding: 0;
     }
     .discover-market-result { color: var(--text-mid); font-weight: 600; }
     .cal-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
@@ -342,7 +337,7 @@
     .case-card.verdict-needs_review { border-left: 3px solid var(--needs-pill-bg); }
     .case-card.verdict-action_required { border-left: 3px solid var(--needs-pill-bg); }
     .case-card.verdict-error       { border-left: 3px solid var(--border-hi); }
-    .case-card.verdict-pending     { border-left: 3px solid var(--orange); }
+    .case-card.verdict-pending     { border-left: 3px solid var(--border-hi); }
 
     .case-header {
       display: flex;
@@ -361,7 +356,7 @@
 
     .case-header:hover { background: rgba(128,128,128,0.04); }
     .case-header:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: -2px;
     }
 
@@ -370,19 +365,19 @@
     .case-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 
     .case-ticker {
-      font-family: 'IBM Plex Mono', 'Courier New', monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
-      font-weight: 500;
-      color: var(--accent-ink);
-      background: var(--orange-bg);
-      padding: 2px 7px;
+      font-weight: 400;
+      color: var(--muted);
+      background: none;
+      padding: 0;
       border-radius: 4px;
       flex-shrink: 0;
     }
 
     .case-title {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 400;
       color: var(--text-bright);
       overflow: hidden;
       text-overflow: ellipsis;
@@ -406,8 +401,8 @@
     .pill-action_required { background: var(--needs-pill-bg);    color: var(--needs-pill-text); }
     .pill-error        { background: var(--error-pill-bg);       color: var(--error-pill-text); }
     .pill-pending {
-      background: var(--orange-dim);
-      color: var(--accent-ink);
+      background: var(--bar-bg);
+      color: var(--muted);
       animation: pulse 1.2s ease-in-out infinite;
     }
 
@@ -445,8 +440,8 @@
       content: "·";
       position: absolute;
       left: 0;
-      color: var(--accent-ink);
-      font-size: 16px;
+      color: var(--muted);
+      font-size: 15px;
       line-height: 1;
       top: 1px;
     }
@@ -475,14 +470,14 @@
     }
 
     .btn-remove:hover { border-color: var(--discrepancy-pill-bg); color: #f87171; }
-    .btn-export:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .btn-export:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     .spinner {
       display: inline-block;
       width: 12px;
       height: 12px;
-      border: 2px solid var(--orange-dim);
-      border-top-color: var(--orange);
+      border: 2px solid var(--border);
+      border-top-color: var(--text-mid);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
@@ -491,24 +486,6 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-top: 56px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-    }
-    .footer-brand { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .footer-sep { color: var(--muted); opacity: 0.55; }
-    .footer-note { color: var(--muted); }
-    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
-    .footer a:hover { color: var(--accent-ink); }
-    .footer .dot-sm { font-size: 6px; color: var(--accent-ink); line-height: 1; }
 
     @media (max-width: 560px) {
       .intake-row { flex-direction: column; }
@@ -517,7 +494,6 @@
       .shortcut-hint { display: none; }
       .case-title { font-size: 13px; }
       .intake { padding: 22px 18px; }
-      .footer { align-items: flex-start; flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -526,30 +502,26 @@
       .pill-pending { animation: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body class="light">
 
 <div class="app app--narrow">
 
-  <div class="app-header">
-    <a class="logo-link" href="/" title="Back to Analyze">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
     </a>
-    <nav class="tab-nav" aria-label="App sections">
+    <nav class="primary-nav" aria-label="Primary">
       <a href="/">Analyze</a>
       <a href="/monitor.html">Monitor</a>
       <a href="/settlement.html" class="active" aria-current="page">Settlement Desk</a>
-      <a href="/kyle.html">Kyle</a>
     </nav>
-    <div class="page-tools">
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="header-utils">
+      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Light / dark theme">☀</button>
     </div>
-  </div>
+  </header>
 
   <div class="intake">
     <div class="intake-label">Audit a market settlement</div>
@@ -566,7 +538,7 @@
         spellcheck="false"
         onkeydown="if(event.key==='Enter')submitReview()"
       />
-      <button class="btn-review" id="reviewBtn" onclick="submitReview()">Review ↗</button>
+      <button class="btn-review" id="reviewBtn" onclick="submitReview()">Review</button>
     </div>
     <div class="shortcut-hint">Press Enter to submit</div>
 
@@ -610,13 +582,13 @@
   <div id="caseList" class="case-list"></div>
 
   <footer class="footer">
-    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
     <span class="footer-note">Independent, read-only settlement analysis. Confirm final outcomes with the venue.</span>
   </footer>
 
 </div>
 
-<script src="gemini-live.js?v=39"></script>
+<script src="gemini-live.js?v=40"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')

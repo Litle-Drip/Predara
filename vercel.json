@@ -17,6 +17,10 @@
     {
       "source": "/api/monitor",
       "destination": "/api/gemini-events?view=monitor"
+    },
+    {
+      "source": "/kyle",
+      "destination": "/kyle.html"
     }
   ]
 }

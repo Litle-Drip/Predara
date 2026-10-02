@@ -25,7 +25,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -56,6 +56,8 @@
       --accent-tint: rgba(217,79,32,0.10);
       --accent-line: rgba(217,79,32,0.32);
       --accent-ring: rgba(217,79,32,0.34);
+      --border-hi:   #3a3a42;
+      --focus-ring:  rgba(255,255,255,0.08);
       --green-ink:  #1db954;
       --red-ink:    #e84444;
       --amber-ink:  #d49010;
@@ -96,6 +98,8 @@
       --accent-tint: rgba(200,66,26,0.07);
       --accent-line: rgba(200,66,26,0.30);
       --accent-ring: rgba(200,66,26,0.30);
+      --border-hi:   #d0d0ce;
+      --focus-ring:  rgba(0,0,0,0.06);
       --green-ink:  #10833e;
       --red-ink:    #d43232;
       --amber-ink:  #99680c;
@@ -150,7 +154,6 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .app { max-width: 1200px; margin: 0 auto; }
 
     @media (prefers-reduced-motion: reduce) {
       ::view-transition-old(root),
@@ -170,7 +173,7 @@
       border-radius: 10px;
       color: var(--text-bright);
       font-family: inherit;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 400;
       padding: 14px 18px;
       outline: none;
@@ -178,8 +181,8 @@
       box-shadow: var(--shadow-sm);
     }
     .search-row input:focus {
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-sm);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-sm);
     }
     .search-row input::placeholder { color: var(--muted); font-weight: 400; }
     .search-row button {
@@ -233,8 +236,8 @@
     .tag-cat {
       padding: 3px 9px;
       border-radius: 6px;
-      font-weight: 500;
-      font-size: 10.5px;
+      font-weight: 400;
+      font-size: 11px;
       letter-spacing: 0.3px;
       border: 1px solid currentColor;
     }
@@ -249,8 +252,8 @@
       color: var(--muted);
       padding: 3px 9px;
       border-radius: 6px;
-      font-weight: 500;
-      font-size: 10.5px;
+      font-weight: 400;
+      font-size: 11px;
       letter-spacing: 0.3px;
     }
     .tag-status {
@@ -258,8 +261,8 @@
       align-items: center;
       gap: 6px;
       color: var(--muted);
-      font-size: 10.5px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 400;
       letter-spacing: 0.3px;
       background: var(--tag-bg);
       border: 1px solid var(--border);
@@ -291,7 +294,7 @@
     }
     .event-meta-item  { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
     .event-meta-label {
-      font-size: 9.5px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.09em;
       text-transform: uppercase;
@@ -301,8 +304,8 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      font-size: 13.5px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
       color: var(--text-bright);
       min-width: 0;
     }
@@ -312,14 +315,14 @@
       font-size: 13px;
       color: var(--text-mid);
       background: var(--rule-bg);
-      border-left: 2px solid var(--orange);
+      border-left: 2px solid var(--border-hi);
       padding: 10px 16px;
       margin-bottom: 12px;
       line-height: 1.65;
       border-radius: 0 6px 6px 0;
     }
     .event-desc {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
       line-height: 1.75;
       max-width: 860px;
@@ -423,7 +426,7 @@
     .odds-display--lead .outcome-pct { color: var(--text-bright); }
     .outcome-pct {
       font-size: 40px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1;
       letter-spacing: -1.6px;
     }
@@ -489,14 +492,14 @@
     }
     .stat-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       margin-bottom: 8px;
       text-transform: uppercase;
     }
     .stat-value {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 600;
       color: var(--text-bright);
       letter-spacing: -0.5px;
@@ -525,8 +528,8 @@
        than as a tile that failed to load. The 0.75 opacity is gone — it was
        stacked on --muted and pushed the result under AA. */
     .stat-empty {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 400;
       color: var(--muted);
       line-height: 1.45;
       letter-spacing: -0.2px;
@@ -544,7 +547,7 @@
     }
     .info-row:last-child { border-bottom: none; }
     .info-key { color: var(--muted); font-weight: 400; }
-    .info-val { color: var(--text-bright); text-align: right; max-width: 55%; font-weight: 500; }
+    .info-val { color: var(--text-bright); text-align: right; max-width: 55%; font-weight: 400; }
 
     /* ── Numbered list ── */
     .num-list { padding: 8px var(--card-pad-x) 20px; }
@@ -559,7 +562,7 @@
     }
     .num-row:last-child { border-bottom: none; }
     .num-idx {
-      color: var(--accent-ink);
+      color: var(--muted);
       font-size: 11px;
       font-weight: 600;
       flex-shrink: 0;
@@ -569,14 +572,13 @@
     .num-text { color: var(--text); }
 
     /* ── What's the Bet explainer ── */
-    .bet-explainer { border-left: 2px solid var(--orange); }
     .bet-explainer .section-label {
-      color: var(--accent-ink);
+      color: var(--muted);
       font-weight: 600;
     }
     .bet-explainer-body {
       padding: 16px var(--card-pad-x) 24px;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.8;
       color: var(--text);
     }
@@ -588,15 +590,15 @@
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
-      font-size: 14px;
+      font-size: 15px;
       color: var(--text);
       margin-bottom: 16px;
     }
     .bet-sim-label { font-weight: 400; }
     .bet-sim-label strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-dollar {
-      color: var(--accent-ink);
-      font-size: 16px;
+      color: var(--muted);
+      font-size: 15px;
       font-weight: 600;
     }
     .bet-sim-input {
@@ -605,14 +607,14 @@
       border-radius: 8px;
       color: var(--text-bright);
       font-family: inherit;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       padding: 8px 12px;
       width: 90px;
       outline: none;
       transition: border-color 0.18s;
     }
-    .bet-sim-input:focus { border-color: var(--orange); }
+    .bet-sim-input:focus { border-color: var(--border-hi); }
     .bet-sim-input::-webkit-inner-spin-button { opacity: 0.3; }
     .bet-sim-results {
       background: var(--sim-result-bg);
@@ -629,7 +631,7 @@
     }
     .bet-sim-count strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-win, .bet-sim-lose {
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.8;
       color: var(--text);
     }
@@ -637,18 +639,18 @@
     .bet-sim-lose strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px var(--card-pad-x) 0; }
     .bet-sim-tab {
-      font-size: 12px; font-weight: 500;
+      font-size: 12px; font-weight: 400;
       padding: 5px 14px; border-radius: 20px;
       border: 1px solid var(--border);
       background: transparent; color: var(--muted);
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
       font-family: inherit;
     }
-    .bet-sim-tab:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .bet-sim-tab:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .bet-sim-tab.active {
-      border-color: var(--orange);
-      color: var(--accent-ink);
-      background: var(--accent-tint);
+      border-color: var(--border-hi);
+      color: var(--text-bright);
+      background: var(--tag-bg);
       font-weight: 600;
     }
     .bet-sim-tab-dot {
@@ -668,16 +670,16 @@
       display: inline-flex; align-items: center; gap: 5px;
     }
     .odds-sens-summary::-webkit-details-marker { display: none; }
-    .odds-sens-summary::before { content: "▶"; font-size: 9px; transition: transform 0.15s; }
+    .odds-sens-summary::before { content: "▶"; font-size: 11px; transition: transform 0.15s; }
     details[open] .odds-sens-summary::before { transform: rotate(90deg); }
-    .odds-sens-summary:hover { color: var(--accent-ink); }
+    .odds-sens-summary:hover { color: var(--text-bright); }
     .odds-sens-table {
       width: 100%; border-collapse: collapse;
       font-size: 12px; margin-top: 8px;
     }
     .odds-sens-table th {
       text-align: left; color: var(--muted);
-      font-weight: 500; padding: 3px 8px 5px 0;
+      font-weight: 400; padding: 3px 8px 5px 0;
       border-bottom: 1px solid var(--border);
     }
     .odds-sens-table td {
@@ -693,10 +695,10 @@
     .bet-sim-fee strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-fee-detail { opacity: 0.65; margin-left: 4px; }
     .bet-sim-fee-unknown { font-style: italic; }
-    .bet-sim-est { color: var(--muted); font-size: 11px; font-weight: 500; }
+    .bet-sim-est { color: var(--muted); font-size: 11px; font-weight: 400; }
     /* Upright, not italic: italic is this app's footnote voice, and setting a
        placeholder value in it made an ordinary "not yet" read as a caveat. */
-    .analytics-edge-prompt .info-val { font-size: 12.5px; }
+    .analytics-edge-prompt .info-val { font-size: 13px; }
     .val-none { color: var(--muted); font-weight: 400; cursor: help; }
 
     /* An outcome's heading inside Trader Analytics. One hairline per boundary:
@@ -706,7 +708,7 @@
     .analytics-group-head .info-key { font-weight: 600; color: var(--text-bright); }
     .analytics-group-head--sep { margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--border); }
     .info-row:has(+ .analytics-group-head--sep) { border-bottom: none; }
-    .analytics-group-dot { font-size: 9px; vertical-align: 1px; }
+    .analytics-group-dot { font-size: 11px; vertical-align: 1px; }
     .analytics-fee-caveat { color: var(--muted); font-size: 11px; font-weight: 400; }
     .kelly-cap-note { color: var(--muted); font-size: 11px; margin-left: 6px; }
     .trade-cta-card { text-align: center; }
@@ -716,7 +718,7 @@
        using the same pair, which measures 4.94:1 light and 4.51:1 dark. */
     .trade-cta-btn {
       display: block; padding: 14px 18px; border-radius: 10px;
-      background: var(--accent-fill); color: #fff; font-weight: 700;
+      background: var(--accent-fill); color: #fff; font-weight: 600;
       font-size: 15px; letter-spacing: 0.02em; text-decoration: none;
     }
     .trade-cta-btn:hover { filter: brightness(1.08); }
@@ -727,7 +729,7 @@
       border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
       font-family: inherit;
     }
-    .hist-window-btn.active { border-color: var(--orange); color: var(--accent-ink); }
+    .hist-window-btn.active { border-color: var(--border-hi); color: var(--text-bright); background: var(--tag-bg); }
     .price-chart-source { color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.6; }
     .price-chart-source-warn { color: var(--amber, #f59e0b); }
     .bet-sim-side-toggle {
@@ -743,10 +745,10 @@
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
       font-family: inherit; letter-spacing: 0.04em;
     }
-    .bet-sim-side-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .bet-sim-side-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .bet-sim-side-btn.active {
-      border-color: var(--orange);
-      color: var(--accent-ink);
+      border-color: var(--border-hi);
+      color: var(--text-bright);
       background: rgba(251,146,60,0.10);
     }
     .bet-sim-side-pct { font-weight: 400; opacity: 0.75; }
@@ -820,23 +822,9 @@
     .val-red   { color: var(--red-ink); }
     .val-muted { color: var(--muted); }
 
-    /* ── Odds format toggle ── */
-    .odds-toggle {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1;
-      padding: 7px 11px;
-      transition: border-color 0.18s, color 0.18s;
-      flex-shrink: 0;
-    }
-    .odds-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
-    body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--accent-ink); }
+    /* ── Odds format toggle ── the button itself is the shared .icon-btn; this
+       only marks the moneyline state as on, in neutral. */
+    body.odds-ml .odds-toggle { color: var(--text-bright); background: var(--tag-bg); }
 
     /* odds-display: pct stacked above ml, right-aligned */
     .odds-display { display: flex; flex-direction: column; align-items: flex-end; }
@@ -844,7 +832,7 @@
     body.odds-ml .odds-display .outcome-pct { display: none; }
     body.odds-ml .odds-display .outcome-ml {
       font-size: 46px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1;
       letter-spacing: -2px;
       color: inherit;
@@ -866,7 +854,7 @@
       align-items: center;
       gap: 6px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       color: var(--amber-ink);
       background: rgba(245, 158, 11, 0.07);
       border: 1px solid rgba(245, 158, 11, 0.2);
@@ -893,7 +881,7 @@
     .market-toolbar .copy-link-btn,
     .market-toolbar .compare-toggle-btn {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 5px 10px;
       border-radius: 8px;
       line-height: 1.5;
@@ -920,12 +908,12 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 5px 12px;
       transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
     }
-    .copy-link-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .copy-link-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     .compare-toggle-btn {
       background: transparent;
@@ -935,15 +923,15 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 9px 18px;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
-    .compare-toggle-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .compare-toggle-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .compare-toggle-btn.active {
-      background: var(--accent-tint);
-      border-color: var(--orange);
-      color: var(--accent-ink);
+      background: var(--tag-bg);
+      border-color: var(--border-hi);
+      color: var(--text-bright);
     }
 
     /* ── Compare inputs ── */
@@ -973,7 +961,7 @@
       outline: none;
       transition: border-color 0.18s;
     }
-    .compare-url-input:focus { border-color: var(--orange); }
+    .compare-url-input:focus { border-color: var(--border-hi); }
     .compare-url-input::placeholder { color: var(--muted); }
     .compare-submit-btn {
       background: var(--accent-fill);
@@ -996,7 +984,7 @@
     .compare-col { padding: 20px 26px 24px; border-right: 1px solid var(--border); }
     .compare-col:last-child { border-right: none; }
     .compare-col-title {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text-bright);
       line-height: 1.4;
@@ -1015,12 +1003,12 @@
       gap: 8px;
     }
     .compare-outcome:last-child { border-bottom: none; }
-    .compare-outcome-name { font-weight: 500; flex: 1; overflow-wrap: break-word; color: var(--text); }
-    .compare-outcome-pct { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; flex-shrink: 0; }
+    .compare-outcome-name { font-weight: 400; flex: 1; overflow-wrap: break-word; color: var(--text); }
+    .compare-outcome-pct { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; flex-shrink: 0; }
     .compare-col-empty { color: var(--red-ink); font-size: 13px; padding: 8px 0; }
     .compare-stats { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .compare-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
-    .compare-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
+    .compare-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 400; }
     .compare-stat-value { font-size: 13px; font-weight: 600; color: var(--text-mid); }
     .compare-separator {
       border: none;
@@ -1029,69 +1017,29 @@
     }
     .compare-details-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       margin-bottom: 14px;
       text-transform: uppercase;
     }
 
-    .mode-tab.active { background: var(--accent-fill); color: #fff; }
-    .odds-toggle { min-height: 34px; }
-    .theme-toggle { background: var(--card); }
-    .theme-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
-    .odds-toggle:focus-visible,
     .search-row button:focus-visible,
     .tab-btn:focus-visible,
     .panel-btn:focus-visible,
     .compare-toggle-btn:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: 2px;
     }
-    /* ── Footer ── */
-    /* One footer for Analyze, Settlement Desk and Kyle. It used to be a single
-       brand line here and a two-column disclaimer on the other two pages, at
-       three different sizes and top margins; now all three carry the same rule,
-       the same brand line and the page's own disclaimer on the right.
-
-       The separators are elements rather than "·" typed between text nodes. As
-       text they sat inside a flex container, where each run became an anonymous
-       flex item and the 8px gap stacked on top of the literal spaces — so the
-       gaps around the middle dots were visibly wider on one side than the
-       other. Real items get exactly one gap each. */
-    .footer {
-      margin-top: 56px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      font-weight: 400;
-    }
-    .footer-brand {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      flex-wrap: wrap;
-    }
-    .footer-sep { color: var(--muted); opacity: 0.55; }
-    .footer-note { color: var(--muted); }
-    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
-    .footer a:hover { color: var(--accent-ink); }
-    .footer .dot-sm { font-size: 6px; color: var(--accent-ink); line-height: 1; }
-
     /* An accent-coloured link inside body copy. Ten of these were written as
        inline style="color:var(--orange)", which is the brand accent rather than
        the accent-as-text token — so they stayed at 4.29:1 on a dark card after
        the stylesheet moved to --accent-ink. One class, one place to fix. */
     .link-accent {
-      color: var(--accent-ink);
+      color: var(--text-bright);
+      text-decoration-color: var(--border-hi);
       text-decoration: none;
-      font-weight: 500;
+      font-weight: 400;
     }
     .link-accent:hover { text-decoration: underline; }
 
@@ -1114,13 +1062,13 @@
     }
     .resolved-header-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       text-transform: uppercase;
     }
     .resolved-pill {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.3px;
       padding: 3px 9px;
@@ -1131,7 +1079,7 @@
     .resolved-no  .resolved-pill { color: var(--red-ink); }
     .resolved-body { padding: 22px var(--card-pad-x) 26px; }
     .resolved-winner {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 600;
       color: var(--text-bright);
       letter-spacing: -0.4px;
@@ -1152,12 +1100,12 @@
     .resolved-meta-item { display: flex; flex-direction: column; gap: 4px; }
     .resolved-meta-key {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       text-transform: uppercase;
     }
-    .resolved-meta-val { font-size: 13px; color: var(--text); font-weight: 500; }
+    .resolved-meta-val { font-size: 13px; color: var(--text); font-weight: 400; }
 
     /* ── Show more ── */
     .show-more-row {
@@ -1173,11 +1121,11 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 7px 18px;
       transition: border-color 0.15s, color 0.15s;
     }
-    .show-more-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .show-more-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     /* ── Loading / error ── */
     .mi-loading, .mi-error {
@@ -1200,7 +1148,7 @@
       width: 16px;
       height: 16px;
       border: 2px solid var(--border);
-      border-top-color: var(--orange);
+      border-top-color: var(--text-mid);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
@@ -1226,7 +1174,7 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 6px 14px;
       transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
@@ -1288,7 +1236,7 @@
        body, a Discover section, a calendar cell — so this lines up with the rows
        it replaces instead of being indented past them. */
     .empty-inline {
-      font-size: 12.5px;
+      font-size: 13px;
       color: var(--muted);
       line-height: 1.6;
       padding: 12px 0 4px;
@@ -1312,15 +1260,15 @@
     }
     .start-eyebrow {
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--accent-ink);
+      color: var(--muted);
       margin-bottom: 10px;
     }
     .start-title {
       font-size: clamp(24px, 3vw, 32px);
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: -0.035em;
       line-height: 1.18;
       color: var(--text-bright);
@@ -1347,14 +1295,14 @@
     }
     .start-feature-title {
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--accent-ink);
+      color: var(--text-bright);
     }
     .start-feature-body {
       margin-top: 6px;
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.6;
       color: var(--muted);
     }
@@ -1381,22 +1329,22 @@
     }
     .start-proof-label {
       display: block;
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
       margin-bottom: 5px;
     }
     .start-proof-value {
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.45;
       color: var(--text-mid);
     }
     .start-examples-label {
       margin-top: 26px;
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
@@ -1413,12 +1361,12 @@
       color: var(--text);
       border-radius: 999px;
       padding: 7px 14px;
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
       cursor: pointer;
       font-family: inherit;
     }
-    .start-example:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .start-example:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .start-note {
       margin-top: 22px;
       padding-top: 16px;
@@ -1440,7 +1388,7 @@
       align-items: flex-end;
     }
     .ml-label {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.5px;
       color: var(--muted);
@@ -1449,7 +1397,7 @@
       text-transform: uppercase;
     }
     .delta-label {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 400;
       margin-left: 2px;
       opacity: 0.8;
@@ -1536,7 +1484,7 @@
       background: rgba(29, 185, 84, 0.1);
       border: 1px solid rgba(29, 185, 84, 0.3);
       color: var(--green-ink);
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       padding: 2px 6px;
       border-radius: 4px;
@@ -1635,7 +1583,7 @@
       gap: 8px;
       margin-bottom: 5px;
     }
-    .volume-spike-icon { font-size: 14px; }
+    .volume-spike-icon { font-size: 15px; }
     .volume-spike-title {
       font-size: 11px;
       font-weight: 600;
@@ -1660,7 +1608,7 @@
       gap: 8px;
       margin-bottom: 5px;
     }
-    .news-hint-icon { font-size: 14px; }
+    .news-hint-icon { font-size: 15px; }
     .news-hint-title {
       font-size: 11px;
       font-weight: 600;
@@ -1674,7 +1622,7 @@
       line-height: 1.7;
     }
     .news-hint-link {
-      color: var(--accent-ink);
+      color: var(--text-bright);
       text-decoration: none;
       font-weight: 600;
     }
@@ -1695,13 +1643,13 @@
     .ri-row:last-child { border-bottom: none; }
     .ri-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       flex-shrink: 0;
       text-transform: uppercase;
     }
-    .ri-val { color: var(--text-bright); text-align: right; font-weight: 500; }
+    .ri-val { color: var(--text-bright); text-align: right; font-weight: 400; }
     .ri-sub { font-size: 11px; color: var(--muted); }
 
     /* ── Upset banner ── */
@@ -1713,7 +1661,7 @@
       background: rgba(232, 64, 64, 0.05);
       border-bottom: 1px solid rgba(232, 64, 64, 0.15);
     }
-    .upset-icon { font-size: 17px; flex-shrink: 0; }
+    .upset-icon { font-size: 18px; flex-shrink: 0; }
     .upset-body {
       font-size: 13px;
       line-height: 1.6;
@@ -1722,7 +1670,7 @@
     .upset-body strong { color: var(--red-ink); }
 
     /* ── Round 3: Momentum arrows ── */
-    .momentum-arrow { font-size: 11px; margin-left: 4px; font-weight: 700; vertical-align: middle; }
+    .momentum-arrow { font-size: 11px; margin-left: 4px; font-weight: 600; vertical-align: middle; }
     .momentum-up  { color: var(--green-ink); }
     .momentum-dn  { color: var(--red-ink); }
 
@@ -1731,8 +1679,8 @@
     .outcome-plain-talk { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 400; }
 
     /* ── Round 3: Dead money indicator ── */
-    .dead-money-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--red-ink); border: 1px solid color-mix(in srgb, var(--red) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
-    .liquid-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--green-ink); border: 1px solid color-mix(in srgb, var(--green) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
+    .dead-money-tag { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--red-ink); border: 1px solid color-mix(in srgb, var(--red) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
+    .liquid-badge { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--green-ink); border: 1px solid color-mix(in srgb, var(--green) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
 
     /* ── Round 3: Spread cost note ── */
     .spread-cost-note { font-size: 11px; color: var(--muted); }
@@ -1741,7 +1689,7 @@
     .shortcut-hint { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; }
     .shortcut-hint kbd {
       font-family: inherit;
-      font-size: 10px;
+      font-size: 11px;
       border: 1px solid var(--border);
       border-radius: 4px;
       padding: 1px 5px;
@@ -1759,7 +1707,7 @@
       align-items: center;
       gap: 7px;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       color: var(--muted);
       padding: 8px 14px;
       border: 1px solid var(--border);
@@ -1770,7 +1718,7 @@
     .util-summary::-webkit-details-marker { display: none; }
     .util-summary::before { content: "▶"; font-size: 8px; transition: transform 0.15s; }
     .util-details[open] .util-summary::before { transform: rotate(90deg); }
-    .util-summary:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .util-summary:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .util-body { margin-top: 12px; }
 
     /* ── Round 3: Volume-weighted consensus ── */
@@ -1779,7 +1727,7 @@
 
     /* ── Round 3: Resolution confidence score ── */
     .resolution-confidence { display: flex; align-items: center; gap: 10px; padding: 10px var(--card-pad-x) 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-    .rc-label { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; color: var(--muted); text-transform: uppercase; }
+    .rc-label { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; color: var(--muted); text-transform: uppercase; }
     .rc-val   { font-size: 12px; font-weight: 600; }
     .rc-hint  { font-size: 12px; color: var(--muted); }
 
@@ -1795,8 +1743,8 @@
     .similar-markets-card { }
     .similar-markets-body { padding: 10px var(--card-pad-x) 6px; font-size: 13px; color: var(--muted); }
     .similar-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px var(--card-pad-x) 18px; }
-    .similar-link { font-size: 12px; font-weight: 500; color: var(--accent-ink); text-decoration: none; border: 1px solid var(--accent-line); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
-    .similar-link:hover { background: var(--accent-tint); border-color: var(--orange); }
+    .similar-link { font-size: 12px; font-weight: 400; color: var(--text-mid); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
+    .similar-link:hover { background: var(--tag-bg); border-color: var(--border-hi); color: var(--text-bright); }
 
     /* ── Round 3: Edge calculator ("What's your edge?") ── */
     .edge-calc-card { }
@@ -1805,13 +1753,13 @@
     .edge-input-label { font-size: 13px; color: var(--muted); flex: 1; min-width: 160px; }
     .edge-input-wrap { display: flex; align-items: center; gap: 4px; }
     .edge-prob-input { width: 68px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-family: inherit; font-size: 15px; text-align: center; }
-    .edge-prob-input:focus { outline: none; border-color: var(--orange); }
-    .edge-pct-sign { font-size: 14px; color: var(--muted); }
+    .edge-prob-input:focus { outline: none; border-color: var(--border-hi); }
+    .edge-pct-sign { font-size: 15px; color: var(--muted); }
     .edge-calc-result { font-size: 13px; }
     .edge-result-row { margin-bottom: 8px; }
     .edge-kelly-rows { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 4px; border-top: 1px solid var(--border); margin-top: 6px; }
     .edge-kelly-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-    .edge-kelly-label { color: var(--muted); min-width: 90px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.2px; }
+    .edge-kelly-label { color: var(--muted); min-width: 90px; font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.2px; }
     .edge-kelly-hint { font-size: 11px; color: var(--muted); font-style: italic; }
 
     /* ── Round 3: Arb calculator in compare ── */
@@ -1823,28 +1771,27 @@
     .arb-disclaimer { padding: 6px var(--card-pad-x) 16px; font-size: 11px; color: var(--muted); }
 
     /* ── Same event on other platforms ── */
-    .xmatch-card { border-left: 2px solid var(--orange); }
     .xmatch-body { padding: 4px var(--card-pad-x) 20px; }
     .xmatch-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 8px 0; }
     .xmatch-failed { color: var(--red-ink); }
     .xmatch-venue { padding: 12px 0; border-bottom: 1px solid var(--border); }
     .xmatch-venue:last-child { border-bottom: none; }
-    .xmatch-platform { font-size: 9px; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
+    .xmatch-platform { font-size: 11px; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
     .xmatch-none { font-size: 12px; color: var(--muted); line-height: 1.6; }
     .xmatch-none em { font-style: normal; color: var(--text-mid); font-weight: 600; }
     .xmatch-checked { margin-top: 4px; font-size: 11px; color: var(--muted); }
     .xmatch-row { padding: 8px 0; }
     .xmatch-row + .xmatch-row { border-top: 1px dashed var(--border); }
     .xmatch-row-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .xmatch-title { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
-    .xmatch-conf { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; flex-shrink: 0; }
+    .xmatch-title { font-size: 15px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+    .xmatch-conf { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; flex-shrink: 0; }
     .xmatch-reasons { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
     .xmatch-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
     .xmatch-add-btn {
       font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 7px; cursor: pointer;
-      background: var(--accent-fill); border: none; color: #fff; font-family: inherit;
+      background: var(--card); border: 1px solid var(--border); color: var(--text-bright); font-family: inherit;
     }
-    .xmatch-add-btn:hover { opacity: 0.88; }
+    .xmatch-add-btn:hover { border-color: var(--border-hi); background: var(--tag-bg); }
     /* These are the only way out to the other venue, and they were 13px tall —
        under the 24px WCAG 2.2 minimum for a pointer target. The inline-flex box
        gives them a real height without changing where they sit. */
@@ -1852,21 +1799,21 @@
       font-size: 11px; color: var(--muted); text-decoration: none;
       display: inline-flex; align-items: center; min-height: 24px;
     }
-    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--accent-ink); }
+    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--text-bright); }
     .xmatch-all-btn {
       font-size: 11px; font-weight: 600; padding: 7px 14px; border-radius: 7px; cursor: pointer;
-      background: transparent; border: 1px solid var(--orange); color: var(--accent-ink);
+      background: transparent; border: 1px solid var(--border); color: var(--text-bright);
       font-family: inherit; margin: 8px 0 4px;
     }
-    .xmatch-all-btn:hover { background: var(--accent-fill); color: #fff; }
+    .xmatch-all-btn:hover { background: var(--tag-bg); border-color: var(--border-hi); }
     .xmatch-manual { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
 
     /* ── Round 3: Platform footnotes in compare ── */
     .platform-footnote { font-size: 11px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); line-height: 1.5; }
 
     /* ── Round 3: Bookmarks & history panels ── */
-    .panel-btn { font-size: 11px; font-weight: 500; padding: 5px 11px; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: inherit; }
-    .panel-btn:hover, .panel-btn.active { border-color: var(--orange); color: var(--accent-ink); }
+    .panel-btn { font-size: 11px; font-weight: 400; padding: 5px 11px; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .panel-btn:hover, .panel-btn.active { border-color: var(--border-hi); color: var(--text-bright); }
     .panel-btn.bookmarked { border-color: var(--green); color: var(--green-ink); }
     .panels-bar { display: none; }
     .history-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; background: var(--card); border: 1px solid var(--border); border-radius: 10px; min-width: 340px; max-width: 480px; box-shadow: var(--shadow); display: none; }
@@ -1874,7 +1821,7 @@
     .history-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
     .history-item:last-child { border-bottom: none; }
     .history-item:hover { background: var(--card-hover); }
-    .history-platform { font-size: 10px; font-weight: 600; color: var(--accent-ink); flex-shrink: 0; }
+    .history-platform { font-size: 11px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
     .history-title { font-size: 12px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .history-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
     .history-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; flex-shrink: 0; }
@@ -1917,7 +1864,7 @@
       .search-row input { min-height: 48px; }
 
       .event-head { padding: 20px 18px 22px; }
-      .event-title { font-size: 19px; }
+      .event-title { font-size: 18px; }
       .event-meta { gap: 12px 22px; margin-top: 16px; padding-top: 14px; }
       .event-meta-name { max-width: 150px; }
 
@@ -1926,13 +1873,13 @@
       .outcome-row  { padding: 18px 18px 15px; }
       .outcome-top  { flex-wrap: wrap; gap: 6px; }
       .outcome-pct  { font-size: 36px; }
-      .outcome-name { font-size: 14px; }
+      .outcome-name { font-size: 15px; }
       .outcome-right { gap: 10px; margin-left: 0; flex-shrink: 0; }
       .outcome-ml   { font-size: 12px; }
 
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .stat-card  { padding: 16px 18px 18px; }
-      .stat-value { font-size: 20px; }
+      .stat-value { font-size: 18px; }
 
       .info-row { padding: 11px 18px; flex-wrap: wrap; gap: 4px; }
       .info-val { max-width: 100%; text-align: left; }
@@ -1984,7 +1931,6 @@
       .xmatch-actions { gap: 10px; }
       .xmatch-add-btn { flex: 1; min-width: 140px; }
 
-      .footer { align-items: flex-start; flex-direction: column; gap: 10px; }
     }
 
     /* ── Small phones (< 400px) ── */
@@ -1998,21 +1944,18 @@
     /* NEW FEATURES CSS                                                  */
     /* ═══════════════════════════════════════════════════════════════════ */
 
-    /* Tab navigation */
-    /* The row scrolls when it does not fit — at 390px "Rewards" sits past the
-       right edge — but the scrollbar is hidden, so there was nothing to say more
-       tabs existed: the last one just stopped at the screen edge.
+    /* Analyze sub-tabs: Discover · Watchlist · Calendar · Tools. Quieter than
+       the primary nav — the active view is marked in neutral, so the accent
+       stays on the primary nav and the primary action.
 
-       The four backgrounds are the CSS-only scroll-shadow pair. The two `local`
-       layers are painted in the page colour and scroll with the content; the two
-       `scroll` layers are the shadows and stay pinned to the box. At each end the
-       cover sits over the shadow and hides it, so a hint appears on whichever
-       side has more to reveal and on neither side when it all fits — no
-       scroll listener, and nothing to keep in sync. */
+       The row scrolls when it does not fit, with a CSS-only scroll shadow: the
+       two `local` layers are painted in the page colour and scroll with the
+       content, the two `scroll` layers are the shadows pinned to the box, so a
+       hint shows on whichever side has more to reveal. */
     .tab-bar {
       display: flex;
-      gap: 2px;
-      margin-bottom: 18px;
+      gap: 4px;
+      margin-bottom: 24px;
       border-bottom: 1px solid var(--border);
       overflow-x: auto;
       overscroll-behavior-x: contain;
@@ -2031,20 +1974,21 @@
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
       color: var(--muted);
       cursor: pointer;
       font-family: inherit;
       font-size: 13px;
-      font-weight: 500;
-      letter-spacing: 0.3px;
-      padding: 10px 16px;
+      font-weight: 400;
+      padding: 10px 12px;
       transition: color 0.15s, border-color 0.15s;
       white-space: nowrap;
     }
     .tab-btn:hover { color: var(--text-bright); }
     .tab-btn.active {
-      color: var(--accent-ink);
-      border-bottom-color: var(--orange);
+      color: var(--text-bright);
+      font-weight: 600;
+      border-bottom-color: var(--text-bright);
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -2056,8 +2000,8 @@
       gap: 10px;
       padding: 10px 16px;
       margin-bottom: 12px;
-      background: var(--accent-tint);
-      border: 1px solid var(--accent-line);
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 13px;
       color: var(--text);
@@ -2071,7 +2015,7 @@
       white-space: nowrap;
     }
     .smart-paste-banner button {
-      background: var(--orange);
+      background: var(--accent-fill);
       border: none;
       border-radius: 6px;
       color: #fff;
@@ -2093,7 +2037,7 @@
       border-radius: 10px;
       color: var(--text-bright);
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 10px 20px;
       box-shadow: var(--shadow);
       z-index: 9999;
@@ -2140,7 +2084,7 @@
       border: none;
       color: var(--muted);
       cursor: pointer;
-      font-size: 20px;
+      font-size: 18px;
       padding: 0 4px;
     }
     .shortcut-grid {
@@ -2185,10 +2129,10 @@
       transition: border-color 0.15s, box-shadow 0.15s;
       box-shadow: var(--shadow-sm);
     }
-    .wl-card:hover { border-color: var(--orange); box-shadow: var(--shadow); }
+    .wl-card:hover { border-color: var(--border-hi); box-shadow: var(--shadow); }
     .wl-card-header { margin-bottom: 10px; }
     .wl-card-title {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text-bright);
       display: block;
@@ -2197,9 +2141,9 @@
       white-space: nowrap;
     }
     .wl-platform {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
-      color: var(--accent-ink);
+      color: var(--muted);
       margin-bottom: 4px;
       display: block;
     }
@@ -2230,15 +2174,15 @@
       border-radius: 8px;
       color: var(--text-bright);
       font-family: inherit;
-      font-size: 14px;
+      font-size: 15px;
       min-height: 36px;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     .field::placeholder { color: var(--muted); }
     .field:focus {
       outline: none;
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--accent-ring);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
     .field--num { width: 112px; text-align: right; }
     .field--wide { width: 100%; }
@@ -2289,7 +2233,7 @@
     .parlay-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); max-width: 620px; }
     .parlay-combined { text-align: center; margin-bottom: 12px; }
     .parlay-combined-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
-    .parlay-combined-pct { font-size: 36px; font-weight: 700; color: var(--text-bright); letter-spacing: -1px; }
+    .parlay-combined-pct { font-size: 36px; font-weight: 600; color: var(--text-bright); letter-spacing: -1px; }
     .parlay-legs-display { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; justify-content: center; }
     .parlay-leg-detail { font-size: 12px; color: var(--muted); background: var(--tag-bg); padding: 3px 10px; border-radius: 20px; }
 
@@ -2306,9 +2250,9 @@
       padding: 12px 14px;
       box-shadow: var(--shadow-sm);
     }
-    .cal-today { border-color: var(--orange); }
+    .cal-today { border-color: var(--border-hi); }
     .cal-day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
-    .cal-today .cal-day-label { color: var(--accent-ink); }
+    .cal-today .cal-day-label { color: var(--text-bright); }
     .cal-market {
       font-size: 12px;
       color: var(--text);
@@ -2320,10 +2264,10 @@
       gap: 6px;
     }
     .cal-market:last-child { border-bottom: none; }
-    .cal-market:hover { color: var(--accent-ink); }
+    .cal-market:hover { color: var(--text-bright); }
     /* Kept as an alias so existing call sites keep working; both render the one
        inline empty state. */
-    .cal-empty { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+    .cal-empty { font-size: 13px; color: var(--muted); line-height: 1.6; }
     .cal-note { font-size: 12px; color: var(--muted); margin-top: 12px; font-style: italic; }
     .cal-market-sub { font-size: 11px; color: var(--muted); margin-left: 6px; }
     .cal-later {
@@ -2354,7 +2298,7 @@
       font-family: inherit;
       font-size: 13px;
     }
-    .alert-select:focus { outline: none; border-color: var(--orange); }
+    .alert-select:focus { outline: none; border-color: var(--border-hi); }
     .alert-existing { margin-top: 8px; }
     .alert-item {
       display: flex;
@@ -2401,7 +2345,7 @@
       transition: background 0.12s;
     }
     .corr-item:last-child { border-bottom: none; }
-    .corr-item:hover { background: var(--card-hover); color: var(--accent-ink); }
+    .corr-item:hover { background: var(--card-hover); color: var(--text-bright); }
 
     /* Webhook settings */
     /* URLs and tokens are long, so these rows get the full readable measure
@@ -2409,7 +2353,7 @@
     .webhook-body { padding: 14px var(--card-pad-x) 20px; }
     .webhook-form { max-width: 560px; }
     .webhook-row { margin-bottom: 12px; }
-    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 400; }
     .webhook-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 
     /* The one primary action style, so a panel's main button does not have to be
@@ -2457,15 +2401,15 @@
       text-align: left;
     }
     .discover-market:hover,
-    .discover-market:focus-visible { border-color: var(--orange); outline: none; }
-    .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
+    .discover-market:focus-visible { border-color: var(--text-bright); outline: none; }
+    .discover-market-title { font-size: 15px; font-weight: 400; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
     .discover-market-meta strong { color: var(--text); font-weight: 600; }
     .discover-market-ticker {
-      font-family: 'IBM Plex Mono', ui-monospace, monospace;
-      font-size: 10.5px;
-      color: var(--accent-ink);
-      background: var(--accent-tint);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
       border-radius: 4px;
       padding: 2px 6px;
     }
@@ -2487,22 +2431,22 @@
       box-shadow: var(--shadow-sm);
     }
     .section-eyebrow {
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.1em;
-      color: var(--accent-ink);
+      color: var(--muted);
       margin-bottom: 8px;
     }
     .section-intro-title {
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: -0.03em;
       color: var(--text-bright);
     }
     .section-intro-copy {
       margin-top: 7px;
       max-width: 68ch;
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.6;
       color: var(--muted);
     }
@@ -2524,8 +2468,8 @@
       padding: 18px 20px;
       margin-bottom: 20px;
     }
-    .discovery-status-title { font-size: 14px; font-weight: 600; color: var(--text-bright); }
-    .discovery-status-copy { font-size: 12.5px; line-height: 1.55; color: var(--muted); margin-top: 4px; }
+    .discovery-status-title { font-size: 15px; font-weight: 600; color: var(--text-bright); }
+    .discovery-status-copy { font-size: 13px; line-height: 1.55; color: var(--muted); margin-top: 4px; }
     @media (max-width: 640px) {
       .section-intro { align-items: flex-start; flex-direction: column; gap: 14px; }
       .section-intro-actions { width: 100%; justify-content: space-between; }
@@ -2547,22 +2491,22 @@
       margin-bottom: 12px;
     }
     .position-news-eyebrow {
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: var(--accent-ink);
+      color: var(--muted);
     }
     .position-news-title {
       margin-top: 4px;
-      font-size: 17px;
-      font-weight: 650;
+      font-size: 18px;
+      font-weight: 600;
       letter-spacing: -0.015em;
       color: var(--text-bright);
     }
     .position-news-sub {
       margin-top: 4px;
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.5;
       color: var(--muted);
     }
@@ -2570,7 +2514,7 @@
       flex-shrink: 0;
       border: 0;
       background: transparent;
-      color: var(--accent-ink);
+      color: var(--text-bright);
       cursor: pointer;
       /* 22px tall, 2px under the WCAG 2.2 pointer-target minimum. */
       display: inline-flex;
@@ -2601,22 +2545,22 @@
       transition: border-color 0.15s, background 0.15s;
     }
     .position-news-item:hover {
-      border-color: var(--orange);
+      border-color: var(--border-hi);
       background: var(--card-hover);
     }
     .position-news-item:focus-visible,
     .position-news-manage:focus-visible,
     .rewards-program-link:focus-visible,
     .rewards-expand-btn:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: 3px;
     }
     .position-news-copy { min-width: 0; }
     .position-news-platform {
       display: block;
       margin-bottom: 3px;
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
@@ -2625,7 +2569,7 @@
       display: block;
       overflow: hidden;
       color: var(--text-bright);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
       line-height: 1.4;
       text-overflow: ellipsis;
@@ -2633,8 +2577,8 @@
     }
     .position-news-arrow {
       flex-shrink: 0;
-      color: var(--accent-ink);
-      font-size: 14px;
+      color: var(--muted);
+      font-size: 15px;
     }
     .position-news-empty {
       border: 1px dashed var(--border);
@@ -2642,7 +2586,7 @@
       background: var(--rule-bg);
       padding: 16px;
       color: var(--muted);
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.55;
     }
 
@@ -2659,9 +2603,9 @@
       padding: 28px var(--card-pad-x);
     }
     .rewards-eyebrow {
-      color: var(--accent-ink);
-      font-size: 10px;
-      font-weight: 700;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
@@ -2670,7 +2614,7 @@
       margin-top: 7px;
       color: var(--text-bright);
       font-size: clamp(22px, 3vw, 29px);
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: -0.035em;
       line-height: 1.2;
     }
@@ -2678,7 +2622,7 @@
       max-width: 68ch;
       margin-top: 9px;
       color: var(--muted);
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.65;
     }
     /* Separate cards, matching .start-proof on the Analyze hero. Both were the
@@ -2699,15 +2643,15 @@
     .rewards-summary-value {
       display: block;
       color: var(--text-bright);
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 600;
     }
     .rewards-summary-label {
       display: block;
       margin-top: 3px;
       color: var(--muted);
-      font-size: 9px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       white-space: nowrap;
@@ -2727,15 +2671,15 @@
       padding: 5px 10px;
       border-radius: 6px;
       color: #fff;
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .rewards-platform-sub {
       color: var(--text);
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
     }
     .rewards-program-grid {
       display: grid;
@@ -2767,12 +2711,12 @@
       margin-bottom: 7px;
       color: var(--text-bright);
       font-size: 13px;
-      font-weight: 650;
+      font-weight: 600;
       line-height: 1.35;
     }
     .rewards-program-desc {
       color: var(--muted);
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.6;
     }
     .rewards-program-link {
@@ -2780,8 +2724,8 @@
       align-items: center;
       min-height: 24px;
       margin-top: 10px;
-      color: var(--accent-ink);
-      font-size: 11.5px;
+      color: var(--text-bright);
+      font-size: 12px;
       font-weight: 600;
       text-decoration: none;
     }
@@ -2797,7 +2741,7 @@
     .rewards-live-title {
       color: var(--text-bright);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
@@ -2840,8 +2784,8 @@
       z-index: 1;
       background: var(--rule-bg);
       color: var(--muted);
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.07em;
       text-transform: uppercase;
     }
@@ -2861,17 +2805,17 @@
     .rewards-live-table tbody tr[role="button"] { cursor: pointer; }
     .rewards-live-table tbody tr[role="link"]:focus-visible,
     .rewards-live-table tbody tr[role="button"]:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: -2px;
     }
     .rewards-expand-btn {
       margin-top: 10px;
       border: 0;
       background: transparent;
-      color: var(--accent-ink);
+      color: var(--text-bright);
       cursor: pointer;
       font: inherit;
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 600;
       padding: 3px 0;
     }
@@ -2886,8 +2830,8 @@
       background: transparent;
       border: 1px solid color-mix(in srgb, var(--green) 45%, transparent);
       color: var(--green-ink);
-      font-size: 9px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.04em;
     }
     @media (max-width: 760px) {
@@ -2900,7 +2844,7 @@
       .position-news-grid { grid-template-columns: 1fr; }
       .rewards-shell { gap: 12px; }
       .rewards-hero { padding: 22px 18px; }
-      .rewards-title { font-size: 22px; }
+      .rewards-title { font-size: 24px; }
       .rewards-summary { grid-template-columns: 1fr; }
       .rewards-summary-item { padding: 10px 12px; }
       .rewards-platform-head { align-items: flex-start; padding: 16px 18px; }
@@ -2924,8 +2868,8 @@
     .gem-search-input::placeholder { color: var(--muted); }
     .gem-search-input:focus, .gem-select:focus {
       outline: none;
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--accent-ring);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
     /* The one native control left on the page — it drew the OS dropdown chrome
        next to custom-styled fields. Own chevron, drawn from the border colour so
@@ -2946,14 +2890,14 @@
       background: transparent; border: 1px solid var(--border); color: var(--muted);
       border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
     }
-    .gem-feed-btn:hover { color: var(--text-bright); border-color: var(--orange); }
-    .gem-feed-btn.active { background: var(--accent-fill); border-color: var(--orange); color: #fff; }
+    .gem-feed-btn:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .gem-feed-btn.active { background: var(--tag-bg); border-color: var(--border-hi); color: var(--text-bright); }
     .gem-more-btn { margin-top: 6px; }
     /* A status pill on a --border fill left --muted text at 4.2:1. The fill moves
        to the page ground, where --muted is already verified, and the pill keeps a
        hairline so it still reads as a pill. */
     .gem-live-pill {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.2px; padding: 2px 8px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2px; padding: 2px 8px;
       border-radius: 999px; background: var(--bg); border: 1px solid var(--border);
       color: var(--muted); margin-left: 8px;
     }
@@ -2999,12 +2943,11 @@
     .gem-vol-row { display: grid; grid-template-columns: 120px 1fr 70px; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
     .gem-vol-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gem-vol-bar { background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
-    .gem-vol-bar > span { display: block; height: 100%; background: var(--orange); }
+    .gem-vol-bar > span { display: block; height: 100%; background: var(--muted); }
     .gem-vol-val { text-align: right; color: var(--muted); }
     .gem-vol-chart { width: 100%; margin-top: 14px; display: block; }
 
     @media (max-width: 640px) {
-      .tab-btn { font-size: 11px; padding: 8px 12px; }
       .watchlist-grid { grid-template-columns: 1fr; }
       .calendar-grid { grid-template-columns: 1fr 1fr; }
       .pnl-input-grid { grid-template-columns: 1fr; }
@@ -3014,48 +2957,40 @@
       .embed-code-wrap { flex-direction: column; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body class="light">
 
 <div class="app">
 
-  <div class="app-header">
-    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="resetToHome()" title="Back to home">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home" onclick="return navToAnalyze(event, true)">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/" class="active" aria-current="page" onclick="return navToAnalyze(event)">Analyze</a>
+      <a href="/monitor.html">Monitor</a>
+      <a href="/settlement.html">Settlement Desk</a>
+    </nav>
+    <div class="header-utils">
+      <button class="icon-btn odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
+      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Light / dark theme">☀</button>
     </div>
-    <div class="header-controls">
-      <nav class="mode-tabs" aria-label="App mode">
-        <a class="mode-tab active" href="/" aria-current="page">Analyze</a>
-        <a class="mode-tab" href="/monitor.html">Monitor</a>
-        <a class="mode-tab" href="/settlement.html">Settlement Desk</a>
-        <a class="mode-tab" href="/kyle.html">Kyle</a>
-      </nav>
-      <div class="page-tools">
-        <button class="odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
-      </div>
-    </div>
-  </div>
+  </header>
 
-  <div class="tab-bar" role="tablist" aria-label="Product tools">
-    <button class="tab-btn active" id="tabBtn-analyze" role="tab" aria-selected="true" aria-controls="tab-analyze" onclick="switchTab('analyze')">Analyze</button>
+  <div class="tab-bar" role="tablist" aria-label="Analyze views">
     <button class="tab-btn" id="tabBtn-discover" role="tab" aria-selected="false" aria-controls="tab-discover" onclick="switchTab('discover')">Discover</button>
     <button class="tab-btn" id="tabBtn-watchlist" role="tab" aria-selected="false" aria-controls="tab-watchlist" onclick="switchTab('watchlist')">Watchlist</button>
     <button class="tab-btn" id="tabBtn-calendar" role="tab" aria-selected="false" aria-controls="tab-calendar" onclick="switchTab('calendar')">Calendar</button>
     <button class="tab-btn" id="tabBtn-tools" role="tab" aria-selected="false" aria-controls="tab-tools" onclick="switchTab('tools')">Tools</button>
-    <button class="tab-btn" id="tabBtn-rewards" role="tab" aria-selected="false" aria-controls="tab-rewards" onclick="switchTab('rewards')">Rewards</button>
   </div>
 
-  <div id="tab-analyze" role="tabpanel" aria-labelledby="tabBtn-analyze" style="display:block">
+  <div id="tab-analyze" role="tabpanel" aria-label="Analyze" style="display:block">
 
   <div class="search-row">
     <input id="urlInput" aria-label="Prediction market URL — Kalshi, Polymarket, Gemini or Coinbase" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." data-placeholder-short="Paste a market URL…" onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
-    <button onclick="analyze()">Analyze ↗</button>
+    <button onclick="analyze()">Analyze</button>
   </div>
 
   <div id="inputHint" class="input-hint"></div>
@@ -3077,7 +3012,7 @@
       <span id="fetchedAt" class="fetched-at" style="display:none"></span>
       <div id="shareControls" class="toolbar-group" style="display:none">
         <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ Refresh</button>
-        <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link ↗</button>
+        <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link</button>
         <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">Share card ↓</button>
         <button class="panel-btn" id="bookmarkBtn">☆ Save</button>
       </div>
@@ -3094,7 +3029,7 @@
       <span class="compare-input-num">3</span>
       <input id="urlInput3" class="compare-url-input" placeholder="Third market URL (optional)…" />
     </div>
-    <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">Compare ↗</button>
+    <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">Compare</button>
   </div>
 
   <div id="result">
@@ -3164,26 +3099,26 @@
     <div id="toolsContent"><div class="empty-state">Loading tools...</div></div>
   </div>
 
-  <div id="tab-rewards" role="tabpanel" aria-labelledby="tabBtn-rewards" style="display:none">
+  <div id="tab-rewards" role="tabpanel" aria-label="Rewards programs" style="display:none">
     <div id="rewardsContent"><div class="empty-state">Loading reward programs...</div></div>
   </div>
 
   <footer class="footer">
-    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
     <span class="footer-note">Independent analysis software. Not financial advice or a trading venue.</span>
   </footer>
 
 </div>
 
-<script src="utils.js?v=39"></script>
-<script src="components.js?v=39"></script>
-<script src="adapters.js?v=39"></script>
-<script src="renderers.js?v=39"></script>
-<script src="compare.js?v=39"></script>
-<script src="crossmatch.js?v=39"></script>
-<script src="gemini-live.js?v=39"></script>
-<script src="app.js?v=39"></script>
-<script src="features.js?v=39"></script>
+<script src="utils.js?v=40"></script>
+<script src="components.js?v=40"></script>
+<script src="adapters.js?v=40"></script>
+<script src="renderers.js?v=40"></script>
+<script src="compare.js?v=40"></script>
+<script src="crossmatch.js?v=40"></script>
+<script src="gemini-live.js?v=40"></script>
+<script src="app.js?v=40"></script>
+<script src="features.js?v=40"></script>
 <script>
   (function () {
     // Theme
@@ -3210,6 +3145,16 @@
     const isLight = document.body.classList.toggle('light')
     localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
     document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
+  }
+
+  // The logo and the "Analyze" nav item stay on this page rather than
+  // reloading it: the nav item returns to the Analyze view, the logo also
+  // clears the current brief. Modified clicks still open a new tab.
+  function navToAnalyze(e, reset) {
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1)) return true
+    if (reset && typeof resetToHome === 'function') resetToHome()
+    else if (typeof switchTab === 'function') switchTab('analyze')
+    return false
   }
 
   function toggleOdds() {
@@ -3276,12 +3221,12 @@
   function copyShareLink() {
     const btn = document.getElementById('copyLinkBtn')
     navigator.clipboard.writeText(location.href).then(() => {
-      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link ↗' }, 2000) }
+      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link' }, 2000) }
     }).catch(() => {
       // Fallback: select the URL in the input
       const input = document.getElementById('urlInput')
       if (input) { input.select(); document.execCommand('copy') }
-      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link ↗' }, 2000) }
+      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link' }, 2000) }
     })
   }
 </script>
