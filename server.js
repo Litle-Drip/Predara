@@ -822,7 +822,7 @@ const server = http.createServer((req, res) => {
           ticker, title, status,
           resolvedSide: winnerLabels.join(", "),
           verdict: "confirmed",
-          summary: `${platformName}'s API confirms ${winnerLabels.join(" and ")} as the winner, settled on ${settledDate}. ${losers.length > 0 ? `All ${losers.length} other outcome${losers.length !== 1 ? "s" : ""} resolved against.` : ""} Settlement data is clean and unambiguous.`,
+          summary: `${platformName}'s API confirms ${winnerLabels.join(" and ")} as the winner, settled on ${settledDate}. ${losers.length === 1 ? "The other outcome resolved against." : losers.length > 1 ? `All ${losers.length} other outcomes resolved against.` : ""} Settlement data is clean and unambiguous.`,
           keyFacts: [
             `Winner: ${winnerLabels.join(", ")}`,
             `Settlement timestamp: ${settledAt || "N/A"}`,

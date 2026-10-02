@@ -111,3 +111,12 @@ test("the category tag is dropped when every row shares it", async () => {
   assert.match(mixed.slot.innerHTML, />Sports</)
 })
 
+
+test("the feed's About disclosure is not nested in a paragraph", async () => {
+  // <details> inside <p> makes the parser close the paragraph early, which
+  // dropped "About this feed" onto its own oversized line.
+  const { context, slot } = loadRenderer({ data: [row("A1", "A")] })
+  await context.renderGeminiRecentlySettled("settlements", "pickGeminiSettled")
+  assert.doesNotMatch(slot.innerHTML, /<p[^>]*>[^<]*<details/)
+  assert.match(slot.innerHTML, /<div class="gem-feed-note">/)
+})
