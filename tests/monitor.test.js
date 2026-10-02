@@ -814,11 +814,12 @@ test("volume series take fixed slots and fold the tail rather than cycling hues"
   const many = { categories: Array.from({ length: 11 }, (_, i) => ({ name: `Cat${i}`, total: 100 - i })) }
   const series = client.monVolumeSeries(many)
 
-  assert.equal(series.length, client.MON_VOLUME_SLOTS + 1, "eight slots plus one Other band")
+  assert.equal(client.MON_VOLUME_SLOTS, 5, "five named bands keep the legend short")
+  assert.equal(series.length, client.MON_VOLUME_SLOTS + 1, "the named slots plus one Other band")
   assert.equal(series[series.length - 1].name, "Other")
   const colors = series.slice(0, client.MON_VOLUME_SLOTS).map((s) => s.color)
   assert.equal(new Set(colors).size, client.MON_VOLUME_SLOTS, "no slot is handed out twice")
-  assert.deepEqual(colors, Array.from({ length: 8 }, (_, i) => `var(--series-${i + 1})`),
+  assert.deepEqual(colors, Array.from({ length: client.MON_VOLUME_SLOTS }, (_, i) => `var(--series-${i + 1})`),
     "slots are assigned in fixed order")
 })
 
@@ -829,7 +830,7 @@ test("the Other band carries the whole tail so the stack still sums to the hour"
 
   const stacked = series.reduce((sum, s) => sum + client.monSeriesValue(bucket, s), 0)
   assert.equal(stacked, 100, "the bands must add up to the hour's real total")
-  assert.equal(client.monSeriesValue(bucket, series[series.length - 1]), 20, "Cat8 + Cat9")
+  assert.equal(client.monSeriesValue(bucket, series[series.length - 1]), 50, "Cat5 through Cat9")
 })
 
 test("a feed with no breakdown yields no series, so the chart stays single-line", () => {
@@ -972,4 +973,45 @@ test("the payload carries its own caveats so an API consumer inherits them", () 
   assert.equal(typeof snapshot.rowsTotal, "number")
   assert.equal(typeof snapshot.totals.overroundEligibleEvents, "number")
   assert.equal(typeof snapshot.totals.contractsTwoSided, "number")
+})
+
+// ── Phase 4 layout cleanup ────────────────────────────────────────────────────
+const monitorHtml = fs.readFileSync(path.join(__dirname, "..", "monitor.html"), "utf8")
+const monitorJs = fs.readFileSync(path.join(__dirname, "..", "monitor.js"), "utf8")
+
+test("the methodology is a closed disclosure after the headline numbers, not a banner", () => {
+  assert.ok(!monitorHtml.includes('class="mon-source"'))
+  const kpis = monitorHtml.indexOf('id="kpiGrid"')
+  const about = monitorHtml.indexOf('<details class="about">')
+  assert.ok(about > kpis, "About these figures comes after the KPIs")
+  assert.match(monitorHtml, /<details class="about">\s*<summary>About these figures<\/summary>/)
+})
+
+test("four headline KPIs; the rest sit in a quiet secondary row", () => {
+  const fn = monitorJs.slice(monitorJs.indexOf("function monRenderKpis"), monitorJs.indexOf("function monRenderHeat"))
+  const tiles = fn.slice(fn.indexOf("const tiles = ["), fn.indexOf("grid.innerHTML"))
+  assert.equal((tiles.match(/monKpi\(\{/g) || []).length, 4)
+  for (const label of ["Contracts listed", "Dutch books", "Crossed books"]) {
+    assert.ok(fn.includes(`label: "${label}"`))
+  }
+  assert.match(fn, /monOverroundKpi\(totals\)/)
+  assert.ok(!/monKpi\(\{\s*label: "Avg overround"/.test(monitorJs), "overround never takes a headline card")
+})
+
+test("heat-map labels show only when they fit whole", () => {
+  assert.match(monitorJs, /label\.length <= charsPerLine \* labelLines/)
+})
+
+test("matrix columns with no data in any row are left out", () => {
+  assert.match(monitorJs, /const hasOverround = categories\.some/)
+  assert.match(monitorJs, /\$\{hasOverround \? "<th>Overround<\/th>" : ""\}/)
+})
+
+test("the contracts table pages 50 rows at a time and export still takes every row", () => {
+  assert.match(monitorJs, /const MON_PAGE_SIZE = 50/)
+  assert.match(monitorJs, /sorted\.slice\(start, start \+ MON_PAGE_SIZE\)/)
+  assert.match(monitorJs, /function monFilterChanged\(\) \{ _monPage = 0;/)
+  const exp = monitorJs.slice(monitorJs.indexOf("function monExportCsv"), monitorJs.indexOf("function monInit"))
+  assert.ok(!/MON_PAGE_SIZE|_monPage/.test(exp), "export is not limited to the page on screen")
+  assert.ok(monitorHtml.includes('id="contractsPager"'))
 })
