@@ -437,8 +437,8 @@ function renderComparison(results) {
       const isBest = bestOddsMap[key] === platform
       const bestBadge = isBest ? ` <span class="best-odds-badge">BEST</span>` : ""
       return `<div class="compare-outcome">
-        <span class="compare-outcome-name" style="color:${o.color};${isBest ? "font-weight:700" : ""}">${esc(o.name)}${bestBadge}</span>
-        <span class="compare-outcome-pct" style="color:${o.color};${isBest ? "font-weight:900" : ""}">${o.pct}%</span>
+        <span class="compare-outcome-name" style="color:${o.color};${isBest ? "font-weight:600" : ""}">${esc(o.name)}${bestBadge}</span>
+        <span class="compare-outcome-pct" style="color:${o.color};${isBest ? "font-weight:600" : ""}">${o.pct}%</span>
       </div>`
     }).join("") || `<div class="compare-col-empty">No outcome data</div>`
     const statsHtml = (meta.stats || []).filter(Boolean).length
@@ -451,7 +451,7 @@ function renderComparison(results) {
       : ""
     const footnote = PLATFORM_FOOTNOTES[platform] || ""
     return `<div class="compare-col">
-      <span class="tag-platform" style="background:${accent};color:${platformInk(accent)};font-size:9px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
+      <span class="tag-platform" style="background:${accent};color:${platformInk(accent)};font-size:11px;padding:3px 8px;border-radius:3px">${esc(platformLabel)}</span>
       <div class="compare-col-title">${esc(meta.title || "")}</div>
       ${outcomesHtml}
       ${statsHtml}

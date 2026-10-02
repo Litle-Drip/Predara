@@ -25,7 +25,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,7 +173,7 @@
       border-radius: 10px;
       color: var(--text-bright);
       font-family: inherit;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 400;
       padding: 14px 18px;
       outline: none;
@@ -236,8 +236,8 @@
     .tag-cat {
       padding: 3px 9px;
       border-radius: 6px;
-      font-weight: 500;
-      font-size: 10.5px;
+      font-weight: 400;
+      font-size: 11px;
       letter-spacing: 0.3px;
       border: 1px solid currentColor;
     }
@@ -252,8 +252,8 @@
       color: var(--muted);
       padding: 3px 9px;
       border-radius: 6px;
-      font-weight: 500;
-      font-size: 10.5px;
+      font-weight: 400;
+      font-size: 11px;
       letter-spacing: 0.3px;
     }
     .tag-status {
@@ -261,8 +261,8 @@
       align-items: center;
       gap: 6px;
       color: var(--muted);
-      font-size: 10.5px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 400;
       letter-spacing: 0.3px;
       background: var(--tag-bg);
       border: 1px solid var(--border);
@@ -294,7 +294,7 @@
     }
     .event-meta-item  { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
     .event-meta-label {
-      font-size: 9.5px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.09em;
       text-transform: uppercase;
@@ -304,8 +304,8 @@
       display: flex;
       align-items: center;
       gap: 7px;
-      font-size: 13.5px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
       color: var(--text-bright);
       min-width: 0;
     }
@@ -322,7 +322,7 @@
       border-radius: 0 6px 6px 0;
     }
     .event-desc {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
       line-height: 1.75;
       max-width: 860px;
@@ -426,7 +426,7 @@
     .odds-display--lead .outcome-pct { color: var(--text-bright); }
     .outcome-pct {
       font-size: 40px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1;
       letter-spacing: -1.6px;
     }
@@ -492,14 +492,14 @@
     }
     .stat-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       margin-bottom: 8px;
       text-transform: uppercase;
     }
     .stat-value {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 600;
       color: var(--text-bright);
       letter-spacing: -0.5px;
@@ -528,8 +528,8 @@
        than as a tile that failed to load. The 0.75 opacity is gone — it was
        stacked on --muted and pushed the result under AA. */
     .stat-empty {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 400;
       color: var(--muted);
       line-height: 1.45;
       letter-spacing: -0.2px;
@@ -547,7 +547,7 @@
     }
     .info-row:last-child { border-bottom: none; }
     .info-key { color: var(--muted); font-weight: 400; }
-    .info-val { color: var(--text-bright); text-align: right; max-width: 55%; font-weight: 500; }
+    .info-val { color: var(--text-bright); text-align: right; max-width: 55%; font-weight: 400; }
 
     /* ── Numbered list ── */
     .num-list { padding: 8px var(--card-pad-x) 20px; }
@@ -578,7 +578,7 @@
     }
     .bet-explainer-body {
       padding: 16px var(--card-pad-x) 24px;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.8;
       color: var(--text);
     }
@@ -590,7 +590,7 @@
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
-      font-size: 14px;
+      font-size: 15px;
       color: var(--text);
       margin-bottom: 16px;
     }
@@ -598,7 +598,7 @@
     .bet-sim-label strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-dollar {
       color: var(--muted);
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
     }
     .bet-sim-input {
@@ -607,7 +607,7 @@
       border-radius: 8px;
       color: var(--text-bright);
       font-family: inherit;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       padding: 8px 12px;
       width: 90px;
@@ -631,7 +631,7 @@
     }
     .bet-sim-count strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-win, .bet-sim-lose {
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.8;
       color: var(--text);
     }
@@ -639,7 +639,7 @@
     .bet-sim-lose strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px var(--card-pad-x) 0; }
     .bet-sim-tab {
-      font-size: 12px; font-weight: 500;
+      font-size: 12px; font-weight: 400;
       padding: 5px 14px; border-radius: 20px;
       border: 1px solid var(--border);
       background: transparent; color: var(--muted);
@@ -670,7 +670,7 @@
       display: inline-flex; align-items: center; gap: 5px;
     }
     .odds-sens-summary::-webkit-details-marker { display: none; }
-    .odds-sens-summary::before { content: "▶"; font-size: 9px; transition: transform 0.15s; }
+    .odds-sens-summary::before { content: "▶"; font-size: 11px; transition: transform 0.15s; }
     details[open] .odds-sens-summary::before { transform: rotate(90deg); }
     .odds-sens-summary:hover { color: var(--text-bright); }
     .odds-sens-table {
@@ -679,7 +679,7 @@
     }
     .odds-sens-table th {
       text-align: left; color: var(--muted);
-      font-weight: 500; padding: 3px 8px 5px 0;
+      font-weight: 400; padding: 3px 8px 5px 0;
       border-bottom: 1px solid var(--border);
     }
     .odds-sens-table td {
@@ -695,10 +695,10 @@
     .bet-sim-fee strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-fee-detail { opacity: 0.65; margin-left: 4px; }
     .bet-sim-fee-unknown { font-style: italic; }
-    .bet-sim-est { color: var(--muted); font-size: 11px; font-weight: 500; }
+    .bet-sim-est { color: var(--muted); font-size: 11px; font-weight: 400; }
     /* Upright, not italic: italic is this app's footnote voice, and setting a
        placeholder value in it made an ordinary "not yet" read as a caveat. */
-    .analytics-edge-prompt .info-val { font-size: 12.5px; }
+    .analytics-edge-prompt .info-val { font-size: 13px; }
     .val-none { color: var(--muted); font-weight: 400; cursor: help; }
 
     /* An outcome's heading inside Trader Analytics. One hairline per boundary:
@@ -708,7 +708,7 @@
     .analytics-group-head .info-key { font-weight: 600; color: var(--text-bright); }
     .analytics-group-head--sep { margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--border); }
     .info-row:has(+ .analytics-group-head--sep) { border-bottom: none; }
-    .analytics-group-dot { font-size: 9px; vertical-align: 1px; }
+    .analytics-group-dot { font-size: 11px; vertical-align: 1px; }
     .analytics-fee-caveat { color: var(--muted); font-size: 11px; font-weight: 400; }
     .kelly-cap-note { color: var(--muted); font-size: 11px; margin-left: 6px; }
     .trade-cta-card { text-align: center; }
@@ -718,7 +718,7 @@
        using the same pair, which measures 4.94:1 light and 4.51:1 dark. */
     .trade-cta-btn {
       display: block; padding: 14px 18px; border-radius: 10px;
-      background: var(--accent-fill); color: #fff; font-weight: 700;
+      background: var(--accent-fill); color: #fff; font-weight: 600;
       font-size: 15px; letter-spacing: 0.02em; text-decoration: none;
     }
     .trade-cta-btn:hover { filter: brightness(1.08); }
@@ -832,7 +832,7 @@
     body.odds-ml .odds-display .outcome-pct { display: none; }
     body.odds-ml .odds-display .outcome-ml {
       font-size: 46px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1;
       letter-spacing: -2px;
       color: inherit;
@@ -854,7 +854,7 @@
       align-items: center;
       gap: 6px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       color: var(--amber-ink);
       background: rgba(245, 158, 11, 0.07);
       border: 1px solid rgba(245, 158, 11, 0.2);
@@ -881,7 +881,7 @@
     .market-toolbar .copy-link-btn,
     .market-toolbar .compare-toggle-btn {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 5px 10px;
       border-radius: 8px;
       line-height: 1.5;
@@ -908,7 +908,7 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 5px 12px;
       transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
@@ -923,7 +923,7 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 9px 18px;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
@@ -984,7 +984,7 @@
     .compare-col { padding: 20px 26px 24px; border-right: 1px solid var(--border); }
     .compare-col:last-child { border-right: none; }
     .compare-col-title {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text-bright);
       line-height: 1.4;
@@ -1003,12 +1003,12 @@
       gap: 8px;
     }
     .compare-outcome:last-child { border-bottom: none; }
-    .compare-outcome-name { font-weight: 500; flex: 1; overflow-wrap: break-word; color: var(--text); }
-    .compare-outcome-pct { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; flex-shrink: 0; }
+    .compare-outcome-name { font-weight: 400; flex: 1; overflow-wrap: break-word; color: var(--text); }
+    .compare-outcome-pct { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; flex-shrink: 0; }
     .compare-col-empty { color: var(--red-ink); font-size: 13px; padding: 8px 0; }
     .compare-stats { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
     .compare-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
-    .compare-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
+    .compare-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 400; }
     .compare-stat-value { font-size: 13px; font-weight: 600; color: var(--text-mid); }
     .compare-separator {
       border: none;
@@ -1017,7 +1017,7 @@
     }
     .compare-details-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       margin-bottom: 14px;
@@ -1039,7 +1039,7 @@
       color: var(--text-bright);
       text-decoration-color: var(--border-hi);
       text-decoration: none;
-      font-weight: 500;
+      font-weight: 400;
     }
     .link-accent:hover { text-decoration: underline; }
 
@@ -1062,13 +1062,13 @@
     }
     .resolved-header-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       text-transform: uppercase;
     }
     .resolved-pill {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.3px;
       padding: 3px 9px;
@@ -1079,7 +1079,7 @@
     .resolved-no  .resolved-pill { color: var(--red-ink); }
     .resolved-body { padding: 22px var(--card-pad-x) 26px; }
     .resolved-winner {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 600;
       color: var(--text-bright);
       letter-spacing: -0.4px;
@@ -1100,12 +1100,12 @@
     .resolved-meta-item { display: flex; flex-direction: column; gap: 4px; }
     .resolved-meta-key {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       text-transform: uppercase;
     }
-    .resolved-meta-val { font-size: 13px; color: var(--text); font-weight: 500; }
+    .resolved-meta-val { font-size: 13px; color: var(--text); font-weight: 400; }
 
     /* ── Show more ── */
     .show-more-row {
@@ -1121,7 +1121,7 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 7px 18px;
       transition: border-color 0.15s, color 0.15s;
     }
@@ -1174,7 +1174,7 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 6px 14px;
       transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
@@ -1236,7 +1236,7 @@
        body, a Discover section, a calendar cell — so this lines up with the rows
        it replaces instead of being indented past them. */
     .empty-inline {
-      font-size: 12.5px;
+      font-size: 13px;
       color: var(--muted);
       line-height: 1.6;
       padding: 12px 0 4px;
@@ -1260,7 +1260,7 @@
     }
     .start-eyebrow {
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--muted);
@@ -1268,7 +1268,7 @@
     }
     .start-title {
       font-size: clamp(24px, 3vw, 32px);
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: -0.035em;
       line-height: 1.18;
       color: var(--text-bright);
@@ -1295,14 +1295,14 @@
     }
     .start-feature-title {
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-bright);
     }
     .start-feature-body {
       margin-top: 6px;
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.6;
       color: var(--muted);
     }
@@ -1329,22 +1329,22 @@
     }
     .start-proof-label {
       display: block;
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
       margin-bottom: 5px;
     }
     .start-proof-value {
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.45;
       color: var(--text-mid);
     }
     .start-examples-label {
       margin-top: 26px;
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
@@ -1361,8 +1361,8 @@
       color: var(--text);
       border-radius: 999px;
       padding: 7px 14px;
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
       cursor: pointer;
       font-family: inherit;
     }
@@ -1388,7 +1388,7 @@
       align-items: flex-end;
     }
     .ml-label {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.5px;
       color: var(--muted);
@@ -1397,7 +1397,7 @@
       text-transform: uppercase;
     }
     .delta-label {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 400;
       margin-left: 2px;
       opacity: 0.8;
@@ -1484,7 +1484,7 @@
       background: rgba(29, 185, 84, 0.1);
       border: 1px solid rgba(29, 185, 84, 0.3);
       color: var(--green-ink);
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       padding: 2px 6px;
       border-radius: 4px;
@@ -1583,7 +1583,7 @@
       gap: 8px;
       margin-bottom: 5px;
     }
-    .volume-spike-icon { font-size: 14px; }
+    .volume-spike-icon { font-size: 15px; }
     .volume-spike-title {
       font-size: 11px;
       font-weight: 600;
@@ -1608,7 +1608,7 @@
       gap: 8px;
       margin-bottom: 5px;
     }
-    .news-hint-icon { font-size: 14px; }
+    .news-hint-icon { font-size: 15px; }
     .news-hint-title {
       font-size: 11px;
       font-weight: 600;
@@ -1643,13 +1643,13 @@
     .ri-row:last-child { border-bottom: none; }
     .ri-label {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       color: var(--muted);
       flex-shrink: 0;
       text-transform: uppercase;
     }
-    .ri-val { color: var(--text-bright); text-align: right; font-weight: 500; }
+    .ri-val { color: var(--text-bright); text-align: right; font-weight: 400; }
     .ri-sub { font-size: 11px; color: var(--muted); }
 
     /* ── Upset banner ── */
@@ -1661,7 +1661,7 @@
       background: rgba(232, 64, 64, 0.05);
       border-bottom: 1px solid rgba(232, 64, 64, 0.15);
     }
-    .upset-icon { font-size: 17px; flex-shrink: 0; }
+    .upset-icon { font-size: 18px; flex-shrink: 0; }
     .upset-body {
       font-size: 13px;
       line-height: 1.6;
@@ -1670,7 +1670,7 @@
     .upset-body strong { color: var(--red-ink); }
 
     /* ── Round 3: Momentum arrows ── */
-    .momentum-arrow { font-size: 11px; margin-left: 4px; font-weight: 700; vertical-align: middle; }
+    .momentum-arrow { font-size: 11px; margin-left: 4px; font-weight: 600; vertical-align: middle; }
     .momentum-up  { color: var(--green-ink); }
     .momentum-dn  { color: var(--red-ink); }
 
@@ -1679,8 +1679,8 @@
     .outcome-plain-talk { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 400; }
 
     /* ── Round 3: Dead money indicator ── */
-    .dead-money-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--red-ink); border: 1px solid color-mix(in srgb, var(--red) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
-    .liquid-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--green-ink); border: 1px solid color-mix(in srgb, var(--green) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
+    .dead-money-tag { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--red-ink); border: 1px solid color-mix(in srgb, var(--red) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
+    .liquid-badge { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--green-ink); border: 1px solid color-mix(in srgb, var(--green) 38%, transparent); border-radius: 4px; padding: 1px 6px; }
 
     /* ── Round 3: Spread cost note ── */
     .spread-cost-note { font-size: 11px; color: var(--muted); }
@@ -1689,7 +1689,7 @@
     .shortcut-hint { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; }
     .shortcut-hint kbd {
       font-family: inherit;
-      font-size: 10px;
+      font-size: 11px;
       border: 1px solid var(--border);
       border-radius: 4px;
       padding: 1px 5px;
@@ -1707,7 +1707,7 @@
       align-items: center;
       gap: 7px;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       color: var(--muted);
       padding: 8px 14px;
       border: 1px solid var(--border);
@@ -1727,7 +1727,7 @@
 
     /* ── Round 3: Resolution confidence score ── */
     .resolution-confidence { display: flex; align-items: center; gap: 10px; padding: 10px var(--card-pad-x) 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-    .rc-label { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; color: var(--muted); text-transform: uppercase; }
+    .rc-label { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; color: var(--muted); text-transform: uppercase; }
     .rc-val   { font-size: 12px; font-weight: 600; }
     .rc-hint  { font-size: 12px; color: var(--muted); }
 
@@ -1743,7 +1743,7 @@
     .similar-markets-card { }
     .similar-markets-body { padding: 10px var(--card-pad-x) 6px; font-size: 13px; color: var(--muted); }
     .similar-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px var(--card-pad-x) 18px; }
-    .similar-link { font-size: 12px; font-weight: 500; color: var(--text-mid); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
+    .similar-link { font-size: 12px; font-weight: 400; color: var(--text-mid); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
     .similar-link:hover { background: var(--tag-bg); border-color: var(--border-hi); color: var(--text-bright); }
 
     /* ── Round 3: Edge calculator ("What's your edge?") ── */
@@ -1754,12 +1754,12 @@
     .edge-input-wrap { display: flex; align-items: center; gap: 4px; }
     .edge-prob-input { width: 68px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-family: inherit; font-size: 15px; text-align: center; }
     .edge-prob-input:focus { outline: none; border-color: var(--border-hi); }
-    .edge-pct-sign { font-size: 14px; color: var(--muted); }
+    .edge-pct-sign { font-size: 15px; color: var(--muted); }
     .edge-calc-result { font-size: 13px; }
     .edge-result-row { margin-bottom: 8px; }
     .edge-kelly-rows { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 4px; border-top: 1px solid var(--border); margin-top: 6px; }
     .edge-kelly-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-    .edge-kelly-label { color: var(--muted); min-width: 90px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.2px; }
+    .edge-kelly-label { color: var(--muted); min-width: 90px; font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.2px; }
     .edge-kelly-hint { font-size: 11px; color: var(--muted); font-style: italic; }
 
     /* ── Round 3: Arb calculator in compare ── */
@@ -1776,15 +1776,15 @@
     .xmatch-failed { color: var(--red-ink); }
     .xmatch-venue { padding: 12px 0; border-bottom: 1px solid var(--border); }
     .xmatch-venue:last-child { border-bottom: none; }
-    .xmatch-platform { font-size: 9px; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
+    .xmatch-platform { font-size: 11px; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
     .xmatch-none { font-size: 12px; color: var(--muted); line-height: 1.6; }
     .xmatch-none em { font-style: normal; color: var(--text-mid); font-weight: 600; }
     .xmatch-checked { margin-top: 4px; font-size: 11px; color: var(--muted); }
     .xmatch-row { padding: 8px 0; }
     .xmatch-row + .xmatch-row { border-top: 1px dashed var(--border); }
     .xmatch-row-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .xmatch-title { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
-    .xmatch-conf { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; flex-shrink: 0; }
+    .xmatch-title { font-size: 15px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+    .xmatch-conf { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; flex-shrink: 0; }
     .xmatch-reasons { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
     .xmatch-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
     .xmatch-add-btn {
@@ -1812,7 +1812,7 @@
     .platform-footnote { font-size: 11px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); line-height: 1.5; }
 
     /* ── Round 3: Bookmarks & history panels ── */
-    .panel-btn { font-size: 11px; font-weight: 500; padding: 5px 11px; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .panel-btn { font-size: 11px; font-weight: 400; padding: 5px 11px; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: inherit; }
     .panel-btn:hover, .panel-btn.active { border-color: var(--border-hi); color: var(--text-bright); }
     .panel-btn.bookmarked { border-color: var(--green); color: var(--green-ink); }
     .panels-bar { display: none; }
@@ -1821,7 +1821,7 @@
     .history-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
     .history-item:last-child { border-bottom: none; }
     .history-item:hover { background: var(--card-hover); }
-    .history-platform { font-size: 10px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+    .history-platform { font-size: 11px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
     .history-title { font-size: 12px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .history-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
     .history-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; flex-shrink: 0; }
@@ -1864,7 +1864,7 @@
       .search-row input { min-height: 48px; }
 
       .event-head { padding: 20px 18px 22px; }
-      .event-title { font-size: 19px; }
+      .event-title { font-size: 18px; }
       .event-meta { gap: 12px 22px; margin-top: 16px; padding-top: 14px; }
       .event-meta-name { max-width: 150px; }
 
@@ -1873,13 +1873,13 @@
       .outcome-row  { padding: 18px 18px 15px; }
       .outcome-top  { flex-wrap: wrap; gap: 6px; }
       .outcome-pct  { font-size: 36px; }
-      .outcome-name { font-size: 14px; }
+      .outcome-name { font-size: 15px; }
       .outcome-right { gap: 10px; margin-left: 0; flex-shrink: 0; }
       .outcome-ml   { font-size: 12px; }
 
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .stat-card  { padding: 16px 18px 18px; }
-      .stat-value { font-size: 20px; }
+      .stat-value { font-size: 18px; }
 
       .info-row { padding: 11px 18px; flex-wrap: wrap; gap: 4px; }
       .info-val { max-width: 100%; text-align: left; }
@@ -2037,7 +2037,7 @@
       border-radius: 10px;
       color: var(--text-bright);
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 400;
       padding: 10px 20px;
       box-shadow: var(--shadow);
       z-index: 9999;
@@ -2084,7 +2084,7 @@
       border: none;
       color: var(--muted);
       cursor: pointer;
-      font-size: 20px;
+      font-size: 18px;
       padding: 0 4px;
     }
     .shortcut-grid {
@@ -2132,7 +2132,7 @@
     .wl-card:hover { border-color: var(--border-hi); box-shadow: var(--shadow); }
     .wl-card-header { margin-bottom: 10px; }
     .wl-card-title {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--text-bright);
       display: block;
@@ -2141,7 +2141,7 @@
       white-space: nowrap;
     }
     .wl-platform {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--muted);
       margin-bottom: 4px;
@@ -2174,7 +2174,7 @@
       border-radius: 8px;
       color: var(--text-bright);
       font-family: inherit;
-      font-size: 14px;
+      font-size: 15px;
       min-height: 36px;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
@@ -2233,7 +2233,7 @@
     .parlay-result { background: var(--sim-result-bg); border-radius: 8px; padding: 14px 16px; border: 1px solid var(--border); max-width: 620px; }
     .parlay-combined { text-align: center; margin-bottom: 12px; }
     .parlay-combined-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
-    .parlay-combined-pct { font-size: 36px; font-weight: 700; color: var(--text-bright); letter-spacing: -1px; }
+    .parlay-combined-pct { font-size: 36px; font-weight: 600; color: var(--text-bright); letter-spacing: -1px; }
     .parlay-legs-display { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; justify-content: center; }
     .parlay-leg-detail { font-size: 12px; color: var(--muted); background: var(--tag-bg); padding: 3px 10px; border-radius: 20px; }
 
@@ -2267,7 +2267,7 @@
     .cal-market:hover { color: var(--text-bright); }
     /* Kept as an alias so existing call sites keep working; both render the one
        inline empty state. */
-    .cal-empty { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+    .cal-empty { font-size: 13px; color: var(--muted); line-height: 1.6; }
     .cal-note { font-size: 12px; color: var(--muted); margin-top: 12px; font-style: italic; }
     .cal-market-sub { font-size: 11px; color: var(--muted); margin-left: 6px; }
     .cal-later {
@@ -2353,7 +2353,7 @@
     .webhook-body { padding: 14px var(--card-pad-x) 20px; }
     .webhook-form { max-width: 560px; }
     .webhook-row { margin-bottom: 12px; }
-    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .webhook-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 400; }
     .webhook-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 
     /* The one primary action style, so a panel's main button does not have to be
@@ -2402,12 +2402,12 @@
     }
     .discover-market:hover,
     .discover-market:focus-visible { border-color: var(--text-bright); outline: none; }
-    .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
+    .discover-market-title { font-size: 15px; font-weight: 400; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
     .discover-market-meta strong { color: var(--text); font-weight: 600; }
     .discover-market-ticker {
-      font-family: 'IBM Plex Mono', ui-monospace, monospace;
-      font-size: 10.5px;
+      font-family: var(--font-mono);
+      font-size: 11px;
       color: var(--muted);
       background: none;
       border-radius: 4px;
@@ -2431,22 +2431,22 @@
       box-shadow: var(--shadow-sm);
     }
     .section-eyebrow {
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.1em;
       color: var(--muted);
       margin-bottom: 8px;
     }
     .section-intro-title {
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: -0.03em;
       color: var(--text-bright);
     }
     .section-intro-copy {
       margin-top: 7px;
       max-width: 68ch;
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.6;
       color: var(--muted);
     }
@@ -2468,8 +2468,8 @@
       padding: 18px 20px;
       margin-bottom: 20px;
     }
-    .discovery-status-title { font-size: 14px; font-weight: 600; color: var(--text-bright); }
-    .discovery-status-copy { font-size: 12.5px; line-height: 1.55; color: var(--muted); margin-top: 4px; }
+    .discovery-status-title { font-size: 15px; font-weight: 600; color: var(--text-bright); }
+    .discovery-status-copy { font-size: 13px; line-height: 1.55; color: var(--muted); margin-top: 4px; }
     @media (max-width: 640px) {
       .section-intro { align-items: flex-start; flex-direction: column; gap: 14px; }
       .section-intro-actions { width: 100%; justify-content: space-between; }
@@ -2491,22 +2491,22 @@
       margin-bottom: 12px;
     }
     .position-news-eyebrow {
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.09em;
       text-transform: uppercase;
       color: var(--muted);
     }
     .position-news-title {
       margin-top: 4px;
-      font-size: 17px;
-      font-weight: 650;
+      font-size: 18px;
+      font-weight: 600;
       letter-spacing: -0.015em;
       color: var(--text-bright);
     }
     .position-news-sub {
       margin-top: 4px;
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.5;
       color: var(--muted);
     }
@@ -2559,8 +2559,8 @@
     .position-news-platform {
       display: block;
       margin-bottom: 3px;
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
@@ -2569,7 +2569,7 @@
       display: block;
       overflow: hidden;
       color: var(--text-bright);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
       line-height: 1.4;
       text-overflow: ellipsis;
@@ -2578,7 +2578,7 @@
     .position-news-arrow {
       flex-shrink: 0;
       color: var(--muted);
-      font-size: 14px;
+      font-size: 15px;
     }
     .position-news-empty {
       border: 1px dashed var(--border);
@@ -2586,7 +2586,7 @@
       background: var(--rule-bg);
       padding: 16px;
       color: var(--muted);
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.55;
     }
 
@@ -2604,8 +2604,8 @@
     }
     .rewards-eyebrow {
       color: var(--muted);
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
@@ -2614,7 +2614,7 @@
       margin-top: 7px;
       color: var(--text-bright);
       font-size: clamp(22px, 3vw, 29px);
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: -0.035em;
       line-height: 1.2;
     }
@@ -2622,7 +2622,7 @@
       max-width: 68ch;
       margin-top: 9px;
       color: var(--muted);
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.65;
     }
     /* Separate cards, matching .start-proof on the Analyze hero. Both were the
@@ -2643,15 +2643,15 @@
     .rewards-summary-value {
       display: block;
       color: var(--text-bright);
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 600;
     }
     .rewards-summary-label {
       display: block;
       margin-top: 3px;
       color: var(--muted);
-      font-size: 9px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       white-space: nowrap;
@@ -2671,15 +2671,15 @@
       padding: 5px 10px;
       border-radius: 6px;
       color: #fff;
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .rewards-platform-sub {
       color: var(--text);
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
     }
     .rewards-program-grid {
       display: grid;
@@ -2711,12 +2711,12 @@
       margin-bottom: 7px;
       color: var(--text-bright);
       font-size: 13px;
-      font-weight: 650;
+      font-weight: 600;
       line-height: 1.35;
     }
     .rewards-program-desc {
       color: var(--muted);
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.6;
     }
     .rewards-program-link {
@@ -2725,7 +2725,7 @@
       min-height: 24px;
       margin-top: 10px;
       color: var(--text-bright);
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 600;
       text-decoration: none;
     }
@@ -2741,7 +2741,7 @@
     .rewards-live-title {
       color: var(--text-bright);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
@@ -2784,8 +2784,8 @@
       z-index: 1;
       background: var(--rule-bg);
       color: var(--muted);
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.07em;
       text-transform: uppercase;
     }
@@ -2815,7 +2815,7 @@
       color: var(--text-bright);
       cursor: pointer;
       font: inherit;
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 600;
       padding: 3px 0;
     }
@@ -2830,8 +2830,8 @@
       background: transparent;
       border: 1px solid color-mix(in srgb, var(--green) 45%, transparent);
       color: var(--green-ink);
-      font-size: 9px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.04em;
     }
     @media (max-width: 760px) {
@@ -2844,7 +2844,7 @@
       .position-news-grid { grid-template-columns: 1fr; }
       .rewards-shell { gap: 12px; }
       .rewards-hero { padding: 22px 18px; }
-      .rewards-title { font-size: 22px; }
+      .rewards-title { font-size: 24px; }
       .rewards-summary { grid-template-columns: 1fr; }
       .rewards-summary-item { padding: 10px 12px; }
       .rewards-platform-head { align-items: flex-start; padding: 16px 18px; }
@@ -2897,7 +2897,7 @@
        to the page ground, where --muted is already verified, and the pill keeps a
        hairline so it still reads as a pill. */
     .gem-live-pill {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.2px; padding: 2px 8px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2px; padding: 2px 8px;
       border-radius: 999px; background: var(--bg); border: 1px solid var(--border);
       color: var(--muted); margin-left: 8px;
     }

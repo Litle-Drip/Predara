@@ -224,3 +224,23 @@ test("the accent is reserved for the primary action and the active nav", () => {
   }
   assert.match(sharedShell, /\.primary-nav a\.active::after\s*\{[^}]*background:\s*var\(--orange\)/)
 })
+
+// Two weights and one size scale (see the tokens in shared-shell.css). Large
+// numeric read-outs — a price, a KPI — are data, not type, and are allowed
+// above the scale.
+test("type uses two weights and one size scale", () => {
+  const files = ["index.html", "settlement.html", "monitor.html", "kyle.html",
+    "adapters.js", "app.js", "compare.js", "components.js", "crossmatch.js",
+    "features.js", "gemini-live.js", "kyle.js", "monitor.js", "renderers.js"]
+  const scale = new Set([11, 12, 13, 15, 18, 24])
+  for (const f of files) {
+    const src = read(f)
+    for (const m of src.matchAll(/font-weight:\s*(\d{3})/g)) {
+      assert.ok(["400", "600"].includes(m[1]), `${f} uses font-weight ${m[1]}`)
+    }
+    for (const m of src.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)) {
+      const px = Number(m[1])
+      assert.ok(scale.has(px) || px >= 30 || px <= 8, `${f} uses off-scale font-size ${px}px`)
+    }
+  }
+})

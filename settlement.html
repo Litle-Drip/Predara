@@ -7,7 +7,7 @@
   <link rel="icon" href="/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -74,7 +74,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.5;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
@@ -113,14 +113,14 @@
 
     .intake-label {
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-bright);
       margin-bottom: 6px;
       letter-spacing: -0.7px;
     }
 
     .intake-desc {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
       line-height: 1.65;
       margin-bottom: 20px;
@@ -194,7 +194,7 @@
     .key-panel.open .key-toggle .caret { transform: rotate(180deg); }
 
     .key-status {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -224,12 +224,12 @@
       border-radius: 8px;
       padding: 10px 12px;
       color: var(--text-bright);
-      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-family: var(--font-mono);
       font-size: 12px;
       outline: none;
     }
 
-    .key-row input::placeholder { color: var(--muted); font-family: 'Inter', sans-serif; }
+    .key-row input::placeholder { color: var(--muted); font-family: inherit; }
     .key-row input:focus { border-color: var(--border-hi); }
 
     .btn-key {
@@ -310,7 +310,7 @@
       font-family: inherit; text-align: left;
     }
     .discover-market:hover, .discover-market:focus-visible { border-color: var(--border-hi); outline: none; }
-    .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
+    .discover-market-title { font-size: 15px; font-weight: 400; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
     .discover-market-ticker {
       font-family: var(--font-mono);
@@ -367,7 +367,7 @@
     .case-ticker {
       font-family: var(--font-mono);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
       color: var(--muted);
       background: none;
       padding: 0;
@@ -376,8 +376,8 @@
     }
 
     .case-title {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 400;
       color: var(--text-bright);
       overflow: hidden;
       text-overflow: ellipsis;
@@ -441,7 +441,7 @@
       position: absolute;
       left: 0;
       color: var(--muted);
-      font-size: 16px;
+      font-size: 15px;
       line-height: 1;
       top: 1px;
     }
