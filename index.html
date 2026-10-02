@@ -876,7 +876,6 @@
     }
     .toolbar-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .toolbar-menu  { position: relative; }
-    .toolbar-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
     .market-toolbar .panel-btn,
     .market-toolbar .copy-link-btn,
     .market-toolbar .compare-toggle-btn {
@@ -886,14 +885,15 @@
       border-radius: 8px;
       line-height: 1.5;
     }
-    .market-toolbar .compare-toggle-btn { font-weight: 600; color: var(--text-mid); }
     .market-toolbar .copy-link-btn,
-    .market-toolbar .panel-btn {
+    .market-toolbar .panel-btn,
+    .market-toolbar .compare-toggle-btn {
       background: transparent;
       border-color: transparent;
     }
     .market-toolbar .copy-link-btn:hover,
     .market-toolbar .panel-btn:hover,
+    .market-toolbar .compare-toggle-btn:hover,
     .market-toolbar .copy-link-btn:focus-visible,
     .market-toolbar .panel-btn:focus-visible {
       background: var(--card);
@@ -1250,135 +1250,103 @@
       padding-bottom: 16px;
     }
 
-    /* ── First-run state ── */
-    .start-card {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: var(--card);
-      padding: 38px 36px 30px;
-      box-shadow: var(--shadow-sm);
-    }
-    .start-eyebrow {
-      font-size: 11px;
+    /* ── Analyze start state ──
+       No card, no boxes: headline, one-line subhead, the input, example chips,
+       then three short value points, separated by whitespace alone.
+       .home-only parts show only while no brief is on screen (body.is-home);
+       .first-run-only parts and the intro hide once the visitor has completed
+       an analysis (body.is-returning). */
+    .home-only { display: none; }
+    body.is-home .home-only { display: block; }
+    body.is-home .start-examples.home-only { display: flex; }
+    body.is-returning .home-intro,
+    body.is-returning .first-run-only { display: none; }
+
+    .home-intro { margin: 8px 0 24px; }
+    .home-title {
+      font-size: clamp(24px, 3vw, 30px);
       font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-    .start-title {
-      font-size: clamp(24px, 3vw, 32px);
-      font-weight: 600;
-      letter-spacing: -0.035em;
-      line-height: 1.18;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
       color: var(--text-bright);
-      max-width: 24ch;
     }
-    .start-sub {
-      margin-top: 12px;
+    .home-sub {
+      margin-top: 8px;
       font-size: 15px;
-      line-height: 1.65;
-      color: var(--muted);
-      max-width: 68ch;
-    }
-    .start-features {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 26px;
-    }
-    .start-feature {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 17px 18px;
-      background: var(--rule-bg);
-    }
-    .start-feature-title {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-bright);
-    }
-    .start-feature-body {
-      margin-top: 6px;
-      font-size: 13px;
-      line-height: 1.6;
+      line-height: 1.5;
       color: var(--muted);
     }
-    /* Same container idiom as .start-features directly above it. These two rows
-       sat side by side in two different languages: three separate 10px cards on
-       a tint, then a single bordered strip split by 1px hairlines — where the
-       hairlines ran straight into the strip's rounded corners. The rows say
-       different things, so they stay typographically distinct (accent titles
-       above, muted labels here), but they are built the same way. */
-    .start-proof {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 14px;
-    }
-    /* Same fill as .start-feature above. The two rows differ in what they say,
-       and that is carried by the type — an accent title up there, a muted label
-       here — rather than by one row being tinted and the other white. */
-    .start-proof-item {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--rule-bg);
-      padding: 15px 18px;
-    }
-    .start-proof-label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 5px;
-    }
-    .start-proof-value {
-      font-size: 13px;
-      line-height: 1.45;
-      color: var(--text-mid);
-    }
-    .start-examples-label {
-      margin-top: 26px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
+
     .start-examples {
-      display: flex;
+      align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 10px;
+      margin: 0 0 12px;
+    }
+    .start-examples-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-right: 2px;
     }
     .start-example {
       border: 1px solid var(--border);
-      background: var(--rule-bg);
+      background: transparent;
       color: var(--text);
       border-radius: 999px;
-      padding: 7px 14px;
+      padding: 6px 13px;
       font-size: 13px;
       font-weight: 400;
       cursor: pointer;
       font-family: inherit;
     }
     .start-example:hover { border-color: var(--border-hi); color: var(--text-bright); }
-    .start-note {
-      margin-top: 22px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-      font-size: 12px;
-      line-height: 1.6;
+
+    .start-card { padding-top: 12px; }
+    .start-points {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px 32px;
+      margin-top: 20px;
+    }
+    .start-points li {
+      font-size: 13px;
+      line-height: 1.55;
       color: var(--muted);
     }
+    .start-point-title {
+      display: block;
+      margin-bottom: 2px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    /* Returning visitors: their last few markets, as quiet one-line links. */
+    .home-recent:empty { display: none; }
+    .home-recent-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .home-recent-list { list-style: none; }
+    .home-recent-item {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      width: 100%;
+      padding: 8px 0;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      background: none;
+      color: var(--text-bright);
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .home-recent-item:hover .home-recent-title { text-decoration: underline; text-decoration-color: var(--border-hi); }
+    .home-recent-item:focus-visible { outline: 2px solid var(--text-bright); outline-offset: 2px; }
+    .home-recent-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-recent-meta { flex-shrink: 0; color: var(--muted); font-size: 12px; }
+
     @media (max-width: 700px) {
-      .start-card { padding: 24px 18px; }
-      .start-features { grid-template-columns: 1fr; gap: 10px; }
-      .start-proof { grid-template-columns: 1fr; gap: 10px; }
+      .start-points { grid-template-columns: 1fr; gap: 10px; }
     }
 
     /* ── Feature 10: ML label above moneyline ── */
@@ -1684,18 +1652,6 @@
 
     /* ── Round 3: Spread cost note ── */
     .spread-cost-note { font-size: 11px; color: var(--muted); }
-
-    /* ── Keyboard shortcut hint ── */
-    .shortcut-hint { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; }
-    .shortcut-hint kbd {
-      font-family: inherit;
-      font-size: 11px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1px 5px;
-      margin: 0 2px;
-    }
-    @media (max-width: 600px) { .shortcut-hint { display: none; } }
 
     /* ── Secondary tools disclosure (alerts, related, embed) ── */
     .util-details { margin: 4px 0 12px; }
@@ -2478,8 +2434,9 @@
     }
 
     /* Homepage position news */
+    .position-news:empty { display: none; }
     .position-news {
-      margin-top: 22px;
+      margin-top: 28px;
       border-top: 1px solid var(--border);
       padding-top: 20px;
     }
@@ -2489,13 +2446,6 @@
       justify-content: space-between;
       gap: 18px;
       margin-bottom: 12px;
-    }
-    .position-news-eyebrow {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      color: var(--muted);
     }
     .position-news-title {
       margin-top: 4px;
@@ -2580,15 +2530,6 @@
       color: var(--muted);
       font-size: 15px;
     }
-    .position-news-empty {
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-      background: var(--rule-bg);
-      padding: 16px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.55;
-    }
 
     /* Rewards tab */
     .rewards-shell { display: grid; gap: 18px; }
@@ -2625,9 +2566,8 @@
       font-size: 13px;
       line-height: 1.65;
     }
-    /* Separate cards, matching .start-proof on the Analyze hero. Both were the
-       hairline-split strip, where the internal rules ran into the container's
-       rounded corners. */
+    /* Separate cards rather than a hairline-split strip, where the internal
+       rules ran into the container's rounded corners. */
     .rewards-summary {
       display: grid;
       grid-template-columns: repeat(3, auto);
@@ -2959,7 +2899,18 @@
   </style>
   <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
-<body class="light">
+<body class="light is-home">
+<script>
+  // Before first paint, so a returning visitor never sees the first-run intro
+  // flash. Storage can be blocked (private mode, sandboxed frames): then the
+  // page simply shows the first-run version.
+  try {
+    if (localStorage.getItem('predara-onboarded') === '1' ||
+        JSON.parse(localStorage.getItem('predara-history') || '[]').length) {
+      document.body.classList.add('is-returning')
+    }
+  } catch { /* storage unavailable — first-run layout */ }
+</script>
 
 <div class="app">
 
@@ -2988,6 +2939,15 @@
 
   <div id="tab-analyze" role="tabpanel" aria-label="Analyze" style="display:block">
 
+  <!-- First-time visitors see the headline, subhead and value points until
+       their first completed analysis; after that the start state is compact
+       (input, examples, recent). The .home-only parts show only while no
+       brief is on screen — see syncHomeState() in features.js. -->
+  <div class="home-intro home-only" id="homeIntro">
+    <h1 class="home-title">Know the contract before you price the trade</h1>
+    <p class="home-sub">Paste a market link for its rules, executable cost and the edge you need. Read-only, from primary sources.</p>
+  </div>
+
   <div class="search-row">
     <input id="urlInput" aria-label="Prediction market URL — Kalshi, Polymarket, Gemini or Coinbase" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." data-placeholder-short="Paste a market URL…" onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
     <button onclick="analyze()">Analyze</button>
@@ -2995,16 +2955,21 @@
 
   <div id="inputHint" class="input-hint"></div>
 
+  <div class="start-examples home-only" id="homeExamples" aria-label="Examples">
+    <span class="start-examples-label">Try</span>
+    <button class="start-example" onclick="loadExample('https://polymarket.com/event/presidential-election-winner-2028')">2028 presidential winner</button>
+    <button class="start-example" onclick="loadExample('https://polymarket.com/event/fed-decision-in-december')">Fed decision</button>
+    <button class="start-example" onclick="switchTab('discover')">Browse trending markets →</button>
+  </div>
+
   <div class="market-toolbar">
     <div class="toolbar-group">
-      <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()">+ Compare markets</button>
-      <span class="toolbar-divider"></span>
       <div class="toolbar-menu">
-        <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recently analyzed markets">⟳ Recent ▾</button>
+        <button class="panel-btn" id="historyBtn" onclick="toggleHistory()" title="Recently analyzed markets">Recent ▾</button>
         <div id="historyPanel" class="history-panel"></div>
       </div>
       <div class="toolbar-menu">
-        <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">★ Saved ▾</button>
+        <button class="panel-btn" id="bookmarksToggleBtn" onclick="toggleBookmarks()" title="Saved markets">Saved ▾</button>
         <div id="bookmarksPanel" class="bookmarks-panel"></div>
       </div>
     </div>
@@ -3016,7 +2981,7 @@
         <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">Share card ↓</button>
         <button class="panel-btn" id="bookmarkBtn">☆ Save</button>
       </div>
-      <span class="shortcut-hint">Press <kbd>?</kbd> for shortcuts</span>
+      <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompareMode()" title="Compare two or three markets side by side">Compare markets</button>
     </div>
   </div>
 
@@ -3034,50 +2999,15 @@
 
   <div id="result">
     <div class="start-card" id="startCard">
-      <div class="start-eyebrow">Independent market intelligence</div>
-      <div class="start-title">Know the contract before you price the trade</div>
-      <div class="start-sub">Predara turns a live prediction-market listing into a decision-ready brief: the actual contract, executable cost, settlement rules, and the edge required to justify a position.</div>
+      <ul class="start-points first-run-only" aria-label="What a brief covers">
+        <li><span class="start-point-title">Plain-English rules</span> What has to happen for the contract to pay.</li>
+        <li><span class="start-point-title">Executable cost</span> Ask, spread, fees and break-even — not the midpoint.</li>
+        <li><span class="start-point-title">Edge and sizing</span> Your probability in; expected value and a Kelly range out.</li>
+      </ul>
 
-      <div class="start-features">
-        <div class="start-feature">
-          <div class="start-feature-title">Plain-English rules</div>
-          <div class="start-feature-body">The resolution criteria, sources, and close time, rewritten so you know exactly what has to happen to get paid.</div>
-        </div>
-        <div class="start-feature">
-          <div class="start-feature-title">Executable cost</div>
-          <div class="start-feature-body">Ask price, spread, venue fees, and break-even probability — not a midpoint that may be impossible to trade.</div>
-        </div>
-        <div class="start-feature">
-          <div class="start-feature-title">Your edge and sizing</div>
-          <div class="start-feature-body">Enter your own probability to see expected value and a fee-aware Kelly range instead of relying on the market's estimate.</div>
-        </div>
-      </div>
-
-      <div class="start-proof" aria-label="Predara product principles">
-        <div class="start-proof-item">
-          <span class="start-proof-label">Read-only</span>
-          <span class="start-proof-value">No account, wallet connection, or trade execution.</span>
-        </div>
-        <div class="start-proof-item">
-          <span class="start-proof-label">Primary sources</span>
-          <span class="start-proof-value">Venue APIs, order books, and official contract terms.</span>
-        </div>
-        <div class="start-proof-item">
-          <span class="start-proof-label">Transparent math</span>
-          <span class="start-proof-value">Prices, spreads, fees, EV, and sizing shown explicitly.</span>
-        </div>
-      </div>
+      <div id="homeRecent" class="home-recent"></div>
 
       <div id="homePositionNews" class="position-news" aria-live="polite"></div>
-
-      <div class="start-examples-label">Try an example</div>
-      <div class="start-examples">
-        <button class="start-example" onclick="loadExample('https://polymarket.com/event/presidential-election-winner-2028')">2028 presidential winner</button>
-        <button class="start-example" onclick="loadExample('https://polymarket.com/event/fed-decision-in-december')">Fed decision</button>
-        <button class="start-example" onclick="switchTab('discover')">Browse trending markets →</button>
-      </div>
-
-      <div class="start-note">Predara is independent analysis software, not financial advice or a trading venue. Market data can move at any time; confirm price and contract terms on the venue before trading.</div>
     </div>
   </div>
 
@@ -3110,24 +3040,26 @@
 
 </div>
 
-<script src="utils.js?v=40"></script>
-<script src="components.js?v=40"></script>
-<script src="adapters.js?v=40"></script>
-<script src="renderers.js?v=40"></script>
-<script src="compare.js?v=40"></script>
-<script src="crossmatch.js?v=40"></script>
-<script src="gemini-live.js?v=40"></script>
-<script src="app.js?v=40"></script>
-<script src="features.js?v=40"></script>
+<script src="utils.js?v=41"></script>
+<script src="components.js?v=41"></script>
+<script src="adapters.js?v=41"></script>
+<script src="renderers.js?v=41"></script>
+<script src="compare.js?v=41"></script>
+<script src="crossmatch.js?v=41"></script>
+<script src="gemini-live.js?v=41"></script>
+<script src="app.js?v=41"></script>
+<script src="features.js?v=41"></script>
 <script>
   (function () {
-    // Theme
-    if (localStorage.getItem('predara-theme') === 'dark') {
+    // Theme and odds format. Storage can be blocked; the defaults then stand
+    // and the rest of startup (share links below) still runs.
+    let theme = '', odds = ''
+    try { theme = localStorage.getItem('predara-theme'); odds = localStorage.getItem('predara-odds') } catch {}
+    if (theme === 'dark') {
       document.body.classList.remove('light')
       document.getElementById('themeToggle').textContent = '☾'
     }
-    // Odds format
-    if (localStorage.getItem('predara-odds') === 'ml') {
+    if (odds === 'ml') {
       document.body.classList.add('odds-ml')
       document.getElementById('oddsToggle').textContent = 'ML'
     }
@@ -3143,7 +3075,7 @@
 
   function toggleTheme() {
     const isLight = document.body.classList.toggle('light')
-    localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
+    try { localStorage.setItem('predara-theme', isLight ? 'light' : 'dark') } catch {}
     document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
   }
 
@@ -3159,7 +3091,7 @@
 
   function toggleOdds() {
     const isML = document.body.classList.toggle('odds-ml')
-    localStorage.setItem('predara-odds', isML ? 'ml' : 'pct')
+    try { localStorage.setItem('predara-odds', isML ? 'ml' : 'pct') } catch {}
     document.getElementById('oddsToggle').textContent = isML ? 'ML' : '%'
   }
 

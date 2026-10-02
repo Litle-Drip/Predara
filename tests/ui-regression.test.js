@@ -118,3 +118,38 @@ test("Analyze input does not keep a duplicate clipboard prompt or empty hint gap
   assert.ok(html.includes(".input-hint:not(:empty)"))
   assert.ok(html.includes("min-height: 0"))
 })
+
+// ── Analyze start state (Phase 2 cleanup) ────────────────────────────────────
+test("Analyze start state reads headline → subhead → input → examples → value points", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
+  const tab = html.slice(html.indexOf('<div id="tab-analyze"'), html.indexOf("</div><!-- /tab-analyze -->"))
+  const order = ['class="home-title"', 'class="home-sub"', 'id="urlInput"', 'id="homeExamples"', 'class="start-points']
+    .map((m) => tab.indexOf(m))
+  assert.ok(order.every((i) => i !== -1), "every part of the start state is present")
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "start state is out of order")
+  const points = tab.slice(tab.indexOf('class="start-points'), tab.indexOf("</ul>"))
+  assert.ok((points.match(/<li>/g) || []).length <= 3, "three value points at most")
+  // No duplicate tagline or eyebrow, no feature cards, no second disclaimer.
+  assert.ok(!/start-eyebrow|start-feature|start-proof|start-note|Independent market intelligence/.test(tab))
+  assert.ok(!/shortcut-hint/.test(html), "the shortcut hint lives in the ? help only")
+  assert.ok(/<button onclick="analyze\(\)">Analyze<\/button>/.test(tab))
+})
+
+test("first-run intro collapses for returning visitors, with a storage fallback", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
+  const features = fs.readFileSync(path.join(__dirname, "..", "features.js"), "utf8")
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8")
+  assert.ok(html.includes("body.is-returning .home-intro"))
+  assert.ok(html.includes("body.is-returning .first-run-only"))
+  assert.match(app, /_logHistory\(url, _currentTitle\(\), _currentPlatform\(\)\)\n\s*if \(typeof markOnboarded === "function"\) markOnboarded\(\)/,
+    "only a completed analysis marks the visitor as returning")
+  assert.match(features, /_onboardedThisSession = true\n\s*try \{ localStorage\.setItem\("predara-onboarded", "1"\) \} catch/)
+  assert.match(features, /new MutationObserver\(syncHomeState\)/)
+})
+
+test("News on your positions renders nothing without a saved market", () => {
+  const features = fs.readFileSync(path.join(__dirname, "..", "features.js"), "utf8")
+  const fn = features.slice(features.indexOf("function renderHomePositionNews()"), features.indexOf("// ── Analyze start state"))
+  assert.match(fn, /if \(!bookmarks\.length\) \{\n\s*container\.innerHTML = ""\n\s*return/)
+  assert.ok(!fn.includes("position-news-empty"))
+})

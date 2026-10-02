@@ -415,6 +415,7 @@ function _afterSuccessfulFetch(url) {
   _saveSnapshot(_captureOutcomeSnapshot())
   window._lastFetchedAt = Date.now()
   _logHistory(url, _currentTitle(), _currentPlatform())
+  if (typeof markOnboarded === "function") markOnboarded()
   _refreshBookmarkBtn(url)
   _updateFreshnessDisplay()
   addShareBar(url)

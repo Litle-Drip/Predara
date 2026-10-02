@@ -383,6 +383,12 @@ function renderHomePositionNews() {
   const container = document.getElementById("homePositionNews")
   if (!container) return
   const bookmarks = _getBookmarks()
+  // Only for visitors with at least one saved market — a new visitor gets no
+  // empty section asking them to do something first.
+  if (!bookmarks.length) {
+    container.innerHTML = ""
+    return
+  }
   const items = bookmarks.slice(0, 4).map((bookmark) => {
     const title = bookmark.title || bookmark.url.slice(-40)
     const newsUrl = `https://news.google.com/search?q=${encodeURIComponent(title)}`
@@ -399,15 +405,68 @@ function renderHomePositionNews() {
   container.innerHTML = `
     <div class="position-news-head">
       <div>
-        <div class="position-news-eyebrow">Position intelligence</div>
         <div class="position-news-title">News on your positions</div>
-        <div class="position-news-sub">Jump from saved markets to the latest reporting and potential catalysts.</div>
+        <div class="position-news-sub">Latest coverage for your saved markets.</div>
       </div>
       <button class="position-news-manage" onclick="switchTab('watchlist')">Manage watchlist →</button>
     </div>
-    ${items
-      ? `<div class="position-news-grid">${items}</div>`
-      : `<div class="position-news-empty">Save a market after analyzing it and its latest coverage will appear here.</div>`}`
+    <div class="position-news-grid">${items}</div>`
+}
+
+// ── Analyze start state ─────────────────────────────────────────────────────
+// First-time visitors see the intro and value points; once they complete an
+// analysis the start state collapses to input, examples and recent markets.
+// Remembered per browser; when storage is unavailable the flag lives for the
+// session only, and the page falls back to the first-run layout next visit.
+let _onboardedThisSession = false
+
+function _isReturningVisitor() {
+  if (_onboardedThisSession) return true
+  try {
+    return localStorage.getItem("predara-onboarded") === "1" || _getHistory().length > 0
+  } catch { return false }
+}
+
+function markOnboarded() {
+  _onboardedThisSession = true
+  try { localStorage.setItem("predara-onboarded", "1") } catch { /* session only */ }
+  document.body.classList.add("is-returning")
+}
+
+function renderHomeRecent() {
+  const container = document.getElementById("homeRecent")
+  if (!container) return
+  const recent = _isReturningVisitor() ? _getHistory().slice(0, 3) : []
+  if (!recent.length) { container.innerHTML = ""; return }
+  container.innerHTML = `
+    <div class="home-recent-label">Recent</div>
+    <ul class="home-recent-list">${recent.map((h) => `
+      <li><button type="button" class="home-recent-item" data-url="${esc(safeUrl(h.url))}" onclick="_loadAndAnalyze(this.dataset.url)">
+        <span class="home-recent-title">${esc(h.title || h.url.slice(-40))}</span>
+        <span class="home-recent-meta">${esc(h.platform ? h.platform.charAt(0).toUpperCase() + h.platform.slice(1) : "")}${h.platform ? " · " : ""}${esc(_timeAgo(h.ts))}</span>
+      </button></li>`).join("")}
+    </ul>`
+}
+
+// The start state is on screen exactly when #result holds the start card;
+// a brief, a comparison, a loading state or an error replaces it.
+function syncHomeState() {
+  const home = !!document.getElementById("startCard")
+  document.body.classList.toggle("is-home", home)
+  document.body.classList.toggle("is-returning", _isReturningVisitor())
+  if (home) {
+    renderHomeRecent()
+    renderHomePositionNews()
+  }
+}
+
+function initHomeState() {
+  const result = document.getElementById("result")
+  if (!result) return
+  syncHomeState()
+  if (typeof MutationObserver === "function") {
+    new MutationObserver(syncHomeState).observe(result, { childList: true })
+  }
 }
 
 function renderWatchlist() {
@@ -1819,7 +1878,7 @@ function afterAnalysisHook(url) {
 document.addEventListener("DOMContentLoaded", function () {
   initSmartPaste()
   initExtendedKeyboardShortcuts()
-  renderHomePositionNews()
+  initHomeState()
   // Price alerts poll in the background for as long as this tab is open, so
   // they fire on markets the user is not currently looking at.
   startAlertPoller()
