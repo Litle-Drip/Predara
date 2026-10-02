@@ -80,7 +80,7 @@ test("Resolution source renders in a dedicated card, not the timeline card", () 
 test("Settlement Desk treats a missing Anthropic key as an action state", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "settlement.html"), "utf8")
 
-  assert.ok(html.includes('action_required: "Action Required"'))
+  assert.ok(html.includes('action_required: "Action required"'))
   assert.ok(html.includes('data.needsKey ? "action_required"'))
   assert.ok(html.includes('document.getElementById("tickerInput").value = data.ticker || input'))
 })
