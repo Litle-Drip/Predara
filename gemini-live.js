@@ -739,6 +739,69 @@ async function renderGeminiUpcoming(containerId = "gemUpcomingSlot") {
   }
 }
 
+// Interval markets share a title ("BTC price today at 10am EDT") and differ
+// only in the ticker: BTC05M… is the 5-minute market, BTC15M… the 15-minute
+// one. When two rows read the same, the row label carries that difference.
+function _gemVariant(ticker, siblings) {
+  const t = String(ticker || "")
+  const interval = t.match(/^[A-Z]+?(\d{1,3})([MHD])(?=\d{6})/i)
+  if (interval) {
+    const n = parseInt(interval[1], 10)
+    const unit = { M: "min", H: "hour", D: "day" }[interval[2].toUpperCase()]
+    return `${n}-${unit}`
+  }
+  // Otherwise: the first ticker segment that differs from the other rows.
+  const parts = t.split("-")
+  for (let i = 0; i < parts.length; i++) {
+    if (siblings.some((o) => o !== t && String(o).split("-")[i] !== parts[i])) return parts[i]
+  }
+  return t
+}
+
+const GEM_FEED_PAGE = 5
+
+// Rows to show: published results only unless "awaiting" is on; five at a
+// time until "Show more".
+function _gemFeedVisible(rows, showAwaiting, expanded) {
+  let shown = 0
+  return rows.map((r) => {
+    if (!showAwaiting && r.awaiting) return false
+    shown++
+    return expanded || shown <= GEM_FEED_PAGE
+  })
+}
+
+function _gemFeedApply(section) {
+  if (!section || !section.querySelectorAll) return
+  const showAwaiting = section.dataset.showAwaiting === "1"
+  const expanded = section.dataset.expanded === "1"
+  const rows = [...section.querySelectorAll(".gem-feed-row")]
+  const visible = _gemFeedVisible(rows.map((r) => ({ awaiting: r.classList.contains("is-awaiting") })), showAwaiting, expanded)
+  rows.forEach((r, i) => { r.hidden = !visible[i] })
+  const eligible = rows.filter((r) => showAwaiting || !r.classList.contains("is-awaiting")).length
+  const more = section.querySelector(".gem-feed-more")
+  if (more) more.hidden = expanded || eligible <= GEM_FEED_PAGE
+  const empty = section.querySelector(".gem-feed-empty")
+  if (empty) empty.hidden = eligible > 0
+  const toggle = section.querySelector(".gem-feed-toggle")
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", showAwaiting ? "true" : "false")
+    toggle.textContent = showAwaiting ? "Hide awaiting result" : "Show awaiting result"
+  }
+}
+
+function gemFeedToggleAwaiting(btn) {
+  const section = btn.closest(".gem-feed")
+  section.dataset.showAwaiting = section.dataset.showAwaiting === "1" ? "0" : "1"
+  _gemFeedApply(section)
+}
+
+function gemFeedShowMore(btn) {
+  const section = btn.closest(".gem-feed")
+  section.dataset.expanded = "1"
+  _gemFeedApply(section)
+}
+
 async function renderGeminiRecentlySettled(containerId = "gemSettledSlot", onPick = null) {
   const slot = document.getElementById(containerId)
   if (!slot) return
@@ -751,26 +814,54 @@ async function renderGeminiRecentlySettled(containerId = "gemSettledSlot", onPic
     return
   }
   if (!events.length) { slot.innerHTML = ""; return }
-  const items = events.map((e) => {
+
+  // A category tag tells rows apart only when they differ.
+  const categories = new Set(events.map((e) => e.category || ""))
+  const showCategory = categories.size > 1
+  const byTitle = new Map()
+  events.forEach((e) => {
+    const key = e.title || e.ticker
+    byTitle.set(key, (byTitle.get(key) || []).concat(e.ticker))
+  })
+
+  const rows = events.map((e) => {
     const winner = _gemPublishedWinner(e)
     const target = onPick ? e.ticker : GEMINI_EVENT_URL(e.ticker)
-    return `
-      <button type="button" class="discover-market" data-target="${_gemEsc(target)}"
-        aria-label="${_gemEsc(`${e.title || e.ticker || "Gemini market"}${winner ? " — result published" : " — awaiting result data"}`)}"
-        onclick="${onPick ? `${onPick}(this.dataset.target)` : "_loadAndAnalyze(this.dataset.target);switchTab('analyze')"}">
-        <div class="discover-market-title">${_gemEsc(e.title || e.ticker)}</div>
-        <div class="discover-market-meta">
-          ${e.ticker ? `<span class="discover-market-ticker">${_gemEsc(e.ticker)}</span>` : ""}
-          ${winner ? `<span class="discover-market-result">Result: ${_gemEsc(winner.abbreviatedName || winner.label || winner.ticker)}</span>` : `<span class="discover-market-result">Awaiting result data</span>`}
-          ${e.category ? `<span>${_gemEsc(e.category)}</span>` : ""}
-          ${e.resolvedAt ? `<span>${_gemEsc(_gemDateTime(e.resolvedAt))}</span>` : ""}
-        </div>
-      </button>`
-  }).join("")
+    const name = e.title || e.ticker
+    const siblings = byTitle.get(name) || []
+    const variant = siblings.length > 1 && e.ticker ? _gemVariant(e.ticker, siblings) : ""
+    const label = `${name}${variant ? ` · ${variant}` : ""}`
+    const status = winner
+      ? `Result: ${winner.abbreviatedName || winner.label || winner.ticker}`
+      : "Awaiting result"
+    return { e, winner, target, label, name, variant, status, awaiting: !winner }
+  })
+  const visible = _gemFeedVisible(rows, false, false)
+  const eligible = rows.filter((r) => !r.awaiting).length
+
+  const items = rows.map((r, i) => `
+      <li class="gem-feed-row${r.awaiting ? " is-awaiting" : ""}"${visible[i] ? "" : " hidden"}>
+        <button type="button" class="gem-feed-btn" data-target="${_gemEsc(r.target)}"
+          aria-label="${_gemEsc(`${r.label}${r.winner ? " — result published" : " — awaiting result data"}`)}"
+          onclick="${onPick ? `${onPick}(this.dataset.target)` : "_loadAndAnalyze(this.dataset.target);switchTab('analyze')"}">
+          <span class="gem-feed-name">${_gemEsc(r.name)}${r.variant ? `<span class="gem-feed-variant"> · ${_gemEsc(r.variant)}</span>` : ""}</span>
+          ${r.e.ticker ? `<span class="gem-feed-ticker">${_gemEsc(r.e.ticker)}</span>` : ""}
+          <span class="gem-feed-status${r.awaiting ? " is-awaiting" : ""}">${_gemEsc(r.status)}</span>
+          ${showCategory && r.e.category ? `<span class="gem-feed-meta">${_gemEsc(r.e.category)}</span>` : ""}
+          ${r.e.resolvedAt ? `<span class="gem-feed-meta">${_gemEsc(_gemDateTime(r.e.resolvedAt))}</span>` : ""}
+        </button>
+      </li>`).join("")
+
   slot.innerHTML = `
-    <div class="mi-card">
-      <div class="section-label">RECENT GEMINI MARKETS</div>
-      ${items}
-      <div class="cal-note">Gemini's recently closed-market feed. A card says "Result" only when Gemini publishes a winning side; otherwise it is awaiting result data.${onPick ? " Selecting a card starts a review — it does not mean Predara has verified the result." : ""}</div>
-    </div>`
+    <section class="gem-feed" data-show-awaiting="0" data-expanded="0" aria-labelledby="gemFeedTitle">
+      <div class="gem-feed-head">
+        <h2 class="gem-feed-title" id="gemFeedTitle">Recent Gemini markets</h2>
+        <button type="button" class="btn-quiet gem-feed-toggle" aria-pressed="false" onclick="gemFeedToggleAwaiting(this)">Show awaiting result</button>
+      </div>
+      <p class="gem-feed-note">${onPick ? "Select a market to review its settlement." : "Recently closed markets on Gemini."}
+        <details class="gem-feed-about"><summary>About this feed</summary>Gemini's recently closed-market feed. A row says "Result" only when Gemini publishes a winning side; otherwise it is awaiting result data.${onPick ? " Selecting a row starts a review — it does not mean Predara has verified the result." : ""}</details></p>
+      <ul class="gem-feed-list">${items}</ul>
+      <div class="gem-feed-empty"${eligible ? " hidden" : ""}>No published results in the latest markets yet.</div>
+      <button type="button" class="btn-quiet gem-feed-more" onclick="gemFeedShowMore(this)"${eligible > GEM_FEED_PAGE ? "" : " hidden"}>Show more</button>
+    </section>`
 }

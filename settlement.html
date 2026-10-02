@@ -36,10 +36,6 @@
       --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25);
       --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
       --rec-bg:      rgba(255,255,255,0.03);
-      --confirmed-pill-bg:    #0f8a5e; --confirmed-pill-text:    #e2f7ee;
-      --discrepancy-pill-bg:  #c73a2f; --discrepancy-pill-text:  #fceceb;
-      --needs-pill-bg:        #a37012; --needs-pill-text:        #fdf3dc;
-      --error-pill-bg:        #333;    --error-pill-text:        #aaa;
     }
 
     body.light {
@@ -67,7 +63,6 @@
       --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
       --shadow-sm:   0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
       --rec-bg:      rgba(0,0,0,0.03);
-      --error-pill-bg: #ddd; --error-pill-text: #555;
     }
 
     body {
@@ -96,46 +91,42 @@
     .btn-review:focus-visible,
     .key-toggle:focus-visible,
     .btn-key:focus-visible,
-    .btn-remove:focus-visible {
+    .btn-secondary:focus-visible,
+    .btn-quiet:focus-visible,
+    .case-details summary:focus-visible,
+    .gem-feed-about summary:focus-visible {
       outline: 2px solid var(--text-bright);
       outline-offset: 2px;
     }
 
-    /* ── Intake panel ── */
-    .intake {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 28px 30px;
-      margin-bottom: 28px;
-      box-shadow: var(--shadow-sm);
-    }
+    /* ── Intake ── no card: title, one line, the input, the key line. */
+    .intake { margin: 8px 0 32px; }
 
     .intake-label {
       font-size: 24px;
       font-weight: 600;
       color: var(--text-bright);
       margin-bottom: 6px;
-      letter-spacing: -0.7px;
+      letter-spacing: -0.5px;
     }
 
     .intake-desc {
       font-size: 15px;
       color: var(--muted);
-      line-height: 1.65;
-      margin-bottom: 20px;
+      line-height: 1.5;
+      margin-bottom: 18px;
     }
 
     .intake-row { display: flex; gap: 8px; }
 
     .intake-row input {
       flex: 1;
-      background: var(--bg);
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 12px 16px;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 15px;
       color: var(--text-bright);
       outline: none;
       transition: border-color 0.18s, box-shadow 0.18s;
@@ -154,7 +145,7 @@
       color: #fff;
       border: none;
       border-radius: 10px;
-      padding: 12px 20px;
+      padding: 12px 22px;
       font-family: inherit;
       font-size: 13px;
       font-weight: 600;
@@ -162,64 +153,56 @@
       white-space: nowrap;
       transition: opacity 0.15s;
       flex-shrink: 0;
-      letter-spacing: 0.2px;
     }
 
     .btn-review:hover { opacity: 0.88; }
     .btn-review:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .shortcut-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    /* ── Bring-your-own API key ── one line until it is needed. */
+    .key-panel { margin-top: 12px; }
 
-    /* ── Bring-your-own API key ── */
-    .key-panel { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
-
-    .key-toggle {
+    .key-line {
       display: flex;
       align-items: center;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .key-status { color: var(--muted); }
+    .key-status.active { color: var(--text-bright); }
+    .key-sep { opacity: 0.55; }
+
+    .key-toggle {
       background: none;
       border: none;
-      /* 21px tall with padding: 0 — under the 24px WCAG 2.2 pointer minimum,
-         and this is the only way to reach the API-key panel. */
-      padding: 3px 0;
+      /* At least 24px tall: WCAG 2.2 pointer-target minimum. */
       min-height: 28px;
+      padding: 2px 0;
       font: inherit;
-      font-size: 12px;
-      color: var(--muted);
+      color: var(--text-bright);
+      text-decoration: underline;
+      text-decoration-color: var(--border-hi);
+      text-underline-offset: 2px;
       cursor: pointer;
     }
 
-    .key-toggle:hover { color: var(--text-mid); }
-    .key-toggle .caret { transition: transform 0.15s ease; display: inline-block; }
-    .key-panel.open .key-toggle .caret { transform: rotate(180deg); }
+    .key-toggle:hover { text-decoration-color: var(--text-bright); }
 
-    .key-status {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 999px;
-      background: var(--bar-bg);
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-
-    .key-status.active { background: var(--bar-bg); color: var(--text-bright); border-color: transparent; }
-
-    .key-body { display: none; margin-top: 12px; }
+    .key-body { display: none; margin-top: 10px; max-width: 560px; }
     .key-panel.open .key-body { display: block; }
 
-    .key-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+    .key-desc { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
     .key-desc a { color: var(--text-bright); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 2px; }
-    .key-desc a:hover { text-decoration: underline; }
+    .key-desc a:hover { text-decoration-color: var(--text-bright); }
 
     .key-row { display: flex; gap: 8px; }
 
     .key-row input {
       flex: 1;
       min-width: 0;
-      background: var(--bg);
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px 12px;
@@ -230,7 +213,7 @@
     }
 
     .key-row input::placeholder { color: var(--muted); font-family: inherit; }
-    .key-row input:focus { border-color: var(--border-hi); }
+    .key-row input:focus { border-color: var(--border-hi); box-shadow: 0 0 0 3px var(--focus-ring); }
 
     .btn-key {
       border: 1px solid var(--border);
@@ -239,7 +222,7 @@
       border-radius: 8px;
       padding: 10px 14px;
       font: inherit;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
@@ -249,257 +232,240 @@
     .btn-key.primary { background: var(--accent-fill); border-color: transparent; color: #fff; }
     .btn-key.primary:hover { opacity: 0.88; }
 
-    .key-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+    .key-note { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
     .key-note.err { color: var(--amber-ink); }
 
-    /* ── Empty state ── */
-    /* Same empty state as the Analyze page: a card, a title, one line of copy.
-       This was bare centred text floating on the page ground while the other
-       page put its equivalent in a card, so the same "nothing here yet" moment
-       looked like two different products. The magnifier keeps its place but is
-       drawn at the app's hairline weight rather than a 2px ring at 0.8 opacity. */
-    .empty-state {
-      text-align: center;
-      padding: 52px 30px;
-      color: var(--muted);
+    /* ── Results ── newest first and open; earlier ones one line each. */
+    .case-list { display: flex; flex-direction: column; }
+    .case-list:empty { display: none; }
+
+    .case-earlier {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 24px 0 4px;
       font-size: 13px;
-      line-height: 1.65;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      box-shadow: var(--shadow-sm);
+      color: var(--muted);
     }
-    .empty-state-mark {
-      width: 26px;
-      height: 26px;
-      margin: 0 auto 16px;
-      border: 1px solid var(--border-hi);
-      border-radius: 50%;
-      position: relative;
-    }
-    .empty-state-mark::after {
-      content: "";
-      position: absolute;
-      width: 9px;
-      height: 1px;
-      right: -6px;
-      bottom: 2px;
-      border-radius: 1px;
-      background: var(--border-hi);
-      transform: rotate(45deg);
-    }
-    .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; letter-spacing: -0.1px; }
-    .empty-state > div:last-child { max-width: 46ch; margin: 0 auto; }
 
-    /* ── Case cards ── */
-    .case-list { display: flex; flex-direction: column; gap: 10px; }
+    .btn-quiet {
+      background: none;
+      border: none;
+      min-height: 28px;
+      padding: 2px 0;
+      font: inherit;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+    }
 
-    /* Gemini recently-settled feed (shared markup with the Analyze page) */
-    .mi-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 16px 18px; margin-bottom: 16px;
-    }
-    .section-label {
-      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
-      color: var(--muted); margin-bottom: 10px;
-    }
-    .discover-market {
-      display: block; width: 100%;
-      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
-      padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: border-color 0.15s;
-      font-family: inherit; text-align: left;
-    }
-    .discover-market:hover, .discover-market:focus-visible { border-color: var(--border-hi); outline: none; }
-    .discover-market-title { font-size: 15px; font-weight: 400; color: var(--text-bright); margin-bottom: 4px; }
-    .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
-    .discover-market-ticker {
-      font-family: var(--font-mono);
-      font-size: 11px; color: var(--muted); background: none;
-      border-radius: 0; padding: 0;
-    }
-    .discover-market-result { color: var(--text-mid); font-weight: 600; }
-    .cal-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
-    .cal-empty { font-size: 12px; color: var(--muted); }
-    .mi-loading { font-size: 12px; color: var(--muted); }
+    .btn-quiet:hover { color: var(--text-bright); }
 
     .case-card {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .case-card.is-latest {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      overflow: hidden;
       box-shadow: var(--shadow-sm);
-      transition: border-color 0.15s;
     }
-
-    .case-card:hover { border-color: var(--border-hi); }
-    .case-card.verdict-confirmed   { border-left: 3px solid var(--confirmed-pill-bg); }
-    .case-card.verdict-discrepancy { border-left: 3px solid var(--discrepancy-pill-bg); }
-    .case-card.verdict-needs_review { border-left: 3px solid var(--needs-pill-bg); }
-    .case-card.verdict-action_required { border-left: 3px solid var(--needs-pill-bg); }
-    .case-card.verdict-error       { border-left: 3px solid var(--border-hi); }
-    .case-card.verdict-pending     { border-left: 3px solid var(--border-hi); }
 
     .case-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 12px;
-      padding: 14px 16px;
-      cursor: pointer;
-      user-select: none;
       width: 100%;
+      min-height: 48px;
+      padding: 12px 4px;
       border: 0;
+      border-radius: 12px;
       background: transparent;
       color: inherit;
       font: inherit;
       text-align: left;
+      cursor: pointer;
     }
 
-    .case-header:hover { background: rgba(128,128,128,0.04); }
-    .case-header:focus-visible {
-      outline: 2px solid var(--text-bright);
-      outline-offset: -2px;
+    .case-card.is-latest .case-header { padding: 14px 18px; }
+    .case-header:hover .case-title { color: var(--text-bright); }
+    .case-header[disabled] { cursor: default; }
+    /* Keyboard focus only, and neutral: a coloured ring around a confirmed
+       result read as an error. */
+    .case-header:focus { outline: none; }
+    .case-header:focus-visible { box-shadow: inset 0 0 0 2px var(--border-hi); }
+
+    .case-name {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
     }
-
-    .case-meta { flex: 1; min-width: 0; }
-
-    .case-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 
     .case-ticker {
       font-family: var(--font-mono);
       font-size: 12px;
-      font-weight: 400;
       color: var(--muted);
-      background: none;
-      padding: 0;
-      border-radius: 4px;
-      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 1;
+      min-width: 0;
+      max-width: 45%;
     }
 
     .case-title {
       font-size: 15px;
-      font-weight: 400;
-      color: var(--text-bright);
+      color: var(--text-mid);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
+      flex: 1;
     }
 
-    .verdict-pill {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 9px;
-      border-radius: 20px;
+    .case-time {
       flex-shrink: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-
-    .pill-confirmed    { background: var(--confirmed-pill-bg);   color: var(--confirmed-pill-text); }
-    .pill-discrepancy  { background: var(--discrepancy-pill-bg); color: var(--discrepancy-pill-text); }
-    .pill-needs_review { background: var(--needs-pill-bg);       color: var(--needs-pill-text); }
-    .pill-action_required { background: var(--needs-pill-bg);    color: var(--needs-pill-text); }
-    .pill-error        { background: var(--error-pill-bg);       color: var(--error-pill-text); }
-    .pill-pending {
-      background: var(--bar-bg);
-      color: var(--muted);
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-    .case-summary { font-size: 13px; color: var(--text); line-height: 1.45; margin-top: 2px; }
-    .case-timestamp { font-size: 11px; color: var(--muted); margin-top: 4px; }
-
-    .case-chevron { font-size: 13px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; margin-top: 2px; }
-    .case-card.expanded .case-chevron { transform: rotate(180deg); }
-
-    .case-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--border); }
-    .case-card.expanded .case-body { display: block; }
-
-    .case-section-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin: 14px 0 6px;
-    }
-
-    .key-facts { list-style: none; display: flex; flex-direction: column; gap: 5px; }
-
-    .key-facts li {
-      font-size: 13px;
-      color: var(--text-mid);
-      padding-left: 14px;
-      position: relative;
-      line-height: 1.4;
-    }
-
-    .key-facts li::before {
-      content: "·";
-      position: absolute;
-      left: 0;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1;
-      top: 1px;
-    }
-
-    .recommendation {
-      font-size: 13px;
-      color: var(--text-mid);
-      line-height: 1.45;
-      background: var(--rec-bg);
-      border-radius: 6px;
-      padding: 10px 12px;
-    }
-
-    .case-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-
-    .btn-remove {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 5px 12px;
-      font-family: inherit;
       font-size: 12px;
       color: var(--muted);
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
     }
 
-    .btn-remove:hover { border-color: var(--discrepancy-pill-bg); color: #f87171; }
-    .btn-export:hover { border-color: var(--border-hi); color: var(--text-bright); }
+    .case-chevron {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      transition: transform 0.2s;
+    }
+    .case-card.expanded .case-chevron { transform: rotate(180deg); }
+
+    /* One status signal per card: this badge. Same size and style for every
+       state; only the tint changes. */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-confirmed       { color: var(--green-ink); background: color-mix(in srgb, var(--green-ink) 12%, transparent); }
+    .badge-action_required,
+    .badge-needs_review    { color: var(--amber-ink); background: color-mix(in srgb, var(--amber-ink) 14%, transparent); }
+    .badge-discrepancy     { color: var(--red-ink);   background: color-mix(in srgb, var(--red-ink) 12%, transparent); }
+    .badge-error           { color: var(--text-mid);  background: var(--bar-bg); }
+    .badge-pending         { color: var(--muted);     background: var(--bar-bg); }
+
+    .case-body { padding: 0 4px 16px; }
+    .case-card.is-latest .case-body { padding: 0 18px 18px; }
+    .case-body[hidden] { display: none; }
+
+    .case-summary { font-size: 15px; color: var(--text-mid); line-height: 1.55; }
+
+    .key-facts { list-style: none; display: grid; gap: 4px; margin-top: 12px; }
+    .key-facts li { font-size: 13px; color: var(--text); line-height: 1.5; }
+    .key-facts .fact-label { color: var(--muted); }
+
+    .recommendation { margin-top: 12px; font-size: 13px; color: var(--text-mid); line-height: 1.5; }
+    .recommendation-label { color: var(--muted); }
+
+    .case-action { margin-top: 12px; }
+
+    .case-details { margin-top: 12px; font-size: 12px; color: var(--muted); }
+    .case-details summary { cursor: pointer; width: fit-content; min-height: 24px; }
+    .case-details summary:hover { color: var(--text-bright); }
+    .case-details code { display: block; margin-top: 6px; font-family: var(--font-mono); font-size: 12px; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .case-footer { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 16px; }
+
+    .btn-secondary {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-mid);
+      cursor: pointer;
+    }
+    .btn-secondary:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     .spinner {
       display: inline-block;
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border: 2px solid var(--border);
       border-top-color: var(--text-mid);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Recent Gemini markets ── one line per market, no cards. */
+    .gem-feed { margin-top: 48px; }
+    .gem-feed-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .gem-feed-title { font-size: 18px; font-weight: 600; color: var(--text-bright); }
+    .gem-feed-note { margin: 4px 0 8px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .gem-feed-about { display: inline; }
+    .gem-feed-about summary { display: inline; cursor: pointer; color: var(--text-bright); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 2px; }
+    .gem-feed-about[open] summary { margin-right: 6px; }
+    .gem-feed-list { list-style: none; }
+    .gem-feed-row[hidden] { display: none; }
+    .gem-feed-btn {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 4px;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      background: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .gem-feed-btn:hover .gem-feed-name { text-decoration: underline; text-decoration-color: var(--border-hi); }
+    .gem-feed-btn:focus { outline: none; }
+    .gem-feed-btn:focus-visible { box-shadow: inset 0 0 0 2px var(--border-hi); }
+    .gem-feed-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; color: var(--text-bright); }
+    .gem-feed-variant { color: var(--muted); }
+    .gem-feed-ticker { flex-shrink: 1; min-width: 0; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+    .gem-feed-status { flex-shrink: 0; font-size: 13px; color: var(--text-mid); white-space: nowrap; }
+    .gem-feed-status.is-awaiting { color: var(--muted); }
+    .gem-feed-meta { flex-shrink: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .gem-feed-empty { padding: 10px 4px; font-size: 13px; color: var(--muted); }
+    .gem-feed-more { margin-top: 6px; }
 
     @media (max-width: 560px) {
       .intake-row { flex-direction: column; }
       .intake-row input { min-height: 48px; }
       .btn-review { width: 100%; min-height: 44px; }
-      .shortcut-hint { display: none; }
-      .case-title { font-size: 13px; }
-      .intake { padding: 22px 18px; }
+      .case-ticker, .gem-feed-ticker, .gem-feed-meta { display: none; }
+      .case-card.is-latest .case-header { padding: 14px; }
+      .case-card.is-latest .case-body { padding: 0 14px 16px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
       ::view-transition-old(root),
       ::view-transition-new(root),
-      .pill-pending { animation: none; }
+      .spinner { animation: none; }
     }
   </style>
   <link href="/shared-shell.css?v=42" rel="stylesheet">
@@ -524,8 +490,8 @@
   </header>
 
   <div class="intake">
-    <div class="intake-label">Audit a market settlement</div>
-    <div class="intake-desc">Verify the venue's reported result against its contract and public settlement data. Clean API-confirmed outcomes are reviewed without AI; ambiguous cases can optionally use your Anthropic key.</div>
+    <h1 class="intake-label">Audit a market settlement</h1>
+    <p class="intake-desc">Check a market's reported result against its contract and public settlement data.</p>
     <div class="intake-row">
       <input
         id="tickerInput"
@@ -540,26 +506,27 @@
       />
       <button class="btn-review" id="reviewBtn" onclick="submitReview()">Review</button>
     </div>
-    <div class="shortcut-hint">Press Enter to submit</div>
 
+    <!-- Collapsed to one line. It opens on its own only when a review needs
+         AI; the result card then says so once, with a button to this field. -->
     <div class="key-panel" id="keyPanel">
-      <button class="key-toggle" id="keyToggle" onclick="toggleKeyPanel()" aria-expanded="false" aria-controls="keyBody">
-        <span class="caret">▾</span>
-        <span>Optional Anthropic API key</span>
+      <div class="key-line">
+        <span>Anthropic API key:</span>
         <span class="key-status" id="keyStatus">Not set</span>
-      </button>
+        <span class="key-sep" aria-hidden="true">·</span>
+        <button class="key-toggle" id="keyToggle" onclick="toggleKeyPanel()" aria-expanded="false" aria-controls="keyBody">Add</button>
+      </div>
       <div class="key-body" id="keyBody">
         <div class="key-desc">
-          Most settlements are confirmed straight from the platform's own API and never touch AI —
-          those work with no key at all. When a market <em>does</em> need AI analysis, Predara calls
-          Anthropic with your key, billed to your own Anthropic account. Predara has no key of its own.
-          Get one at
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
+          Only needed when the platform's own data has no clear winner. Predara then calls Anthropic
+          with your key, billed to your Anthropic account — it has no key of its own. Get one at
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com ↗</a>.
         </div>
         <div class="key-row">
           <input
             id="keyInput"
             type="password"
+            aria-label="Anthropic API key"
             placeholder="sk-ant-…"
             autocomplete="off"
             autocorrect="off"
@@ -569,17 +536,20 @@
           <button class="btn-key primary" onclick="saveApiKey()">Save</button>
           <button class="btn-key" id="keyClearBtn" onclick="clearApiKey()">Clear</button>
         </div>
-        <div class="key-note" id="keyNote">Stored only in this browser (localStorage) — no account needed. Sent with your review requests and used for that one call; Predara never logs or saves it server-side.</div>
+        <div class="key-note" id="keyNote">Stored only in this browser and sent only with your review requests. Predara never logs or saves it.</div>
       </div>
     </div>
   </div>
 
-  <div id="gemSettledSlot"></div>
-
   <div id="storageNotice" class="key-note err" role="status" hidden>
     Browser storage is unavailable or full. Settlement cases will remain visible for this session, but will not persist after you close or refresh this page.
   </div>
-  <div id="caseList" class="case-list"></div>
+
+  <!-- Results sit directly under the input: newest open, earlier ones
+       collapsed. The recent-markets feed comes after. -->
+  <div id="caseList" class="case-list" aria-live="polite"></div>
+
+  <div id="gemSettledSlot"></div>
 
   <footer class="footer">
     <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
@@ -588,7 +558,7 @@
 
 </div>
 
-<script src="gemini-live.js?v=41"></script>
+<script src="gemini-live.js?v=42"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')
@@ -654,7 +624,7 @@
     const status = document.getElementById("keyStatus")
     const clearBtn = document.getElementById("keyClearBtn")
     if (key) {
-      status.textContent = "Your key"
+      status.textContent = "Saved in this browser"
       status.classList.add("active")
       document.getElementById("keyInput").placeholder = maskKey(key)
       clearBtn.style.display = ""
@@ -664,19 +634,33 @@
       document.getElementById("keyInput").placeholder = "sk-ant-…"
       clearBtn.style.display = "none"
     }
+    syncKeyToggle()
+  }
+
+  function syncKeyToggle() {
+    const open = document.getElementById("keyPanel").classList.contains("open")
+    const toggle = document.getElementById("keyToggle")
+    toggle.textContent = open ? "Close" : (loadApiKey() ? "Change" : "Add")
+    toggle.setAttribute("aria-expanded", open ? "true" : "false")
   }
 
   function openKeyPanel() {
-    const panel = document.getElementById("keyPanel")
-    panel.classList.add("open")
-    document.getElementById("keyToggle").setAttribute("aria-expanded", "true")
+    document.getElementById("keyPanel").classList.add("open")
+    syncKeyToggle()
   }
 
   function toggleKeyPanel() {
-    const panel = document.getElementById("keyPanel")
-    const open = panel.classList.toggle("open")
-    document.getElementById("keyToggle").setAttribute("aria-expanded", open ? "true" : "false")
+    const open = document.getElementById("keyPanel").classList.toggle("open")
+    syncKeyToggle()
     if (open) document.getElementById("keyInput").focus()
+  }
+
+  // The one button on an "Action required" card: open the key field and go to it.
+  function focusKeyField() {
+    openKeyPanel()
+    const input = document.getElementById("keyInput")
+    input.scrollIntoView({ block: "center", behavior: "smooth" })
+    input.focus({ preventScroll: true })
   }
 
   function saveApiKey() {
@@ -698,14 +682,14 @@
     }
     input.value = ""
     renderKeyState()
-    setKeyNote("Saved. Reviews that need AI will now use your key.", false)
+    setKeyNote("Saved. Press Review to run the market again with your key.", false)
   }
 
   function clearApiKey() {
     try { localStorage.removeItem(API_KEY_STORAGE) } catch {}
     document.getElementById("keyInput").value = ""
     renderKeyState()
-    setKeyNote("Key removed. API-confirmed settlements still work; reviews needing AI will ask for a key.", false)
+    setKeyNote("Key removed. API-confirmed settlements still work without one.", false)
   }
 
   /* ── Storage ── */
@@ -732,68 +716,182 @@
     }
   }
 
-  /* ── Render helpers ── */
+  /* ── Render helpers ──
+     Everything below is presentation. Stored cases (and Export) keep exactly
+     what the server returned; the card reformats it for reading. */
   function verdictLabel(v) {
-    return { confirmed: "Confirmed", discrepancy: "Discrepancy", needs_review: "Needs Review", action_required: "Action Required", error: "Error", pending: "Reviewing…" }[v] || v
+    return { confirmed: "Confirmed", discrepancy: "Discrepancy", needs_review: "Needs review", action_required: "Action required", error: "Error", pending: "Reviewing…" }[v] || v
   }
 
-  function pillClass(v) {
-    return "verdict-pill pill-" + (v || "error")
+  function badgeClass(v) {
+    return "badge badge-" + (v || "error")
   }
 
   function formatTs(ts) {
     try {
-      return new Date(ts).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+      return new Date(ts).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     } catch { return "" }
   }
 
-  function renderCard(c) {
+  // "2026-07-19T18:31:35.392Z" → "Jul 19, 2026, 6:31 PM UTC". The raw value
+  // stays in the stored case and in Export.
+  const ISO_TS_RE = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})\b/g
+  function humanTs(iso) {
+    const d = new Date(iso)
+    if (isNaN(d)) return iso
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" }) + " UTC"
+  }
+  function humanizeTimestamps(text) {
+    return String(text || "").replace(ISO_TS_RE, humanTs)
+  }
+
+  // Facts as a compact list with nothing the summary already says. The API
+  // fast path names the winner three times (summary, "Winner:", "Resolved
+  // outcome:"); the card keeps the summary and the count.
+  function displayFacts(c) {
+    const summary = String(c.summary || "")
+    const out = []
+    for (const raw of Array.isArray(c.keyFacts) ? c.keyFacts : []) {
+      const fact = String(raw || "")
+      const winner = fact.match(/^Winner:\s*(.+)$/i)
+      if (winner && summary.includes(winner[1])) continue
+      const resolved = fact.match(/^Resolved outcomes?:\s*(.+?)\s*\((\d+) of (\d+)\)$/i)
+      if (resolved && summary.includes(resolved[1])) {
+        out.push({ label: "Outcomes", value: `${resolved[2]} of ${resolved[3]} won` })
+        continue
+      }
+      const ts = fact.match(/^Settlement timestamp:\s*(.+)$/i)
+      if (ts) {
+        out.push({ label: "Settled", value: ts[1] === "N/A" ? "Not published" : humanizeTimestamps(ts[1]) })
+        continue
+      }
+      const kv = fact.match(/^([A-Z][\w ]{0,30}):\s+(.+)$/)
+      if (kv) out.push({ label: kv[1], value: humanizeTimestamps(kv[2]) })
+      else out.push({ label: "", value: humanizeTimestamps(fact) })
+    }
+    // Two facts reading the same are one fact.
+    const seen = new Set()
+    return out.filter(f => {
+      const k = (f.label + "|" + f.value).toLowerCase()
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+  }
+
+  // A recommendation only when there is something to do. "No action needed"
+  // repeats the Confirmed badge; an Action required card has its own button.
+  function displayRecommendation(c) {
+    const rec = String(c.recommendation || "").trim()
+    if (!rec || c.verdict === "action_required") return ""
+    if (/^no action (is )?needed/i.test(rec)) return ""
+    return humanizeTimestamps(rec)
+  }
+
+  // Event tickers inside a Gemini contract symbol: GEMI-{event}-{contract}.
+  // Same rule the Analyze input hint uses (app.js).
+  function contractSymbolEvent(input) {
+    const raw = String(input || "").trim()
+    if (!/^GEMI-[A-Z0-9-]+-[A-Z0-9]+$/i.test(raw)) return ""
+    return raw.slice(5).replace(/-[^-]+$/, "").toUpperCase()
+  }
+
+  // Plain-language copy for errors. The server's own message (with any HTTP
+  // code) stays available under "Details" and is what Export would carry.
+  function displaySummary(c) {
+    const raw = String(c.summary || "")
+    const input = String(c.input || c.ticker || "")
+    if (c.verdict === "action_required") {
+      return c.keyIssue === "rejected" || /rejected your API key/i.test(raw)
+        ? { text: "Anthropic didn't accept your API key — it may be expired, revoked or mistyped. Update it, then review again.", detail: raw }
+        : { text: "The platform's data has no clear winner, so this market needs AI analysis. Add your Anthropic API key, then review again.", detail: "" }
+    }
+    if (c.verdict !== "error") return { text: humanizeTimestamps(raw), detail: "" }
+
+    let m
+    if ((m = raw.match(/^Could not fetch (Gemini|Kalshi|Polymarket)(?: event)? data for "?([^"(]+?)"? \(HTTP (\d+)\)/i))) {
+      const [, venue, id, code] = m
+      const eventTicker = venue.toLowerCase() === "gemini" ? contractSymbolEvent(input) : ""
+      if (eventTicker && code === "404") {
+        return { text: `This looks like a contract symbol — paste the event ticker (e.g. ${eventTicker}) instead.`, detail: raw }
+      }
+      if (code === "404") return { text: `We couldn't find a ${venue} market for ${id}. Check the ticker or paste the event link.`, detail: raw }
+      return { text: `${venue} didn't return data for ${id} just now. Try again in a moment.`, detail: raw }
+    }
+    if ((m = raw.match(/^No Polymarket event found for slug "([^"]+)"/i))) {
+      return { text: `We couldn't find a Polymarket market for ${m[1]}. Check the link or paste the event URL.`, detail: raw }
+    }
+    if (/^Could not extract a valid identifier/i.test(raw)) {
+      return { text: "That doesn't look like a ticker or market link. Paste a ticker or the market's URL.", detail: raw }
+    }
+    if (/credentials not configured/i.test(raw)) {
+      return { text: "Kalshi and Coinbase markets can't be audited on this server yet.", detail: raw }
+    }
+    if (/rate limited or out of credit/i.test(raw)) {
+      return { text: "Your Anthropic account is rate limited or out of credit. Check it at console.anthropic.com, then try again.", detail: raw }
+    }
+    if (/^Failed to fetch settlement data/i.test(raw)) {
+      return { text: "We couldn't reach the platform just now. Try again in a moment.", detail: raw }
+    }
+    if (/^AI (analysis failed|returned)/i.test(raw)) {
+      return { text: "The AI review didn't complete. Try again.", detail: raw }
+    }
+    if (/^Request failed:/i.test(raw)) {
+      return { text: "The review couldn't be sent. Check your connection and try again.", detail: raw }
+    }
+    const plain = raw.replace(/\s*\(HTTP \d{3}\)/g, "")
+    return { text: plain || "Something went wrong with this review. Try again.", detail: plain !== raw ? raw : "" }
+  }
+
+  const CHEVRON = '<svg class="case-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+  function renderCard(c, { latest = false, expanded = false } = {}) {
     const isPending = c.verdict === "pending"
     const card = document.createElement("div")
-    card.className = "case-card verdict-" + (c.verdict || "error")
+    card.className = "case-card" + (latest ? " is-latest" : "") + (expanded && !isPending ? " expanded" : "")
     card.dataset.id = c.id
 
     const tickerLabel = c.ticker || c.input || "—"
     const title = (!isPending && c.title && c.title !== tickerLabel) ? c.title : ""
-    const summary = isPending
-      ? '<span class="spinner"></span>Sending to AI for analysis…'
-      : esc(c.summary || "")
-
-    const topRow = `
-      <span class="case-ticker">${esc(tickerLabel)}</span>
-      ${title ? `<span class="case-title">${esc(title)}</span>` : ""}
-      <span class="${pillClass(c.verdict)}">${isPending ? '<span class="spinner"></span>' : ""}${esc(verdictLabel(c.verdict))}</span>
-    `
+    const badge = `<span class="${badgeClass(c.verdict)}">${isPending ? '<span class="spinner" aria-hidden="true"></span>' : ""}${esc(verdictLabel(c.verdict))}</span>`
 
     // Remove is always available; only completed verdicts have an audit to export.
-    const removeBtn = `<button class="btn-remove" onclick="removeCase('${c.id}', event)" style="margin-top:${isPending ? "10px" : "0"}">Remove</button>`
+    const removeBtn = `<button class="btn-quiet btn-remove" onclick="removeCase('${c.id}', event)">Remove</button>`
     const exportBtn = EXPORTABLE_VERDICTS.has(c.verdict)
-      ? `<button class="btn-remove btn-export" onclick="exportCase('${c.id}', event)">Export</button>`
+      ? `<button class="btn-secondary btn-export" onclick="exportCase('${c.id}', event)">Export</button>`
       : ""
 
     let bodyHtml = ""
     if (isPending) {
-      bodyHtml = `<div style="padding:0 16px 12px;display:flex;justify-content:flex-end">${removeBtn}</div>`
+      bodyHtml = `<div class="case-body"><div class="case-footer">${removeBtn}</div></div>`
     } else {
-      const facts = Array.isArray(c.keyFacts) ? c.keyFacts : []
-      const factItems = facts.map(f => `<li>${esc(f)}</li>`).join("")
+      const { text, detail } = displaySummary(c)
+      const facts = displayFacts(c)
+      const rec = displayRecommendation(c)
+      const action = c.verdict === "action_required"
+        ? `<div class="case-action"><button class="btn-secondary" onclick="focusKeyField()">${c.keyIssue === "rejected" ? "Update API key" : "Add API key"}</button></div>`
+        : ""
       bodyHtml = `
-        <div class="case-body" id="case-panel-${esc(c.id)}" role="region" aria-hidden="true" aria-label="Settlement details">
-          ${facts.length ? `<div class="case-section-label">Key Facts</div><ul class="key-facts">${factItems}</ul>` : ""}
-          ${c.recommendation ? `<div class="case-section-label">Recommendation</div><div class="recommendation">${esc(c.recommendation)}</div>` : ""}
+        <div class="case-body" id="case-panel-${esc(c.id)}" role="region" aria-label="Settlement details"${expanded ? "" : " hidden"}>
+          <p class="case-summary">${esc(text)}</p>
+          ${action}
+          ${facts.length ? `<ul class="key-facts">${facts.map(f => `<li>${f.label ? `<span class="fact-label">${esc(f.label)}:</span> ` : ""}${esc(f.value)}</li>`).join("")}</ul>` : ""}
+          ${rec ? `<p class="recommendation"><span class="recommendation-label">Next step:</span> ${esc(rec)}</p>` : ""}
+          ${detail ? `<details class="case-details"><summary>Details</summary><code>${esc(detail)}</code></details>` : ""}
           <div class="case-footer">${exportBtn}${removeBtn}</div>
         </div>
       `
     }
 
     card.innerHTML = `
-      <button type="button" class="case-header" ${isPending ? "disabled" : `aria-expanded="false" aria-controls="case-panel-${esc(c.id)}" onclick="toggleCard(this)"`}>
-        <span class="case-meta">
-          <span class="case-top">${topRow}</span>
-          <span class="case-summary">${summary}</span>
-          <span class="case-timestamp">${formatTs(c.ts)}</span>
+      <button type="button" class="case-header" ${isPending ? "disabled" : `aria-expanded="${expanded ? "true" : "false"}" aria-controls="case-panel-${esc(c.id)}" onclick="toggleCard(this)"`}>
+        <span class="case-name">
+          <span class="case-ticker">${esc(tickerLabel)}</span>
+          ${title ? `<span class="case-title">${esc(title)}</span>` : ""}
         </span>
-        ${!isPending ? '<div class="case-chevron">▾</div>' : ""}
+        ${badge}
+        <span class="case-time">${formatTs(c.ts)}</span>
+        ${!isPending ? CHEVRON : ""}
       </button>
       ${bodyHtml}
     `
@@ -804,39 +902,47 @@
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
   }
 
+  // Which cards are open. By default only the newest; a click on any header
+  // toggles that card, and a new review resets to "newest only".
+  const openState = new Map()
+
   function toggleCard(headerEl) {
     const card = headerEl.closest(".case-card")
     if (!card) return
     const expanded = card.classList.toggle("expanded")
+    openState.set(card.dataset.id, expanded)
     headerEl.setAttribute("aria-expanded", expanded ? "true" : "false")
     const panelId = headerEl.getAttribute("aria-controls")
     const panel = panelId && document.getElementById(panelId)
-    if (panel) panel.setAttribute("aria-hidden", expanded ? "false" : "true")
+    if (panel) panel.hidden = !expanded
   }
 
-  /* ── Empty state ── */
-  function renderEmptyState() {
-    const el = document.createElement("div")
-    el.className = "empty-state"
-    el.innerHTML = `
-      <div class="empty-state-mark" aria-hidden="true"></div>
-      <div class="empty-state-title">No settlement audits yet</div>
-      <div>Paste a supported ticker or market URL above, or select a recent Gemini settlement.</div>
-    `
-    return el
-  }
-
-  /* ── Full re-render from storage ── */
+  /* ── Full re-render from storage ──
+     Newest result first and open; earlier ones collapsed to one line under an
+     "Earlier reviews · Clear all" row. No cases: nothing at all. */
   function renderAll() {
     const cases = loadCases()
     const list = document.getElementById("caseList")
     list.innerHTML = ""
-    if (cases.length === 0) {
-      list.appendChild(renderEmptyState())
-      return
-    }
+    if (cases.length === 0) return
     // Storage is newest-first (unshift on insert) — append preserves that order
-    cases.forEach(c => list.appendChild(renderCard(c)))
+    cases.forEach((c, i) => {
+      if (i === 1) {
+        const row = document.createElement("div")
+        row.className = "case-earlier"
+        row.innerHTML = `<span>Earlier reviews</span><button class="btn-quiet" onclick="clearAllCases()">Clear all</button>`
+        list.appendChild(row)
+      }
+      const expanded = openState.has(c.id) ? openState.get(c.id) : i === 0
+      list.appendChild(renderCard(c, { latest: i === 0, expanded }))
+    })
+  }
+
+  function clearAllCases() {
+    if (!window.confirm("Clear all settlement reviews from this browser?")) return
+    openState.clear()
+    saveCases(loadCases().filter(c => c.verdict === "pending"))
+    renderAll()
   }
 
   const PENDING_TIMEOUT_MS = 25000  // abort fetch after 25 s
@@ -854,6 +960,9 @@
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
     const ts = new Date().toISOString()
     const pendingCase = { id, input, ticker: input, title: "", verdict: "pending", summary: "", keyFacts: [], recommendation: "", ts }
+
+    // A new review is the one open card.
+    openState.clear()
 
     // Persist pending card and render immediately (newest-first via unshift)
     const cases = loadCases()
@@ -885,18 +994,17 @@
         signal: controller.signal,
       })
       const data = await res.json()
-      // The server asks for a key when none was sent or Anthropic rejected the one that was.
+      // The server asks for a key when none was sent or Anthropic rejected the
+      // one that was. The key field opens; the result card carries the message.
       if (data.needsKey) {
         openKeyPanel()
         document.getElementById("tickerInput").value = data.ticker || input
-        setKeyNote(userKey
-          ? "Your key was not accepted for that review — check it at console.anthropic.com."
-          : "That market needs AI analysis. Paste your Anthropic API key below to continue.", !!userKey)
       }
       resolveCase({
         ticker:         data.ticker || input,
         title:          data.title || "",
         verdict:        data.needsKey ? "action_required" : (data.verdict || "error"),
+        keyIssue:       data.needsKey ? (userKey ? "rejected" : "missing") : undefined,
         summary:        data.summary || "No summary returned.",
         keyFacts:       Array.isArray(data.keyFacts) ? data.keyFacts : [],
         recommendation: data.recommendation || "",
@@ -905,7 +1013,7 @@
       const timedOut = err.name === "AbortError"
       resolveCase({
         ticker: input, title: "", verdict: "error",
-        summary: timedOut ? "Request timed out. The AI may be slow — please try again." : "Request failed: " + (err.message || "network error"),
+        summary: timedOut ? "The review took too long and was stopped. Try again." : "Request failed: " + (err.message || "network error"),
         keyFacts: [], recommendation: "",
       })
     }
@@ -915,6 +1023,7 @@
   function removeCase(id, event) {
     event.stopPropagation()
     const cases = loadCases().filter(c => c.id !== id)
+    openState.delete(id)
     saveCases(cases)
     renderAll()
   }
@@ -970,7 +1079,7 @@
     cases.forEach(c => {
       if (c.verdict === "pending" && (now - new Date(c.ts).getTime()) > STALE_PENDING_MS) {
         c.verdict = "error"
-        c.summary = "Review did not complete (page was closed or refreshed mid-request). Re-submit to try again."
+        c.summary = "This review didn't finish — the page was closed or refreshed while it ran. Review the market again."
         c.keyFacts = []
         c.recommendation = ""
         changed = true
