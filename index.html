@@ -56,6 +56,8 @@
       --accent-tint: rgba(217,79,32,0.10);
       --accent-line: rgba(217,79,32,0.32);
       --accent-ring: rgba(217,79,32,0.34);
+      --border-hi:   #3a3a42;
+      --focus-ring:  rgba(255,255,255,0.08);
       --green-ink:  #1db954;
       --red-ink:    #e84444;
       --amber-ink:  #d49010;
@@ -96,6 +98,8 @@
       --accent-tint: rgba(200,66,26,0.07);
       --accent-line: rgba(200,66,26,0.30);
       --accent-ring: rgba(200,66,26,0.30);
+      --border-hi:   #d0d0ce;
+      --focus-ring:  rgba(0,0,0,0.06);
       --green-ink:  #10833e;
       --red-ink:    #d43232;
       --amber-ink:  #99680c;
@@ -177,8 +181,8 @@
       box-shadow: var(--shadow-sm);
     }
     .search-row input:focus {
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-sm);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-sm);
     }
     .search-row input::placeholder { color: var(--muted); font-weight: 400; }
     .search-row button {
@@ -311,7 +315,7 @@
       font-size: 13px;
       color: var(--text-mid);
       background: var(--rule-bg);
-      border-left: 2px solid var(--orange);
+      border-left: 2px solid var(--border-hi);
       padding: 10px 16px;
       margin-bottom: 12px;
       line-height: 1.65;
@@ -558,7 +562,7 @@
     }
     .num-row:last-child { border-bottom: none; }
     .num-idx {
-      color: var(--accent-ink);
+      color: var(--muted);
       font-size: 11px;
       font-weight: 600;
       flex-shrink: 0;
@@ -568,9 +572,8 @@
     .num-text { color: var(--text); }
 
     /* ── What's the Bet explainer ── */
-    .bet-explainer { border-left: 2px solid var(--orange); }
     .bet-explainer .section-label {
-      color: var(--accent-ink);
+      color: var(--muted);
       font-weight: 600;
     }
     .bet-explainer-body {
@@ -594,7 +597,7 @@
     .bet-sim-label { font-weight: 400; }
     .bet-sim-label strong { color: var(--text-bright); font-weight: 600; }
     .bet-sim-dollar {
-      color: var(--accent-ink);
+      color: var(--muted);
       font-size: 16px;
       font-weight: 600;
     }
@@ -611,7 +614,7 @@
       outline: none;
       transition: border-color 0.18s;
     }
-    .bet-sim-input:focus { border-color: var(--orange); }
+    .bet-sim-input:focus { border-color: var(--border-hi); }
     .bet-sim-input::-webkit-inner-spin-button { opacity: 0.3; }
     .bet-sim-results {
       background: var(--sim-result-bg);
@@ -643,11 +646,11 @@
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
       font-family: inherit;
     }
-    .bet-sim-tab:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .bet-sim-tab:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .bet-sim-tab.active {
-      border-color: var(--orange);
-      color: var(--accent-ink);
-      background: var(--accent-tint);
+      border-color: var(--border-hi);
+      color: var(--text-bright);
+      background: var(--tag-bg);
       font-weight: 600;
     }
     .bet-sim-tab-dot {
@@ -669,7 +672,7 @@
     .odds-sens-summary::-webkit-details-marker { display: none; }
     .odds-sens-summary::before { content: "▶"; font-size: 9px; transition: transform 0.15s; }
     details[open] .odds-sens-summary::before { transform: rotate(90deg); }
-    .odds-sens-summary:hover { color: var(--accent-ink); }
+    .odds-sens-summary:hover { color: var(--text-bright); }
     .odds-sens-table {
       width: 100%; border-collapse: collapse;
       font-size: 12px; margin-top: 8px;
@@ -726,7 +729,7 @@
       border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
       font-family: inherit;
     }
-    .hist-window-btn.active { border-color: var(--orange); color: var(--accent-ink); }
+    .hist-window-btn.active { border-color: var(--border-hi); color: var(--text-bright); background: var(--tag-bg); }
     .price-chart-source { color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.6; }
     .price-chart-source-warn { color: var(--amber, #f59e0b); }
     .bet-sim-side-toggle {
@@ -742,10 +745,10 @@
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
       font-family: inherit; letter-spacing: 0.04em;
     }
-    .bet-sim-side-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .bet-sim-side-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .bet-sim-side-btn.active {
-      border-color: var(--orange);
-      color: var(--accent-ink);
+      border-color: var(--border-hi);
+      color: var(--text-bright);
       background: rgba(251,146,60,0.10);
     }
     .bet-sim-side-pct { font-weight: 400; opacity: 0.75; }
@@ -910,7 +913,7 @@
       transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
     }
-    .copy-link-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .copy-link-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     .compare-toggle-btn {
       background: transparent;
@@ -924,11 +927,11 @@
       padding: 9px 18px;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
-    .compare-toggle-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .compare-toggle-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .compare-toggle-btn.active {
-      background: var(--accent-tint);
-      border-color: var(--orange);
-      color: var(--accent-ink);
+      background: var(--tag-bg);
+      border-color: var(--border-hi);
+      color: var(--text-bright);
     }
 
     /* ── Compare inputs ── */
@@ -958,7 +961,7 @@
       outline: none;
       transition: border-color 0.18s;
     }
-    .compare-url-input:focus { border-color: var(--orange); }
+    .compare-url-input:focus { border-color: var(--border-hi); }
     .compare-url-input::placeholder { color: var(--muted); }
     .compare-submit-btn {
       background: var(--accent-fill);
@@ -1025,7 +1028,7 @@
     .tab-btn:focus-visible,
     .panel-btn:focus-visible,
     .compare-toggle-btn:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: 2px;
     }
     /* An accent-coloured link inside body copy. Ten of these were written as
@@ -1033,7 +1036,8 @@
        the accent-as-text token — so they stayed at 4.29:1 on a dark card after
        the stylesheet moved to --accent-ink. One class, one place to fix. */
     .link-accent {
-      color: var(--accent-ink);
+      color: var(--text-bright);
+      text-decoration-color: var(--border-hi);
       text-decoration: none;
       font-weight: 500;
     }
@@ -1121,7 +1125,7 @@
       padding: 7px 18px;
       transition: border-color 0.15s, color 0.15s;
     }
-    .show-more-btn:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .show-more-btn:hover { border-color: var(--border-hi); color: var(--text-bright); }
 
     /* ── Loading / error ── */
     .mi-loading, .mi-error {
@@ -1144,7 +1148,7 @@
       width: 16px;
       height: 16px;
       border: 2px solid var(--border);
-      border-top-color: var(--orange);
+      border-top-color: var(--text-mid);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
@@ -1259,7 +1263,7 @@
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--accent-ink);
+      color: var(--muted);
       margin-bottom: 10px;
     }
     .start-title {
@@ -1294,7 +1298,7 @@
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--accent-ink);
+      color: var(--text-bright);
     }
     .start-feature-body {
       margin-top: 6px;
@@ -1362,7 +1366,7 @@
       cursor: pointer;
       font-family: inherit;
     }
-    .start-example:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .start-example:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .start-note {
       margin-top: 22px;
       padding-top: 16px;
@@ -1618,7 +1622,7 @@
       line-height: 1.7;
     }
     .news-hint-link {
-      color: var(--accent-ink);
+      color: var(--text-bright);
       text-decoration: none;
       font-weight: 600;
     }
@@ -1714,7 +1718,7 @@
     .util-summary::-webkit-details-marker { display: none; }
     .util-summary::before { content: "▶"; font-size: 8px; transition: transform 0.15s; }
     .util-details[open] .util-summary::before { transform: rotate(90deg); }
-    .util-summary:hover { border-color: var(--orange); color: var(--accent-ink); }
+    .util-summary:hover { border-color: var(--border-hi); color: var(--text-bright); }
     .util-body { margin-top: 12px; }
 
     /* ── Round 3: Volume-weighted consensus ── */
@@ -1739,8 +1743,8 @@
     .similar-markets-card { }
     .similar-markets-body { padding: 10px var(--card-pad-x) 6px; font-size: 13px; color: var(--muted); }
     .similar-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px var(--card-pad-x) 18px; }
-    .similar-link { font-size: 12px; font-weight: 500; color: var(--accent-ink); text-decoration: none; border: 1px solid var(--accent-line); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
-    .similar-link:hover { background: var(--accent-tint); border-color: var(--orange); }
+    .similar-link { font-size: 12px; font-weight: 500; color: var(--text-mid); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; transition: background 0.15s, border-color 0.15s; }
+    .similar-link:hover { background: var(--tag-bg); border-color: var(--border-hi); color: var(--text-bright); }
 
     /* ── Round 3: Edge calculator ("What's your edge?") ── */
     .edge-calc-card { }
@@ -1749,7 +1753,7 @@
     .edge-input-label { font-size: 13px; color: var(--muted); flex: 1; min-width: 160px; }
     .edge-input-wrap { display: flex; align-items: center; gap: 4px; }
     .edge-prob-input { width: 68px; padding: 6px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-family: inherit; font-size: 15px; text-align: center; }
-    .edge-prob-input:focus { outline: none; border-color: var(--orange); }
+    .edge-prob-input:focus { outline: none; border-color: var(--border-hi); }
     .edge-pct-sign { font-size: 14px; color: var(--muted); }
     .edge-calc-result { font-size: 13px; }
     .edge-result-row { margin-bottom: 8px; }
@@ -1767,7 +1771,6 @@
     .arb-disclaimer { padding: 6px var(--card-pad-x) 16px; font-size: 11px; color: var(--muted); }
 
     /* ── Same event on other platforms ── */
-    .xmatch-card { border-left: 2px solid var(--orange); }
     .xmatch-body { padding: 4px var(--card-pad-x) 20px; }
     .xmatch-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 8px 0; }
     .xmatch-failed { color: var(--red-ink); }
@@ -1786,9 +1789,9 @@
     .xmatch-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
     .xmatch-add-btn {
       font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 7px; cursor: pointer;
-      background: var(--accent-fill); border: none; color: #fff; font-family: inherit;
+      background: var(--card); border: 1px solid var(--border); color: var(--text-bright); font-family: inherit;
     }
-    .xmatch-add-btn:hover { opacity: 0.88; }
+    .xmatch-add-btn:hover { border-color: var(--border-hi); background: var(--tag-bg); }
     /* These are the only way out to the other venue, and they were 13px tall —
        under the 24px WCAG 2.2 minimum for a pointer target. The inline-flex box
        gives them a real height without changing where they sit. */
@@ -1796,13 +1799,13 @@
       font-size: 11px; color: var(--muted); text-decoration: none;
       display: inline-flex; align-items: center; min-height: 24px;
     }
-    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--accent-ink); }
+    .xmatch-open-link:hover, .xmatch-manual-link:hover { color: var(--text-bright); }
     .xmatch-all-btn {
       font-size: 11px; font-weight: 600; padding: 7px 14px; border-radius: 7px; cursor: pointer;
-      background: transparent; border: 1px solid var(--orange); color: var(--accent-ink);
+      background: transparent; border: 1px solid var(--border); color: var(--text-bright);
       font-family: inherit; margin: 8px 0 4px;
     }
-    .xmatch-all-btn:hover { background: var(--accent-fill); color: #fff; }
+    .xmatch-all-btn:hover { background: var(--tag-bg); border-color: var(--border-hi); }
     .xmatch-manual { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
 
     /* ── Round 3: Platform footnotes in compare ── */
@@ -1810,7 +1813,7 @@
 
     /* ── Round 3: Bookmarks & history panels ── */
     .panel-btn { font-size: 11px; font-weight: 500; padding: 5px 11px; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: inherit; }
-    .panel-btn:hover, .panel-btn.active { border-color: var(--orange); color: var(--accent-ink); }
+    .panel-btn:hover, .panel-btn.active { border-color: var(--border-hi); color: var(--text-bright); }
     .panel-btn.bookmarked { border-color: var(--green); color: var(--green-ink); }
     .panels-bar { display: none; }
     .history-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 200; background: var(--card); border: 1px solid var(--border); border-radius: 10px; min-width: 340px; max-width: 480px; box-shadow: var(--shadow); display: none; }
@@ -1818,7 +1821,7 @@
     .history-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
     .history-item:last-child { border-bottom: none; }
     .history-item:hover { background: var(--card-hover); }
-    .history-platform { font-size: 10px; font-weight: 600; color: var(--accent-ink); flex-shrink: 0; }
+    .history-platform { font-size: 10px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
     .history-title { font-size: 12px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .history-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
     .history-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; flex-shrink: 0; }
@@ -1997,8 +2000,8 @@
       gap: 10px;
       padding: 10px 16px;
       margin-bottom: 12px;
-      background: var(--accent-tint);
-      border: 1px solid var(--accent-line);
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 13px;
       color: var(--text);
@@ -2012,7 +2015,7 @@
       white-space: nowrap;
     }
     .smart-paste-banner button {
-      background: var(--orange);
+      background: var(--accent-fill);
       border: none;
       border-radius: 6px;
       color: #fff;
@@ -2126,7 +2129,7 @@
       transition: border-color 0.15s, box-shadow 0.15s;
       box-shadow: var(--shadow-sm);
     }
-    .wl-card:hover { border-color: var(--orange); box-shadow: var(--shadow); }
+    .wl-card:hover { border-color: var(--border-hi); box-shadow: var(--shadow); }
     .wl-card-header { margin-bottom: 10px; }
     .wl-card-title {
       font-size: 14px;
@@ -2140,7 +2143,7 @@
     .wl-platform {
       font-size: 10px;
       font-weight: 600;
-      color: var(--accent-ink);
+      color: var(--muted);
       margin-bottom: 4px;
       display: block;
     }
@@ -2178,8 +2181,8 @@
     .field::placeholder { color: var(--muted); }
     .field:focus {
       outline: none;
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--accent-ring);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
     .field--num { width: 112px; text-align: right; }
     .field--wide { width: 100%; }
@@ -2247,9 +2250,9 @@
       padding: 12px 14px;
       box-shadow: var(--shadow-sm);
     }
-    .cal-today { border-color: var(--orange); }
+    .cal-today { border-color: var(--border-hi); }
     .cal-day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
-    .cal-today .cal-day-label { color: var(--accent-ink); }
+    .cal-today .cal-day-label { color: var(--text-bright); }
     .cal-market {
       font-size: 12px;
       color: var(--text);
@@ -2261,7 +2264,7 @@
       gap: 6px;
     }
     .cal-market:last-child { border-bottom: none; }
-    .cal-market:hover { color: var(--accent-ink); }
+    .cal-market:hover { color: var(--text-bright); }
     /* Kept as an alias so existing call sites keep working; both render the one
        inline empty state. */
     .cal-empty { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
@@ -2295,7 +2298,7 @@
       font-family: inherit;
       font-size: 13px;
     }
-    .alert-select:focus { outline: none; border-color: var(--orange); }
+    .alert-select:focus { outline: none; border-color: var(--border-hi); }
     .alert-existing { margin-top: 8px; }
     .alert-item {
       display: flex;
@@ -2342,7 +2345,7 @@
       transition: background 0.12s;
     }
     .corr-item:last-child { border-bottom: none; }
-    .corr-item:hover { background: var(--card-hover); color: var(--accent-ink); }
+    .corr-item:hover { background: var(--card-hover); color: var(--text-bright); }
 
     /* Webhook settings */
     /* URLs and tokens are long, so these rows get the full readable measure
@@ -2398,15 +2401,15 @@
       text-align: left;
     }
     .discover-market:hover,
-    .discover-market:focus-visible { border-color: var(--orange); outline: none; }
+    .discover-market:focus-visible { border-color: var(--text-bright); outline: none; }
     .discover-market-title { font-size: 14px; font-weight: 500; color: var(--text-bright); margin-bottom: 4px; }
     .discover-market-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
     .discover-market-meta strong { color: var(--text); font-weight: 600; }
     .discover-market-ticker {
       font-family: 'IBM Plex Mono', ui-monospace, monospace;
       font-size: 10.5px;
-      color: var(--accent-ink);
-      background: var(--accent-tint);
+      color: var(--muted);
+      background: none;
       border-radius: 4px;
       padding: 2px 6px;
     }
@@ -2431,7 +2434,7 @@
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.1em;
-      color: var(--accent-ink);
+      color: var(--muted);
       margin-bottom: 8px;
     }
     .section-intro-title {
@@ -2492,7 +2495,7 @@
       font-weight: 700;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: var(--accent-ink);
+      color: var(--muted);
     }
     .position-news-title {
       margin-top: 4px;
@@ -2511,7 +2514,7 @@
       flex-shrink: 0;
       border: 0;
       background: transparent;
-      color: var(--accent-ink);
+      color: var(--text-bright);
       cursor: pointer;
       /* 22px tall, 2px under the WCAG 2.2 pointer-target minimum. */
       display: inline-flex;
@@ -2542,14 +2545,14 @@
       transition: border-color 0.15s, background 0.15s;
     }
     .position-news-item:hover {
-      border-color: var(--orange);
+      border-color: var(--border-hi);
       background: var(--card-hover);
     }
     .position-news-item:focus-visible,
     .position-news-manage:focus-visible,
     .rewards-program-link:focus-visible,
     .rewards-expand-btn:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: 3px;
     }
     .position-news-copy { min-width: 0; }
@@ -2574,7 +2577,7 @@
     }
     .position-news-arrow {
       flex-shrink: 0;
-      color: var(--accent-ink);
+      color: var(--muted);
       font-size: 14px;
     }
     .position-news-empty {
@@ -2600,7 +2603,7 @@
       padding: 28px var(--card-pad-x);
     }
     .rewards-eyebrow {
-      color: var(--accent-ink);
+      color: var(--muted);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.1em;
@@ -2721,7 +2724,7 @@
       align-items: center;
       min-height: 24px;
       margin-top: 10px;
-      color: var(--accent-ink);
+      color: var(--text-bright);
       font-size: 11.5px;
       font-weight: 600;
       text-decoration: none;
@@ -2802,14 +2805,14 @@
     .rewards-live-table tbody tr[role="button"] { cursor: pointer; }
     .rewards-live-table tbody tr[role="link"]:focus-visible,
     .rewards-live-table tbody tr[role="button"]:focus-visible {
-      outline: 2px solid var(--orange);
+      outline: 2px solid var(--text-bright);
       outline-offset: -2px;
     }
     .rewards-expand-btn {
       margin-top: 10px;
       border: 0;
       background: transparent;
-      color: var(--accent-ink);
+      color: var(--text-bright);
       cursor: pointer;
       font: inherit;
       font-size: 11.5px;
@@ -2865,8 +2868,8 @@
     .gem-search-input::placeholder { color: var(--muted); }
     .gem-search-input:focus, .gem-select:focus {
       outline: none;
-      border-color: var(--orange);
-      box-shadow: 0 0 0 3px var(--accent-ring);
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
     /* The one native control left on the page — it drew the OS dropdown chrome
        next to custom-styled fields. Own chevron, drawn from the border colour so
@@ -2887,8 +2890,8 @@
       background: transparent; border: 1px solid var(--border); color: var(--muted);
       border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
     }
-    .gem-feed-btn:hover { color: var(--text-bright); border-color: var(--orange); }
-    .gem-feed-btn.active { background: var(--accent-fill); border-color: var(--orange); color: #fff; }
+    .gem-feed-btn:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .gem-feed-btn.active { background: var(--tag-bg); border-color: var(--border-hi); color: var(--text-bright); }
     .gem-more-btn { margin-top: 6px; }
     /* A status pill on a --border fill left --muted text at 4.2:1. The fill moves
        to the page ground, where --muted is already verified, and the pill keeps a
@@ -2940,7 +2943,7 @@
     .gem-vol-row { display: grid; grid-template-columns: 120px 1fr 70px; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
     .gem-vol-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gem-vol-bar { background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
-    .gem-vol-bar > span { display: block; height: 100%; background: var(--orange); }
+    .gem-vol-bar > span { display: block; height: 100%; background: var(--muted); }
     .gem-vol-val { text-align: right; color: var(--muted); }
     .gem-vol-chart { width: 100%; margin-top: 14px; display: block; }
 

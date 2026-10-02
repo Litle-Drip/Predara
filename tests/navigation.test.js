@@ -201,3 +201,26 @@ test("the cache name is bumped, so poisoned caches are cleared on this deploy", 
   assert.ok(Number(found[1]) >= 3,
     `CACHE_NAME is at v${found[1]}; it must move past the version that served poisoned HTML`)
 })
+
+// The accent marks two things: the active primary nav item and a page's
+// primary action. Eyebrows, links, tickers, hovers and selected states are
+// neutral, so the accent keeps its meaning.
+test("the accent is reserved for the primary action and the active nav", () => {
+  const allowedFill = [".search-row button", ".trade-cta-btn", ".compare-submit-btn",
+    ".smart-paste-banner button", ".btn-primary", ".tag-platform", ".btn-review", ".btn-key.primary"]
+  for (const page of ["index.html", "settlement.html", "monitor.html"]) {
+    const css = read(page).match(/<style>([\s\S]*?)<\/style>/)[1]
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, "").split("}")
+    for (const rule of rules) {
+      const [selector, body = ""] = rule.split("{")
+      const sel = selector.trim()
+      if (/^(:root|body\.light)/.test(sel) || sel.startsWith("@")) continue
+      assert.doesNotMatch(body, /var\(--(orange|accent-ink|accent-tint|accent-line|accent-ring|orange-dim|orange-bg)\)/,
+        `${page}: ${sel} uses the accent outside the primary action`)
+      if (/var\(--accent-fill\)/.test(body)) {
+        assert.ok(allowedFill.some(a => sel.endsWith(a)), `${page}: ${sel} fills with the accent but is not a primary action`)
+      }
+    }
+  }
+  assert.match(sharedShell, /\.primary-nav a\.active::after\s*\{[^}]*background:\s*var\(--orange\)/)
+})
