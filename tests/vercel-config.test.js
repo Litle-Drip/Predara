@@ -34,7 +34,7 @@ test("every folded route is published under its own path", () => {
   assert.ok(sources.includes("/api/discover"), "/api/discover must be rewritten")
   assert.ok(sources.includes("/api/match"), "/api/match must be rewritten")
   assert.ok(sources.includes("/api/monitor"), "/api/monitor must be rewritten")
-  for (const r of rewrites) {
+  for (const r of rewrites.filter(r => r.source.startsWith("/api/"))) {
     assert.match(r.destination, /^\/api\/[a-z-]+\?view=[a-z-]+$/,
       `${r.source} must point at a view= on a real function`)
   }
@@ -44,7 +44,8 @@ test("a rewritten path is answered by the function it points at", () => {
   // A rewrite that names a view the function does not handle deploys cleanly
   // and 404s at runtime, which is the failure this catches.
   const source = fs.readFileSync(path.join(ROOT, "api", "gemini-events.js"), "utf8")
-  for (const { destination } of vercelConfig().rewrites || []) {
+  for (const { source: from, destination } of vercelConfig().rewrites || []) {
+    if (!from.startsWith("/api/")) continue
     const view = destination.split("view=")[1]
     assert.match(source, new RegExp(`query\\.view === "${view}"`),
       `api/gemini-events.js must handle view=${view}`)
@@ -61,4 +62,13 @@ test("the local server answers both spellings of a folded route", () => {
   assert.match(server, /q\.view === "match"/)
   assert.match(server, /q\.view === "discover"/)
   assert.match(server, /q\.view === "monitor"/)
+})
+
+test("Kyle is published at its own clean route", () => {
+  // Kyle is not in the public nav; support agents reach it by direct link.
+  const rewrites = vercelConfig().rewrites || []
+  assert.ok(rewrites.some(r => r.source === "/kyle" && r.destination === "/kyle.html"),
+    "/kyle must be rewritten to kyle.html")
+  const server = fs.readFileSync(path.join(ROOT, "server.js"), "utf8")
+  assert.match(server, /"\/kyle": "\/kyle\.html"/)
 })

@@ -140,68 +140,21 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* A dashboard is the one page that earns the full viewport: the contracts
-       table has eight columns and the matrix has seven. The 800px reading
-       measure the narrow pages use would put both in a permanent scroller. */
-    .app { max-width: 1600px; margin: 0 auto; }
-
-    /* ── Header ── */
-    .app-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 28px;
-      position: relative;
-    }
-
-    .logo-link {
+    /* ── Page bar ── page title on the left, this page's own status and refresh
+       on the right. These used to sit in the global header, where they
+       overlapped the nav. */
+    .page-bar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: inherit;
-      flex-shrink: 0;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      margin-bottom: 20px;
     }
+    .page-title { font-size: var(--fs-xl); font-weight: 600; color: var(--text-bright); letter-spacing: -0.4px; }
+    .page-bar-tools { display: flex; align-items: center; gap: 12px; }
 
-    .app-logo { width: 40px; height: 40px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
-    .app-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-
-    .app-title { font-size: 20px; font-weight: 600; color: var(--text-bright); letter-spacing: -0.4px; }
-    .app-subtitle { font-size: 12px; color: var(--muted); letter-spacing: 0.2px; margin-top: 2px; }
-
-    /* ── Tab nav ── */
-    .tab-nav {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      background: var(--bar-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 3px;
-    }
-
-    .tab-nav a {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--muted);
-      text-decoration: none;
-      padding: 5px 11px;
-      border-radius: 5px;
-      transition: background 0.15s, color 0.15s;
-      white-space: nowrap;
-      min-height: 34px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .tab-nav a:hover { color: var(--text-bright); background: rgba(128,128,128,0.12); }
-    .tab-nav a.active { background: var(--accent-fill); color: #fff; }
-
-    .page-tools { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-
-    .theme-toggle, .btn-refresh {
+    .btn-refresh {
       background: var(--bar-bg);
       border: 1px solid var(--border);
       border-radius: 7px;
@@ -213,8 +166,7 @@
       padding: 0 10px;
       transition: color 0.15s, border-color 0.15s;
     }
-    .theme-toggle { min-width: 34px; padding: 0; }
-    .theme-toggle:hover, .btn-refresh:hover { color: var(--text-bright); border-color: var(--border-hi); }
+    .btn-refresh:hover { color: var(--text-bright); border-color: var(--border-hi); }
     .btn-refresh[disabled] { opacity: 0.5; cursor: default; }
 
     .live-pill {
@@ -235,9 +187,6 @@
     .live-pill.stale .live-dot { background: var(--amber); box-shadow: 0 0 0 3px rgba(212,144,16,0.18); }
     .live-pill.failed .live-dot { background: var(--red); box-shadow: 0 0 0 3px rgba(232,64,64,0.18); }
 
-    .logo-link:focus-visible,
-    .tab-nav a:focus-visible,
-    .theme-toggle:focus-visible,
     .btn-refresh:focus-visible,
     .mon-filters select:focus-visible,
     .mon-filters input:focus-visible,
@@ -556,19 +505,6 @@
        no layout jump while a refresh is in flight. */
     .refreshing { opacity: 0.72; transition: opacity 0.15s; }
 
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      margin-top: 26px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-    }
-    .footer a { color: var(--accent-ink); }
-
     .sr-only {
       position: absolute; width: 1px; height: 1px;
       padding: 0; margin: -1px; overflow: hidden;
@@ -579,24 +515,7 @@
       .treemap { height: 340px; }
     }
 
-    @media (max-width: 760px) {
-      .app-header {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 10px;
-      }
-      .tab-nav {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        width: 100%;
-      }
-      .tab-nav a { flex: 1; text-align: center; padding: 5px 6px; }
-      .page-tools { grid-column: 2; grid-row: 1; width: auto; margin-left: auto; }
-    }
-
     @media (max-width: 640px) {
-      body { padding: 20px 14px 64px; }
-      .app-header { margin-bottom: 24px; }
-      .app-title { font-size: 18px; }
       .panel { padding: 15px 14px 16px; }
       .treemap { height: 300px; }
       .table-scroll { max-height: 420px; }
@@ -604,9 +523,6 @@
       .mon-filters input { flex-basis: 100%; }
     }
 
-    @media (max-width: 380px) {
-      .app-subtitle { display: none; }
-    }
 
     @media (prefers-reduced-motion: reduce) {
       ::view-transition-old(root),
@@ -614,34 +530,34 @@
       .refreshing, .tip { transition: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body class="light">
 
-<div class="app">
+<div class="app app--wide">
 
-  <div class="app-header">
-    <a class="logo-link" href="/" title="Back to Analyze">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
     </a>
-    <nav class="tab-nav" aria-label="App sections">
+    <nav class="primary-nav" aria-label="Primary">
       <a href="/">Analyze</a>
       <a href="/monitor.html" class="active" aria-current="page">Monitor</a>
       <a href="/settlement.html">Settlement Desk</a>
-      <a href="/kyle.html">Kyle</a>
     </nav>
-    <div class="page-tools">
-      <span class="live-pill" id="livePill"><span class="live-dot"></span><span id="liveText">Loading</span></span>
-      <button class="btn-refresh" id="btnRefresh" onclick="monRefresh()" title="Fetch a fresh sweep">↻ Refresh</button>
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="header-utils">
+      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Light / dark theme">☀</button>
+    </div>
+  </header>
+
+  <div class="page-bar">
+    <h1 class="page-title">Gemini market monitor</h1>
+    <div class="page-bar-tools">
+      <span class="live-pill" id="livePill" role="status"><span class="live-dot"></span><span id="liveText">Loading</span></span>
+      <button class="btn-refresh" id="btnRefresh" onclick="monRefresh()" title="Fetch a fresh sweep">Refresh</button>
     </div>
   </div>
-
-  <h1 class="sr-only">Gemini Prediction Markets Monitor</h1>
 
   <div class="mon-source">
     <strong>Gemini prediction markets · book quality.</strong>
@@ -744,15 +660,15 @@
     <div class="table-scroll"><table id="contractsTable"></table></div>
   </section>
 
-  <div class="footer">
-    <div>Predara · book quality from the public Gemini feed</div>
-    <div><a href="/">Analyze a market →</a></div>
-  </div>
+  <footer class="footer">
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
+    <span class="footer-note">Figures computed from Gemini’s public Prediction Markets API only.</span>
+  </footer>
 
 </div>
 
-<script src="utils.js?v=39"></script>
-<script src="monitor.js?v=39"></script>
+<script src="utils.js?v=40"></script>
+<script src="monitor.js?v=40"></script>
 <script>
   /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {

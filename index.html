@@ -150,7 +150,6 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .app { max-width: 1200px; margin: 0 auto; }
 
     @media (prefers-reduced-motion: reduce) {
       ::view-transition-old(root),
@@ -820,23 +819,9 @@
     .val-red   { color: var(--red-ink); }
     .val-muted { color: var(--muted); }
 
-    /* ── Odds format toggle ── */
-    .odds-toggle {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1;
-      padding: 7px 11px;
-      transition: border-color 0.18s, color 0.18s;
-      flex-shrink: 0;
-    }
-    .odds-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
-    body.odds-ml .odds-toggle { border-color: var(--orange); color: var(--accent-ink); }
+    /* ── Odds format toggle ── the button itself is the shared .icon-btn; this
+       only marks the moneyline state as on, in neutral. */
+    body.odds-ml .odds-toggle { color: var(--text-bright); background: var(--tag-bg); }
 
     /* odds-display: pct stacked above ml, right-aligned */
     .odds-display { display: flex; flex-direction: column; align-items: flex-end; }
@@ -1036,11 +1021,6 @@
       text-transform: uppercase;
     }
 
-    .mode-tab.active { background: var(--accent-fill); color: #fff; }
-    .odds-toggle { min-height: 34px; }
-    .theme-toggle { background: var(--card); }
-    .theme-toggle:hover { border-color: var(--orange); color: var(--accent-ink); }
-    .odds-toggle:focus-visible,
     .search-row button:focus-visible,
     .tab-btn:focus-visible,
     .panel-btn:focus-visible,
@@ -1048,42 +1028,6 @@
       outline: 2px solid var(--orange);
       outline-offset: 2px;
     }
-    /* ── Footer ── */
-    /* One footer for Analyze, Settlement Desk and Kyle. It used to be a single
-       brand line here and a two-column disclaimer on the other two pages, at
-       three different sizes and top margins; now all three carry the same rule,
-       the same brand line and the page's own disclaimer on the right.
-
-       The separators are elements rather than "·" typed between text nodes. As
-       text they sat inside a flex container, where each run became an anonymous
-       flex item and the 8px gap stacked on top of the literal spaces — so the
-       gaps around the middle dots were visibly wider on one side than the
-       other. Real items get exactly one gap each. */
-    .footer {
-      margin-top: 56px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      font-weight: 400;
-    }
-    .footer-brand {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      flex-wrap: wrap;
-    }
-    .footer-sep { color: var(--muted); opacity: 0.55; }
-    .footer-note { color: var(--muted); }
-    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
-    .footer a:hover { color: var(--accent-ink); }
-    .footer .dot-sm { font-size: 6px; color: var(--accent-ink); line-height: 1; }
-
     /* An accent-coloured link inside body copy. Ten of these were written as
        inline style="color:var(--orange)", which is the brand accent rather than
        the accent-as-text token — so they stayed at 4.29:1 on a dark card after
@@ -1984,7 +1928,6 @@
       .xmatch-actions { gap: 10px; }
       .xmatch-add-btn { flex: 1; min-width: 140px; }
 
-      .footer { align-items: flex-start; flex-direction: column; gap: 10px; }
     }
 
     /* ── Small phones (< 400px) ── */
@@ -1998,21 +1941,18 @@
     /* NEW FEATURES CSS                                                  */
     /* ═══════════════════════════════════════════════════════════════════ */
 
-    /* Tab navigation */
-    /* The row scrolls when it does not fit — at 390px "Rewards" sits past the
-       right edge — but the scrollbar is hidden, so there was nothing to say more
-       tabs existed: the last one just stopped at the screen edge.
+    /* Analyze sub-tabs: Discover · Watchlist · Calendar · Tools. Quieter than
+       the primary nav — the active view is marked in neutral, so the accent
+       stays on the primary nav and the primary action.
 
-       The four backgrounds are the CSS-only scroll-shadow pair. The two `local`
-       layers are painted in the page colour and scroll with the content; the two
-       `scroll` layers are the shadows and stay pinned to the box. At each end the
-       cover sits over the shadow and hides it, so a hint appears on whichever
-       side has more to reveal and on neither side when it all fits — no
-       scroll listener, and nothing to keep in sync. */
+       The row scrolls when it does not fit, with a CSS-only scroll shadow: the
+       two `local` layers are painted in the page colour and scroll with the
+       content, the two `scroll` layers are the shadows pinned to the box, so a
+       hint shows on whichever side has more to reveal. */
     .tab-bar {
       display: flex;
-      gap: 2px;
-      margin-bottom: 18px;
+      gap: 4px;
+      margin-bottom: 24px;
       border-bottom: 1px solid var(--border);
       overflow-x: auto;
       overscroll-behavior-x: contain;
@@ -2031,20 +1971,21 @@
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
       color: var(--muted);
       cursor: pointer;
       font-family: inherit;
       font-size: 13px;
-      font-weight: 500;
-      letter-spacing: 0.3px;
-      padding: 10px 16px;
+      font-weight: 400;
+      padding: 10px 12px;
       transition: color 0.15s, border-color 0.15s;
       white-space: nowrap;
     }
     .tab-btn:hover { color: var(--text-bright); }
     .tab-btn.active {
-      color: var(--accent-ink);
-      border-bottom-color: var(--orange);
+      color: var(--text-bright);
+      font-weight: 600;
+      border-bottom-color: var(--text-bright);
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -3004,7 +2945,6 @@
     .gem-vol-chart { width: 100%; margin-top: 14px; display: block; }
 
     @media (max-width: 640px) {
-      .tab-btn { font-size: 11px; padding: 8px 12px; }
       .watchlist-grid { grid-template-columns: 1fr; }
       .calendar-grid { grid-template-columns: 1fr 1fr; }
       .pnl-input-grid { grid-template-columns: 1fr; }
@@ -3014,44 +2954,36 @@
       .embed-code-wrap { flex-direction: column; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body class="light">
 
 <div class="app">
 
-  <div class="app-header">
-    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="resetToHome()" title="Back to home">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home" onclick="return navToAnalyze(event, true)">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary">
+      <a href="/" class="active" aria-current="page" onclick="return navToAnalyze(event)">Analyze</a>
+      <a href="/monitor.html">Monitor</a>
+      <a href="/settlement.html">Settlement Desk</a>
+    </nav>
+    <div class="header-utils">
+      <button class="icon-btn odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
+      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Light / dark theme">☀</button>
     </div>
-    <div class="header-controls">
-      <nav class="mode-tabs" aria-label="App mode">
-        <a class="mode-tab active" href="/" aria-current="page">Analyze</a>
-        <a class="mode-tab" href="/monitor.html">Monitor</a>
-        <a class="mode-tab" href="/settlement.html">Settlement Desk</a>
-        <a class="mode-tab" href="/kyle.html">Kyle</a>
-      </nav>
-      <div class="page-tools">
-        <button class="odds-toggle" id="oddsToggle" aria-label="Switch odds format" onclick="toggleOdds()" title="Switch between % probability and moneyline odds">%</button>
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
-      </div>
-    </div>
-  </div>
+  </header>
 
-  <div class="tab-bar" role="tablist" aria-label="Product tools">
-    <button class="tab-btn active" id="tabBtn-analyze" role="tab" aria-selected="true" aria-controls="tab-analyze" onclick="switchTab('analyze')">Analyze</button>
+  <div class="tab-bar" role="tablist" aria-label="Analyze views">
     <button class="tab-btn" id="tabBtn-discover" role="tab" aria-selected="false" aria-controls="tab-discover" onclick="switchTab('discover')">Discover</button>
     <button class="tab-btn" id="tabBtn-watchlist" role="tab" aria-selected="false" aria-controls="tab-watchlist" onclick="switchTab('watchlist')">Watchlist</button>
     <button class="tab-btn" id="tabBtn-calendar" role="tab" aria-selected="false" aria-controls="tab-calendar" onclick="switchTab('calendar')">Calendar</button>
     <button class="tab-btn" id="tabBtn-tools" role="tab" aria-selected="false" aria-controls="tab-tools" onclick="switchTab('tools')">Tools</button>
-    <button class="tab-btn" id="tabBtn-rewards" role="tab" aria-selected="false" aria-controls="tab-rewards" onclick="switchTab('rewards')">Rewards</button>
   </div>
 
-  <div id="tab-analyze" role="tabpanel" aria-labelledby="tabBtn-analyze" style="display:block">
+  <div id="tab-analyze" role="tabpanel" aria-label="Analyze" style="display:block">
 
   <div class="search-row">
     <input id="urlInput" aria-label="Prediction market URL — Kalshi, Polymarket, Gemini or Coinbase" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." data-placeholder-short="Paste a market URL…" onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
@@ -3164,26 +3096,26 @@
     <div id="toolsContent"><div class="empty-state">Loading tools...</div></div>
   </div>
 
-  <div id="tab-rewards" role="tabpanel" aria-labelledby="tabBtn-rewards" style="display:none">
+  <div id="tab-rewards" role="tabpanel" aria-label="Rewards programs" style="display:none">
     <div id="rewardsContent"><div class="empty-state">Loading reward programs...</div></div>
   </div>
 
   <footer class="footer">
-    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
     <span class="footer-note">Independent analysis software. Not financial advice or a trading venue.</span>
   </footer>
 
 </div>
 
-<script src="utils.js?v=39"></script>
-<script src="components.js?v=39"></script>
-<script src="adapters.js?v=39"></script>
-<script src="renderers.js?v=39"></script>
-<script src="compare.js?v=39"></script>
-<script src="crossmatch.js?v=39"></script>
-<script src="gemini-live.js?v=39"></script>
-<script src="app.js?v=39"></script>
-<script src="features.js?v=39"></script>
+<script src="utils.js?v=40"></script>
+<script src="components.js?v=40"></script>
+<script src="adapters.js?v=40"></script>
+<script src="renderers.js?v=40"></script>
+<script src="compare.js?v=40"></script>
+<script src="crossmatch.js?v=40"></script>
+<script src="gemini-live.js?v=40"></script>
+<script src="app.js?v=40"></script>
+<script src="features.js?v=40"></script>
 <script>
   (function () {
     // Theme
@@ -3210,6 +3142,16 @@
     const isLight = document.body.classList.toggle('light')
     localStorage.setItem('predara-theme', isLight ? 'light' : 'dark')
     document.getElementById('themeToggle').textContent = isLight ? '☀' : '☾'
+  }
+
+  // The logo and the "Analyze" nav item stay on this page rather than
+  // reloading it: the nav item returns to the Analyze view, the logo also
+  // clears the current brief. Modified clicks still open a new tab.
+  function navToAnalyze(e, reset) {
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1)) return true
+    if (reset && typeof resetToHome === 'function') resetToHome()
+    else if (typeof switchTab === 'function') switchTab('analyze')
+    return false
   }
 
   function toggleOdds() {

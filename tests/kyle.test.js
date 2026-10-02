@@ -115,11 +115,13 @@ test("event titles from the API are escaped before they reach the page", () => {
   assert.match(html, /&lt;img src=x/)
 })
 
-test("Kyle is reachable from every page's nav", () => {
+test("Kyle is reachable by direct link only, not from the public nav", () => {
   const root = path.join(__dirname, "..")
-  for (const page of ["index.html", "settlement.html", "kyle.html"]) {
+  for (const page of ["index.html", "settlement.html", "monitor.html", "kyle.html"]) {
     const html = fs.readFileSync(path.join(root, page), "utf8")
-    assert.ok(html.includes('href="/kyle.html"'), `${page} is missing the Kyle tab`)
+    const nav = html.slice(html.indexOf('<nav class="primary-nav"'), html.indexOf("</nav>"))
+    assert.ok(nav.length > 0, `${page} has no primary nav`)
+    assert.ok(!/kyle/i.test(nav), `${page} shows Kyle in the public nav`)
   }
 })
 

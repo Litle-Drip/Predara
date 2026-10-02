@@ -8,59 +8,104 @@ const PAGES = ["index.html", "settlement.html", "kyle.html", "monitor.html"]
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8")
 const sharedShell = read("shared-shell.css")
 
-// Every page must reach every other page. The Kyle tab was missing from the
-// Settlement Desk header for returning users, so this is checked rather than
-// assumed — in the markup here, and in the caching rule that decides whether a
-// user is actually served this markup (below).
-test("every page links to every other page", () => {
-  const targets = {
-    "index.html": 'href="/"',
-    "settlement.html": 'href="/settlement.html"',
-    "kyle.html": 'href="/kyle.html"',
-    "monitor.html": 'href="/monitor.html"',
-  }
+// One primary nav — Analyze · Monitor · Settlement Desk — identical on every
+// page. Kyle is deliberately absent: it is a support tool reached by direct
+// link (/kyle), checked in kyle.test.js.
+const PRIMARY = [
+  ["/", "Analyze"],
+  ["/monitor.html", "Monitor"],
+  ["/settlement.html", "Settlement Desk"],
+]
+
+function primaryNav(html) {
+  const start = html.indexOf('<nav class="primary-nav"')
+  assert.ok(start !== -1, "page has no primary nav")
+  return html.slice(start, html.indexOf("</nav>", start))
+}
+
+test("every page carries the same three-item primary nav", () => {
   for (const page of PAGES) {
-    const html = read(page)
-    for (const [target, href] of Object.entries(targets)) {
-      assert.ok(html.includes(href), `${page} has no link to ${target}`)
-    }
+    const nav = primaryNav(read(page))
+    const links = [...nav.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m => [m[1], m[2]])
+    assert.deepEqual(links, PRIMARY, `${page} nav differs from the shared nav`)
   }
 })
 
 test("the current page is the one marked active in its own nav", () => {
   const expected = {
-    "index.html": 'class="mode-tab active" href="/"',
-    "settlement.html": '<a href="/settlement.html" class="active"',
-    "kyle.html": '<a href="/kyle.html" class="active"',
-    "monitor.html": '<a href="/monitor.html" class="active"',
+    "index.html": '<a href="/" class="active" aria-current="page"',
+    "settlement.html": '<a href="/settlement.html" class="active" aria-current="page"',
+    "monitor.html": '<a href="/monitor.html" class="active" aria-current="page"',
   }
   for (const [page, marker] of Object.entries(expected)) {
-    assert.ok(read(page).includes(marker), `${page} does not mark itself as the active tab`)
+    assert.ok(primaryNav(read(page)).includes(marker), `${page} does not mark itself as the active tab`)
+  }
+  assert.ok(!primaryNav(read("kyle.html")).includes("active"), "Kyle is not a nav item, so nothing is active")
+})
+
+test("the tagline is gone from every header", () => {
+  for (const page of PAGES) {
+    const html = read(page)
+    assert.ok(!html.includes("app-subtitle"), `${page} still carries the header tagline`)
+    assert.ok(!html.includes("Independent prediction market intelligence</div>"), `${page} repeats the tagline`)
   }
 })
 
-test("the shared header stays anchored while narrow pages keep readable content", () => {
-  const analyze = read("index.html")
-  assert.ok(analyze.includes(".app { max-width: 1200px; margin: 0 auto; }"))
-
-  // monitor.html is deliberately not in this list: a nine-column matrix and an
-  // eight-column contracts table do not fit an 800px reading measure, so the
-  // dashboard runs wider. It still shares every header and breakpoint rule
-  // asserted by the tests that loop over PAGES.
-  assert.ok(read("monitor.html").includes(".app { max-width: 1600px; margin: 0 auto; }"))
-
-  for (const page of ["settlement.html", "kyle.html"]) {
+test("the header holds only logo, nav and utility buttons", () => {
+  for (const page of PAGES) {
     const html = read(page)
-    assert.match(html, /\.app\s*\{\s*max-width:\s*1200px/)
-    assert.ok(html.includes('class="app app--narrow"'))
-    assert.ok(html.includes("padding: 52px 32px 96px"))
-    assert.doesNotMatch(html, /\.app\s*>\s*:not\(\.app-header\)/,
-      `${page} must not override the shared centered column`)
+    const header = html.slice(html.indexOf('<header class="app-header">'), html.indexOf("</header>"))
+    assert.ok(header.length > 0, `${page} has no shared header`)
+    // Page-specific status and refresh controls overlapped the nav on Monitor.
+    assert.ok(!/livePill|btnRefresh|Updated/.test(header), `${page} puts page controls in the global header`)
+    for (const btn of header.matchAll(/<button class="([^"]+)"/g)) {
+      if (page === "kyle.html" && btn[1].includes("k-swatch")) continue
+      assert.ok(btn[1].split(" ").includes("icon-btn"), `${page} header button "${btn[1]}" is not the shared icon button`)
+    }
   }
-  assert.match(sharedShell, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)/)
-  assert.match(sharedShell, /width:\s*min\(800px,\s*100%\)/)
-  assert.match(sharedShell, /margin-right:\s*auto/)
-  assert.match(sharedShell, /margin-left:\s*auto/)
+  assert.ok(read("monitor.html").includes('<div class="page-bar">'), "Monitor's status and refresh live in its page bar")
+})
+
+test("one content width for standard pages, a wide one only for Monitor", () => {
+  assert.match(sharedShell, /--shell-width:\s*1200px/)
+  assert.match(sharedShell, /--shell-width-wide:\s*1440px/)
+  assert.match(sharedShell, /\.app\s*\{\s*max-width:\s*var\(--shell-width\)/)
+  assert.ok(read("monitor.html").includes('class="app app--wide"'))
+  for (const page of ["index.html", "settlement.html", "kyle.html"]) {
+    const html = read(page)
+    assert.ok(!html.includes("app--wide"), `${page} must use the standard width`)
+    const inline = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] || ""
+    assert.doesNotMatch(inline, /(^|\n)\s*\.app\s*\{/, `${page} redefines the shell width`)
+  }
+  for (const page of ["settlement.html", "kyle.html"]) {
+    assert.ok(read(page).includes('class="app app--narrow"'))
+  }
+  assert.match(sharedShell, /\.app\.app--narrow\s*>\s*:not\(\.app-header\):not\(\.footer\)/)
+  assert.match(sharedShell, /width:\s*min\(var\(--reading-width\),\s*100%\)/)
+})
+
+test("every page ends with the same footer", () => {
+  for (const page of PAGES) {
+    const html = read(page)
+    const footer = html.slice(html.indexOf('<footer class="footer">'), html.indexOf("</footer>"))
+    assert.ok(footer.includes('<span class="footer-brand"><span>Predara</span>'), `${page} footer brand line differs`)
+    assert.ok(footer.includes('href="/#rewards"'), `${page} footer has no Rewards link`)
+    assert.equal((footer.match(/class="footer-note"/g) || []).length, 1, `${page} needs exactly one disclaimer line`)
+    const inline = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] || ""
+    assert.doesNotMatch(inline, /(^|\n)\s*\.footer\s*\{/, `${page} restyles the shared footer`)
+  }
+})
+
+test("Rewards is out of the sub-tab row and reachable by hash", () => {
+  const html = read("index.html")
+  const row = html.slice(html.indexOf('<div class="tab-bar"'), html.indexOf('<div id="tab-analyze"'))
+  assert.ok(!/Rewards/.test(row), "Rewards should not be a sub-tab")
+  assert.ok(!/tabBtn-analyze/.test(row), "Analyze is the primary nav item, not a sub-tab")
+  for (const t of ["discover", "watchlist", "calendar", "tools"]) assert.ok(row.includes(`tabBtn-${t}`))
+  assert.ok(html.includes('id="tab-rewards"'), "the Rewards view itself is kept")
+  const features = read("features.js")
+  assert.match(features, /switchTab\(_tabFromHash\(\)\)/)
+  assert.match(features, /"hashchange"/)
 })
 
 test("page switching is softened and respects reduced-motion preferences", () => {
@@ -71,48 +116,36 @@ test("page switching is softened and respects reduced-motion preferences", () =>
   }
 })
 
-test("all page headers switch to the same non-overlapping two-row layout", () => {
+test("all page headers wrap to the same non-overlapping two-row layout on phones", () => {
   for (const page of PAGES) {
-    const html = read(page)
-    assert.ok(html.includes('/shared-shell.css?v=41'), `${page} does not load the shared shell`)
-  }
-  const responsiveHeader = sharedShell.slice(sharedShell.indexOf("@media (max-width: 760px)"))
-  assert.ok(responsiveHeader.includes("grid-template-columns: minmax(0, 1fr) auto"))
-  assert.match(responsiveHeader, /grid-column:\s*1\s*\/\s*-1/)
-  assert.match(responsiveHeader, /white-space:\s*normal/)
-})
-
-test("all page shells keep identical geometry through the phone breakpoint", () => {
-  for (const page of PAGES) {
-    const html = read(page)
-    assert.ok(html.includes('/shared-shell.css?v=41'), `${page} does not share phone shell geometry`)
+    assert.ok(read(page).includes('/shared-shell.css?v=42'), `${page} does not load the shared shell`)
   }
   const phone = sharedShell.slice(sharedShell.indexOf("@media (max-width: 640px)"))
+  assert.match(phone, /\.app-header\s*\{[^}]*flex-wrap:\s*wrap/)
+  assert.match(phone, /\.primary-nav\s*\{[^}]*flex:\s*1 1 100%/)
   assert.match(phone, /body\s*\{\s*padding:\s*20px 14px 64px/)
-  assert.match(phone, /\.app-header\s*\{\s*margin-bottom:\s*24px/)
-  assert.match(phone, /\.app-title\s*\{\s*font-size:\s*18px/)
-  assert.match(phone, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)\s*\{[^}]*width:\s*100%/)
-  assert.match(phone, /\.app\.app--narrow\s*>\s*:not\(\.app-header\)\s*\{[^}]*min-width:\s*0/)
+  assert.match(phone, /\.app\.app--narrow\s*>\s*:not\(\.app-header\):not\(\.footer\)\s*\{[^}]*width:\s*100%/)
 })
 
 test("shared shell is available offline and from the public server", () => {
   const sw = read("sw.js")
   const server = read("server.js")
-  assert.ok(sw.includes('"/shared-shell.css?v=41"'))
+  assert.ok(sw.includes('"/shared-shell.css?v=42"'))
   assert.ok(server.includes('"shared-shell.css"'))
 })
 
-test("Analyze, Settlement Desk, and Kyle do not redefine shared header geometry", () => {
+test("no page redefines shared header geometry", () => {
   const sharedSelectors = [
     ".app-header",
     ".logo-link",
     ".app-logo",
     ".app-title",
-    ".app-subtitle",
-    ".page-tools",
+    ".primary-nav",
+    ".header-utils",
+    ".icon-btn",
   ]
 
-  for (const page of ["index.html", "settlement.html", "kyle.html"]) {
+  for (const page of PAGES) {
     const inlineStyles = read(page).match(/<style>([\s\S]*?)<\/style>/)?.[1] || ""
     for (const selector of sharedSelectors) {
       const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")

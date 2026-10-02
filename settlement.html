@@ -89,14 +89,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* The shared shell centers this page's readable column independently of the
-       1200px header grid, so the body is balanced without moving the navigation. */
-    .app {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
 
-    .tab-nav a.active { background: var(--accent-fill); color: #fff; }
 
     .btn-review:focus-visible,
     .key-toggle:focus-visible,
@@ -491,24 +484,6 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-top: 56px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-    }
-    .footer-brand { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .footer-sep { color: var(--muted); opacity: 0.55; }
-    .footer-note { color: var(--muted); }
-    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
-    .footer a:hover { color: var(--accent-ink); }
-    .footer .dot-sm { font-size: 6px; color: var(--accent-ink); line-height: 1; }
 
     @media (max-width: 560px) {
       .intake-row { flex-direction: column; }
@@ -517,7 +492,6 @@
       .shortcut-hint { display: none; }
       .case-title { font-size: 13px; }
       .intake { padding: 22px 18px; }
-      .footer { align-items: flex-start; flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -526,30 +500,26 @@
       .pill-pending { animation: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body class="light">
 
 <div class="app app--narrow">
 
-  <div class="app-header">
-    <a class="logo-link" href="/" title="Back to Analyze">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
     </a>
-    <nav class="tab-nav" aria-label="App sections">
+    <nav class="primary-nav" aria-label="Primary">
       <a href="/">Analyze</a>
       <a href="/monitor.html">Monitor</a>
       <a href="/settlement.html" class="active" aria-current="page">Settlement Desk</a>
-      <a href="/kyle.html">Kyle</a>
     </nav>
-    <div class="page-tools">
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+    <div class="header-utils">
+      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light or dark theme" onclick="toggleTheme()" title="Light / dark theme">☀</button>
     </div>
-  </div>
+  </header>
 
   <div class="intake">
     <div class="intake-label">Audit a market settlement</div>
@@ -610,13 +580,13 @@
   <div id="caseList" class="case-list"></div>
 
   <footer class="footer">
-    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
     <span class="footer-note">Independent, read-only settlement analysis. Confirm final outcomes with the venue.</span>
   </footer>
 
 </div>
 
-<script src="gemini-live.js?v=39"></script>
+<script src="gemini-live.js?v=40"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')

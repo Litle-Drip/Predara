@@ -33,14 +33,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* The shared shell centers this page's readable column independently of the
-       1200px header grid, so the body is balanced without moving the navigation. */
-    .app {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
 
-    .tab-nav a.active { background: var(--k-fill); color: var(--k-on-fill); }
 
     .btn-review:focus-visible,
     .k-swatch:focus-visible,
@@ -120,24 +113,6 @@
 
     .shortcut-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
 
-    .footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-top: 56px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
-      color: var(--muted);
-    }
-    .footer-brand { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .footer-sep { color: var(--muted); opacity: 0.55; }
-    .footer-note { color: var(--muted); }
-    .footer a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
-    .footer a:hover { color: var(--k-ink); }
-    .footer .dot-sm { font-size: 6px; color: var(--k-ink); line-height: 1; }
 
 
     .sr-only {
@@ -547,7 +522,6 @@
       .btn-review { width: 100%; min-height: 44px; }
       .k-answer, .k-card { padding: 16px; }
       .k-facts { grid-template-columns: 1fr; }
-      .footer { align-items: flex-start; flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -556,7 +530,7 @@
       .k-swatch { transition: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=41" rel="stylesheet">
+  <link href="/shared-shell.css?v=42" rel="stylesheet">
 </head>
 <body data-theme="gemini">
 <script>
@@ -572,27 +546,25 @@
 
 <div class="app app--narrow">
 
-  <div class="app-header">
-    <a class="logo-link" href="/" title="Back to Analyze">
-      <div class="app-logo"><img src="/og-image.png" alt="Predara logo"></div>
-      <div>
-        <div class="app-title">Predara</div>
-        <div class="app-subtitle">Independent prediction market intelligence</div>
-      </div>
+  <header class="app-header">
+    <a class="logo-link" href="/" title="Predara home">
+      <span class="app-logo"><img src="/og-image.png" alt=""></span>
+      <span class="app-title">Predara</span>
     </a>
-    <nav class="tab-nav" aria-label="App sections">
+    <!-- Kyle is a support tool reached by direct link (/kyle), so it is not an
+         item in the public nav; the nav still takes an agent anywhere else. -->
+    <nav class="primary-nav" aria-label="Primary">
       <a href="/">Analyze</a>
       <a href="/monitor.html">Monitor</a>
       <a href="/settlement.html">Settlement Desk</a>
-      <a href="/kyle.html" class="active" aria-current="page">Kyle</a>
     </nav>
-    <div class="k-themes" role="group" aria-label="Kyle theme">
+    <div class="header-utils k-themes" role="group" aria-label="Kyle theme">
       <button class="k-swatch k-swatch-gemini" data-k-theme="gemini" onclick="kyleSetTheme('gemini')" aria-pressed="true"  title="Gemini — blue and white"><span class="sr-only">Gemini</span></button>
       <button class="k-swatch k-swatch-mars"   data-k-theme="mars"   onclick="kyleSetTheme('mars')"   aria-pressed="false" title="Mars Safaris"><span class="sr-only">Mars Safaris</span></button>
       <button class="k-swatch k-swatch-seas"   data-k-theme="seas"   onclick="kyleSetTheme('seas')"   aria-pressed="false" title="Other Seas, Other Suns"><span class="sr-only">Other Seas, Other Suns</span></button>
       <button class="k-swatch k-swatch-astro"  data-k-theme="astro"  onclick="kyleSetTheme('astro')"  aria-pressed="false" title="Astro Mountain"><span class="sr-only">Astro Mountain</span></button>
     </div>
-  </div>
+  </header>
 
   <div class="intake">
     <div class="intake-label">Kyle</div>
@@ -637,13 +609,13 @@
   </div>
 
   <footer class="footer">
-    <span class="footer-brand"><span class="dot-sm">●</span><span>PREDARA</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">EDISON LABS LLC</a><span class="footer-sep">·</span><span>2026</span></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
     <span class="footer-note">Read-only event information for support use. Confirm results and payouts with the settlement team.</span>
   </footer>
 
 </div>
 
-<script src="kyle.js?v=39"></script>
+<script src="kyle.js?v=40"></script>
 <script>
   /* ── Kyle themes ──
      Kyle keeps its own theme, separate from the shared light/dark setting the
