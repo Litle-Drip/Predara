@@ -1015,3 +1015,14 @@ test("the contracts table pages 50 rows at a time and export still takes every r
   assert.ok(!/MON_PAGE_SIZE|_monPage/.test(exp), "export is not limited to the page on screen")
   assert.ok(monitorHtml.includes('id="contractsPager"'))
 })
+
+test("(i) explanations open by tap and keyboard, not only by desktop hover", () => {
+  assert.match(monitorJs, /<button type="button" class="info" data-info=/)
+  assert.ok(!/class="info" title=/.test(monitorJs), "a title-only (i) is unreachable on a phone")
+  assert.ok(!/\.title = /.test(monitorJs), "detail is not hidden in a title attribute")
+  assert.match(monitorJs, /monWireInfo\(\)/)
+})
+
+test("the matrix totals row lines up with its columns", () => {
+  assert.match(monitorHtml, /tfoot td \{[^}]*text-align: right;[^}]*\}/)
+})

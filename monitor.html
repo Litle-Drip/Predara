@@ -303,17 +303,45 @@
     .pager button[disabled] { opacity: 0.45; cursor: default; }
     .pager button:focus-visible { outline: 2px solid var(--text-bright); outline-offset: 2px; }
 
+    /* (i): a real button, so it works by tap and keyboard, with a 28px hit
+       area around the 15px mark. The text shows in #monInfoPop. */
     .info {
+      position: relative;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 13px; height: 13px;
+      width: 15px; height: 15px;
+      padding: 0;
+      margin: 0 2px;
+      background: none;
       border: 1px solid var(--border-hi);
       border-radius: 50%;
+      font: inherit;
       font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: 0;
       color: var(--muted);
-      cursor: help;
+      cursor: pointer;
       flex-shrink: 0;
+      vertical-align: middle;
+    }
+    .info::before { content: ""; position: absolute; inset: -7px; }
+    .info:hover, .info[aria-expanded="true"] { color: var(--text-bright); border-color: var(--text-mid); }
+    .info:focus-visible { outline: 2px solid var(--text-bright); outline-offset: 2px; }
+    .info-pop {
+      position: fixed;
+      z-index: 50;
+      max-width: min(300px, calc(100vw - 16px));
+      padding: 8px 10px;
+      background: var(--card);
+      border: 1px solid var(--border-hi);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-mid);
     }
 
     /* ── Panels ── */
@@ -406,6 +434,16 @@
       color: var(--text-mid);
     }
     tbody tr:hover td { background: var(--rec-bg); }
+    /* Totals row: same alignment and padding as the body, set apart by a rule. */
+    tfoot td {
+      padding: 9px 10px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      color: var(--text-bright);
+      font-weight: 600;
+      border-top: 1px solid var(--border-hi);
+    }
     td.name { max-width: 320px; overflow: hidden; text-overflow: ellipsis; color: var(--text-bright); font-variant-numeric: normal; }
     td.sym { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
     td.na, .na-cell { color: var(--muted); }
@@ -568,7 +606,7 @@
       .refreshing, .tip { transition: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=42" rel="stylesheet">
+  <link href="/shared-shell.css?v=43" rel="stylesheet">
 </head>
 <body class="light">
 
@@ -702,14 +740,15 @@
   </section>
 
   <footer class="footer">
-    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span></span>
+    <a class="footer-link" href="/#rewards">Rewards programs</a>
     <span class="footer-note">Figures computed from Gemini’s public Prediction Markets API only.</span>
   </footer>
 
 </div>
 
-<script src="utils.js?v=43"></script>
-<script src="monitor.js?v=43"></script>
+<script src="utils.js?v=44"></script>
+<script src="monitor.js?v=44"></script>
 <script>
   /* ── Theme ── (light by default, matching the Analyze page) */
   ;(function() {

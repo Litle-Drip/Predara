@@ -858,8 +858,8 @@ async function renderGeminiRecentlySettled(containerId = "gemSettledSlot", onPic
         <h2 class="gem-feed-title" id="gemFeedTitle">Recent Gemini markets</h2>
         <button type="button" class="btn-quiet gem-feed-toggle" aria-pressed="false" onclick="gemFeedToggleAwaiting(this)">Show awaiting result</button>
       </div>
-      <p class="gem-feed-note">${onPick ? "Select a market to review its settlement." : "Recently closed markets on Gemini."}
-        <details class="gem-feed-about"><summary>About this feed</summary>Gemini's recently closed-market feed. A row says "Result" only when Gemini publishes a winning side; otherwise it is awaiting result data.${onPick ? " Selecting a row starts a review — it does not mean Predara has verified the result." : ""}</details></p>
+      <div class="gem-feed-note">${onPick ? "Select a market to review its settlement." : "Recently closed markets on Gemini."}
+        <details class="gem-feed-about"><summary>About this feed</summary><span class="gem-feed-about-body">Gemini's recently closed-market feed. A row says "Result" only when Gemini publishes a winning side; otherwise it is awaiting result data.${onPick ? " Selecting a row starts a review — it does not mean Predara has verified the result." : ""}</span></details></div>
       <ul class="gem-feed-list">${items}</ul>
       <div class="gem-feed-empty"${eligible ? " hidden" : ""}>No published results in the latest markets yet.</div>
       <button type="button" class="btn-quiet gem-feed-more" onclick="gemFeedShowMore(this)"${eligible > GEM_FEED_PAGE ? "" : " hidden"}>Show more</button>

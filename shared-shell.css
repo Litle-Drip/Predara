@@ -223,6 +223,16 @@ b, strong, h1, h2, h3, h4, h5, h6, th { font-weight: var(--fw-semibold); }
 
 .footer a:hover { color: var(--text-bright); }
 
+/* Links after the brand line. On desktop they continue it ("· Rewards
+   programs") and push the disclaimer right; on phones the footer stacks and
+   the link gets its own line with no stray separator. */
+.footer-link { margin-right: auto; margin-left: -16px; }
+.footer-brand + .footer-link::before {
+  content: "·";
+  margin-right: 8px;
+  opacity: 0.55;
+}
+
 /* ── Responsive ── */
 @media (max-width: 640px) {
   body {
@@ -255,4 +265,7 @@ b, strong, h1, h2, h3, h4, h5, h6, th { font-weight: var(--fw-semibold); }
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .footer-link { margin-left: 0; }
+  .footer-brand + .footer-link::before { content: none; }
 }

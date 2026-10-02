@@ -118,7 +118,7 @@ test("page switching is softened and respects reduced-motion preferences", () =>
 
 test("all page headers wrap to the same non-overlapping two-row layout on phones", () => {
   for (const page of PAGES) {
-    assert.ok(read(page).includes('/shared-shell.css?v=42'), `${page} does not load the shared shell`)
+    assert.ok(read(page).includes('/shared-shell.css?v=43'), `${page} does not load the shared shell`)
   }
   const phone = sharedShell.slice(sharedShell.indexOf("@media (max-width: 640px)"))
   assert.match(phone, /\.app-header\s*\{[^}]*flex-wrap:\s*wrap/)
@@ -130,7 +130,7 @@ test("all page headers wrap to the same non-overlapping two-row layout on phones
 test("shared shell is available offline and from the public server", () => {
   const sw = read("sw.js")
   const server = read("server.js")
-  assert.ok(sw.includes('"/shared-shell.css?v=42"'))
+  assert.ok(sw.includes('"/shared-shell.css?v=43"'))
   assert.ok(server.includes('"shared-shell.css"'))
 })
 

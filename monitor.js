@@ -528,7 +528,7 @@ async function monLoad() {
     monPopulateCategories(snapshot.categories)
     monRender()
     const at = snapshot.generatedAt ? new Date(snapshot.generatedAt) : new Date()
-    monSetLive(snapshot.complete === false ? "stale" : "", `Updated ${at.toLocaleTimeString()}`)
+    monSetLive(snapshot.complete === false ? "stale" : "", `Updated ${at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`)
   } catch (err) {
     monSetLive("failed", "Sweep failed")
     monRenderAlerts([{ level: "err", text: `The monitor sweep failed: ${err.message}` }])
@@ -642,10 +642,88 @@ function monRepaint() {
   if (_mon) monRender()
 }
 
+// An (i) that works by hover, keyboard and tap. A title attribute only ever
+// showed on desktop hover, so the detail moved into these was unreachable on a
+// phone. One shared popover (#monInfoPop) is positioned next to the button.
+function monInfo(tip) {
+  if (!tip) return ""
+  return `<button type="button" class="info" data-info="${MON_ESC(tip)}" aria-label="More information" aria-expanded="false">i</button>`
+}
+
+function monInfoPop() {
+  let pop = document.getElementById("monInfoPop")
+  if (!pop) {
+    pop = document.createElement("div")
+    pop.id = "monInfoPop"
+    pop.className = "info-pop"
+    pop.setAttribute("role", "tooltip")
+    pop.hidden = true
+    document.body.appendChild(pop)
+  }
+  return pop
+}
+
+let _monInfoPinned = null
+
+function monShowInfo(btn, pin) {
+  const pop = monInfoPop()
+  pop.textContent = btn.getAttribute("data-info") || ""
+  pop.hidden = false
+  btn.setAttribute("aria-describedby", "monInfoPop")
+  btn.setAttribute("aria-expanded", "true")
+  const r = btn.getBoundingClientRect()
+  const w = pop.offsetWidth
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8)
+  const below = r.bottom + 8 + pop.offsetHeight < window.innerHeight
+  pop.style.left = `${left}px`
+  pop.style.top = `${below ? r.bottom + 8 : Math.max(8, r.top - pop.offsetHeight - 8)}px`
+  if (pin) _monInfoPinned = btn
+}
+
+function monHideInfo(force) {
+  if (_monInfoPinned && !force) return
+  const pop = document.getElementById("monInfoPop")
+  if (pop) pop.hidden = true
+  document.querySelectorAll(".info[aria-expanded='true']").forEach((b) => {
+    b.setAttribute("aria-expanded", "false")
+    b.removeAttribute("aria-describedby")
+  })
+  _monInfoPinned = null
+}
+
+function monWireInfo() {
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest(".info[data-info]")
+    if (btn) {
+      const again = _monInfoPinned === btn
+      monHideInfo(true)
+      if (!again) monShowInfo(btn, true)
+      return
+    }
+    if (_monInfoPinned) monHideInfo(true)
+  })
+  document.addEventListener("mouseover", (e) => {
+    const btn = e.target.closest && e.target.closest(".info[data-info]")
+    if (btn && !_monInfoPinned) monShowInfo(btn, false)
+  })
+  document.addEventListener("mouseout", (e) => {
+    const btn = e.target.closest && e.target.closest(".info[data-info]")
+    if (btn) monHideInfo(false)
+  })
+  document.addEventListener("focusin", (e) => {
+    if (e.target.matches && e.target.matches(".info[data-info]") && !_monInfoPinned) monShowInfo(e.target, false)
+  })
+  document.addEventListener("focusout", (e) => {
+    if (e.target.matches && e.target.matches(".info[data-info]")) monHideInfo(false)
+  })
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") monHideInfo(true) })
+  window.addEventListener("scroll", () => monHideInfo(true), { passive: true })
+}
+
 function monKpi({ label, value, sub, tip, state }) {
   const na = value === null || value === undefined
   return `<div class="kpi">
-    <div class="kpi-label">${MON_ESC(label)}${tip ? `<span class="info" title="${MON_ESC(tip)}" aria-label="${MON_ESC(tip)}">i</span>` : ""}</div>
+    <div class="kpi-label">${MON_ESC(label)}${monInfo(tip)}</div>
     <div class="kpi-value${na ? " na" : state ? ` ${state}` : ""}">${na ? "Not available" : MON_ESC(value)}</div>
     <div class="kpi-sub">${MON_ESC(sub || "")}</div>
   </div>`
@@ -658,7 +736,7 @@ function monKpiMini({ label, value, tip, state }) {
   const na = value === null || value === undefined
   return `<span class="kpi-mini">${MON_ESC(label)}
     <span class="kpi-mini-value${na ? " na" : state ? ` ${state}` : ""}">${na ? "Not enough data" : MON_ESC(value)}</span>${
-    tip ? `<span class="info" title="${MON_ESC(tip)}" aria-label="${MON_ESC(tip)}">i</span>` : ""}</span>`
+    monInfo(tip)}</span>`
 }
 
 // Overround needs its own builder because the honest answer is usually
@@ -897,8 +975,7 @@ function monRenderVolume() {
     meta.textContent = `${monCount(history.days.length)} completed UTC days · ${monMoney(history.total) || "—"} total`
   }
   if (desc) {
-    desc.textContent = "Hourly, completed UTC days."
-    desc.title = "Today is excluded — the volume endpoint only publishes a day once it has closed."
+    desc.innerHTML = `Hourly, completed UTC days. ${monInfo("Today is excluded — the volume endpoint only publishes a day once it has closed.")}`
   }
 
   const width = Math.max(320, wrap.clientWidth)
@@ -1153,7 +1230,7 @@ function monRenderMatrix(categories, totals) {
       <span>Shading: lighter</span>
       <span class="scale-steps">${steps.map((t) => `<span class="scale-step" style="background:${monAttentionBg(t)}"></span>`).join("")}</span>
       <span>needs attention</span>
-      <span class="info" title="${MON_ESC(shadingTip)}" aria-label="${MON_ESC(shadingTip)}">i</span>
+      ${monInfo(shadingTip)}
       ${hidden.length ? `<span class="sub">· ${MON_ESC(hidden.map((h) => h[0].toUpperCase() + h.slice(1)).join(", "))} hidden — no data in this view${
         !hasOverround ? " (no single-winner event has every leg quoted)" : ""}</span>` : ""}`
   }
@@ -1248,11 +1325,8 @@ function monRenderContracts(rows, filters) {
       (anyFilter ? ` of ${monCount(_mon.rowsShown)} loaded` : "")
   }
   if (note) {
-    note.textContent = capped
-      ? `Top ${monCount(_mon.rowsShown)} of ${monCount(_mon.rowsTotal)} by spread.`
-      : ""
-    note.title = capped
-      ? `Showing the ${monCount(_mon.rowsShown)} widest-spread contracts on the busiest events, out of ${monCount(_mon.rowsTotal)} listed. The totals and the matrix above cover all ${monCount(_mon.rowsTotal)}.`
+    note.innerHTML = capped
+      ? `Top ${MON_ESC(monCount(_mon.rowsShown))} of ${MON_ESC(monCount(_mon.rowsTotal))} by spread. ${monInfo(`Showing the ${monCount(_mon.rowsShown)} widest-spread contracts on the busiest events, out of ${monCount(_mon.rowsTotal)} listed. The totals and the matrix above cover all ${monCount(_mon.rowsTotal)}.`)}`
       : ""
   }
 
@@ -1334,6 +1408,7 @@ function monExportCsv() {
 
 function monInit() {
   if (!MON_HAS_DOM) return
+  monWireInfo()
   monLoad()
   // The treemap and the chart are laid out in pixels, so a resize has to
   // re-lay them out rather than letting CSS stretch a stale geometry.

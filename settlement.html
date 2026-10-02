@@ -424,8 +424,10 @@
     .gem-feed-title { font-size: 18px; font-weight: 600; color: var(--text-bright); }
     .gem-feed-note { margin: 4px 0 8px; font-size: 13px; color: var(--muted); line-height: 1.5; }
     .gem-feed-about { display: inline; }
-    .gem-feed-about summary { display: inline; cursor: pointer; color: var(--text-bright); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 2px; }
-    .gem-feed-about[open] summary { margin-right: 6px; }
+    .gem-feed-about summary { display: inline; cursor: pointer; color: var(--text-mid); text-decoration: underline; text-decoration-color: var(--border-hi); text-underline-offset: 2px; }
+    .gem-feed-about summary::-webkit-details-marker { display: none; }
+    .gem-feed-about summary:hover { color: var(--text-bright); }
+    .gem-feed-about-body { display: block; margin-top: 4px; }
     .gem-feed-list { list-style: none; }
     .gem-feed-row[hidden] { display: none; }
     .gem-feed-btn {
@@ -459,7 +461,23 @@
       .intake-row { flex-direction: column; }
       .intake-row input { min-height: 48px; }
       .btn-review { width: 100%; min-height: 44px; }
-      .case-ticker, .gem-feed-ticker, .gem-feed-meta { display: none; }
+      /* Phones: the name gets its own line so titles are never cut to a few
+         characters; badge and time sit on the line below. A card with no title
+         still shows its ticker. */
+      .case-header { flex-wrap: wrap; row-gap: 6px; }
+      .case-name { flex: 1 1 calc(100% - 28px); flex-wrap: wrap; row-gap: 2px; }
+      .case-title { white-space: normal; flex-basis: 100%; }
+      .case-ticker { max-width: 100%; }
+      .case-name:has(.case-title) .case-ticker { display: none; }
+      .case-header .badge { margin-left: 0; }
+      .case-chevron { order: 1; }
+      .case-name { order: 0; }
+      .case-header .badge, .case-time { order: 2; }
+      /* Feed rows: the full name (and its 5-min / 15-min label) wraps; the
+         result goes underneath. */
+      .gem-feed-btn { flex-wrap: wrap; row-gap: 2px; }
+      .gem-feed-name { flex-basis: 100%; white-space: normal; }
+      .gem-feed-ticker, .gem-feed-meta { display: none; }
       .case-card.is-latest .case-header { padding: 14px; }
       .case-card.is-latest .case-body { padding: 0 14px 16px; }
     }
@@ -470,7 +488,7 @@
       .spinner { animation: none; }
     }
   </style>
-  <link href="/shared-shell.css?v=42" rel="stylesheet">
+  <link href="/shared-shell.css?v=43" rel="stylesheet">
 </head>
 <body class="light">
 
@@ -498,9 +516,9 @@
       <input
         id="tickerInput"
         type="text"
-        aria-label="Prediction market ticker or URL — Gemini, Kalshi, Polymarket or Coinbase"
-        placeholder="Paste a ticker, contract symbol or URL — Gemini, Kalshi, Polymarket, Coinbase…"
-        data-placeholder-short="Paste a ticker or URL…"
+        aria-label="Ticker, contract symbol or market URL — Gemini, Kalshi, Polymarket or Coinbase"
+        placeholder="Paste a ticker, contract symbol or market URL…"
+        data-placeholder-short="Paste a ticker, symbol or URL…"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
@@ -554,13 +572,14 @@
   <div id="gemSettledSlot"></div>
 
   <footer class="footer">
-    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span><span class="footer-sep">·</span><a href="/#rewards">Rewards programs</a></span>
+    <span class="footer-brand"><span>Predara</span><span class="footer-sep">·</span><a href="https://edison-labs.com/" target="_blank" rel="noopener noreferrer">Edison Labs LLC ↗</a><span class="footer-sep">·</span><span>2026</span></span>
+    <a class="footer-link" href="/#rewards">Rewards programs</a>
     <span class="footer-note">Independent, read-only settlement analysis. Confirm final outcomes with the venue.</span>
   </footer>
 
 </div>
 
-<script src="gemini-live.js?v=43"></script>
+<script src="gemini-live.js?v=44"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')
