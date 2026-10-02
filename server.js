@@ -10,6 +10,7 @@ const { handleMatchRequest } = require("./lib/cross-platform")
 const polymarket = require("./lib/polymarket")
 const { getDiscoveryFeed } = require("./lib/discover")
 const { handleMonitorRequest } = require("./lib/monitor")
+const { fetchGeminiSettlementEvent, geminiWinnersData, focusFact } = require("./lib/settlement-gemini")
 const { fetchPolymarketSeries, fetchKalshiSeries, normalizeWindow } = require("./lib/history")
 const { makeSignedGet } = require("./lib/kalshi-auth")
 const guard = require("./lib/guard")
@@ -800,25 +801,17 @@ const server = http.createServer((req, res) => {
           winnersData = { title: event.title || identifier, ticker: event.slug || identifier, status: event.closed ? "settled" : (event.active ? "active" : "unknown"), resolvedAt: event.endDate || "", winners, losers, contracts: totalOutcomes, platformName: "Polymarket" }
 
         } else {
-          // Gemini (default)
-          const { status: gemStatus, body: gemBody } = await httpsGetWithTimeout(
-            `https://api.gemini.com/v1/prediction-markets/events/${encodeURIComponent(identifier)}`,
-            REQUEST_TIMEOUT_MS
-          )
-          if (gemStatus !== 200) return sendError(`Could not fetch Gemini event data for "${identifier}" (HTTP ${gemStatus}). Verify the ticker is correct.`)
-          const eventData = JSON.parse(gemBody)
-          const contracts = Array.isArray(eventData.contracts) ? eventData.contracts : []
-          const winners = contracts.filter(c => c.resolutionSide === "yes" || c.result === "yes")
-            .map(c => ({ label: c.label || c.displayName || "", resolvedAt: c.resolvedAt || "" }))
-          const losers  = contracts.filter(c => (c.resolutionSide || c.result) && c.resolutionSide !== "yes" && c.result !== "yes")
-            .map(c => ({ label: c.label || c.displayName || "", status: c.status || "" }))
-          winnersData = { title: eventData.title || identifier, ticker: eventData.ticker || identifier, status: eventData.status || "", resolvedAt: eventData.resolvedAt || "", winners, losers, contracts: contracts.length, platformName: "Gemini" }
+          // Gemini (default). A contract symbol resolves to its parent event; see
+          // lib/settlement-gemini.js.
+          const gem = await fetchGeminiSettlementEvent(identifier, (url) => httpsGetWithTimeout(url, REQUEST_TIMEOUT_MS))
+          if (gem.status !== 200) return sendError(`Could not fetch Gemini event data for "${identifier}" (HTTP ${gem.status}). Verify the ticker is correct.`)
+          winnersData = geminiWinnersData(JSON.parse(gem.body), gem.eventTicker || identifier, gem.focusSymbol)
         }
       } catch (err) {
         return sendError(`Failed to fetch settlement data: ${err.message}`)
       }
 
-      const { title, ticker, status, resolvedAt, winners, losers, contracts, platformName } = winnersData
+      const { title, ticker, status, resolvedAt, winners, losers, contracts, platformName, focus = null } = winnersData
 
       // ── Fast path: winner clearly identified by API — no Claude call needed ──
       if (winners.length > 0) {
@@ -837,7 +830,8 @@ const server = http.createServer((req, res) => {
             // winning side IS "No", and claiming it resolved YES contradicted
             // the winner named one line above it.
             `Resolved outcome${winners.length !== 1 ? "s" : ""}: ${winnerLabels.join(", ")} (${winners.length} of ${contracts})`,
-          ],
+          ].concat(focus ? [focusFact(focus)] : []),
+          focus,
           recommendation: "No action needed. Settlement is confirmed directly by the platform's API data.",
         })
       }
@@ -848,6 +842,7 @@ const server = http.createServer((req, res) => {
           ticker, title, status,
           verdict: "error",
           needsKey: true,
+          focus,
           summary: "This market has no clear winner in the platform's API data, so it needs AI analysis. Add your Anthropic API key to continue — it stays in your browser and is billed to your own Anthropic account.",
           keyFacts: [],
           recommendation: "Open \u201cYour Anthropic API key\u201d and paste a key from console.anthropic.com.",
@@ -919,6 +914,12 @@ Use "confirmed" if settlement looks correct, "discrepancy" if something appears 
       if (!Array.isArray(verdict.keyFacts)) verdict.keyFacts = []
       if (!verdict.summary) verdict.summary = "No summary provided."
       if (!verdict.recommendation) verdict.recommendation = "Review manually."
+
+      // The contract the customer pasted, when the input was a contract symbol.
+      if (focus) {
+        verdict.focus = focus
+        verdict.keyFacts = verdict.keyFacts.concat([focusFact(focus)])
+      }
 
       sendJson(verdict)
     })
