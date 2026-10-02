@@ -2987,7 +2987,7 @@
 
   <div class="search-row">
     <input id="urlInput" aria-label="Prediction market URL — Kalshi, Polymarket, Gemini or Coinbase" inputmode="url" placeholder="Paste a Kalshi, Polymarket, Gemini, or Coinbase URL..." data-placeholder-short="Paste a market URL…" onkeydown="if(event.key==='Enter')analyze()" oninput="onInputChange()" onpaste="onUrlPaste(event)" />
-    <button onclick="analyze()">Analyze ↗</button>
+    <button onclick="analyze()">Analyze</button>
   </div>
 
   <div id="inputHint" class="input-hint"></div>
@@ -3009,7 +3009,7 @@
       <span id="fetchedAt" class="fetched-at" style="display:none"></span>
       <div id="shareControls" class="toolbar-group" style="display:none">
         <button class="copy-link-btn" id="refreshBtn" onclick="refreshMarket()">↺ Refresh</button>
-        <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link ↗</button>
+        <button class="copy-link-btn" id="copyLinkBtn" onclick="copyShareLink()">Copy link</button>
         <button class="copy-link-btn" id="shareCardBtn" onclick="generateShareCard()" title="Download a shareable image card">Share card ↓</button>
         <button class="panel-btn" id="bookmarkBtn">☆ Save</button>
       </div>
@@ -3026,7 +3026,7 @@
       <span class="compare-input-num">3</span>
       <input id="urlInput3" class="compare-url-input" placeholder="Third market URL (optional)…" />
     </div>
-    <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">Compare ↗</button>
+    <button class="compare-submit-btn" id="compareSubmitBtn" onclick="analyzeCompare()">Compare</button>
   </div>
 
   <div id="result">
@@ -3218,12 +3218,12 @@
   function copyShareLink() {
     const btn = document.getElementById('copyLinkBtn')
     navigator.clipboard.writeText(location.href).then(() => {
-      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link ↗' }, 2000) }
+      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link' }, 2000) }
     }).catch(() => {
       // Fallback: select the URL in the input
       const input = document.getElementById('urlInput')
       if (input) { input.select(); document.execCommand('copy') }
-      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link ↗' }, 2000) }
+      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = 'Copy link' }, 2000) }
     })
   }
 </script>

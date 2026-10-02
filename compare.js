@@ -478,7 +478,7 @@ function toggleCompareMode() {
   const btn = document.getElementById("compareToggleBtn")
   if (section) section.style.display = _compareMode ? "grid" : "none"
   if (btn) {
-    btn.textContent = _compareMode ? "− HIDE COMPARE" : "+ COMPARE MARKETS"
+    btn.textContent = _compareMode ? "− Hide compare" : "+ Compare markets"
     btn.classList.toggle("active", _compareMode)
   }
 }
@@ -497,7 +497,7 @@ async function analyzeCompare() {
 
   const result = document.getElementById("result")
   const btn = document.getElementById("compareSubmitBtn")
-  if (btn) { btn.disabled = true; btn.textContent = "COMPARING…" }
+  if (btn) { btn.disabled = true; btn.textContent = "Comparing…" }
   const shareControlsEl = document.getElementById("shareControls")
   if (shareControlsEl) shareControlsEl.style.display = "none"
   result.innerHTML = `<div class="mi-loading"><span class="mi-spinner"></span>COMPARING ${urls.length} MARKETS</div>`
@@ -521,7 +521,7 @@ async function analyzeCompare() {
   }
   if (typeof _refreshBookmarkBtn === "function") _refreshBookmarkBtn(compareUrl)
 
-  if (btn) { btn.disabled = false; btn.textContent = "COMPARE ↗" }
+  if (btn) { btn.disabled = false; btn.textContent = "Compare" }
 }
 
 function addShareBar(marketUrl) {
@@ -530,7 +530,7 @@ function addShareBar(marketUrl) {
   const shareControlsEl = document.getElementById("shareControls")
   if (shareControlsEl) shareControlsEl.style.display = "flex"
   const copyBtn = document.getElementById("copyLinkBtn")
-  if (copyBtn) copyBtn.textContent = "Copy link ↗"
+  if (copyBtn) copyBtn.textContent = "Copy link"
 
   // Keep compare collapsed unless the user opens it explicitly.
 }
