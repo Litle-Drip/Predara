@@ -478,7 +478,7 @@ function toggleCompareMode() {
   const btn = document.getElementById("compareToggleBtn")
   if (section) section.style.display = _compareMode ? "grid" : "none"
   if (btn) {
-    btn.textContent = _compareMode ? "− Hide compare" : "+ Compare markets"
+    btn.textContent = _compareMode ? "Hide compare" : "Compare markets"
     btn.classList.toggle("active", _compareMode)
   }
 }
