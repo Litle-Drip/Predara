@@ -368,6 +368,8 @@
     .case-body[hidden] { display: none; }
 
     .case-summary { font-size: 15px; color: var(--text-mid); line-height: 1.55; }
+    .case-focus { margin-bottom: 8px; font-size: 15px; color: var(--text-bright); line-height: 1.5; }
+    .case-focus strong { font-weight: 600; }
 
     .key-facts { list-style: none; display: grid; gap: 4px; margin-top: 12px; }
     .key-facts li { font-size: 13px; color: var(--text); line-height: 1.5; }
@@ -497,7 +499,7 @@
         id="tickerInput"
         type="text"
         aria-label="Prediction market ticker or URL — Gemini, Kalshi, Polymarket or Coinbase"
-        placeholder="Paste ticker or URL — Gemini, Kalshi, Polymarket, Coinbase…"
+        placeholder="Paste a ticker, contract symbol or URL — Gemini, Kalshi, Polymarket, Coinbase…"
         data-placeholder-short="Paste a ticker or URL…"
         autocomplete="off"
         autocorrect="off"
@@ -558,7 +560,7 @@
 
 </div>
 
-<script src="gemini-live.js?v=42"></script>
+<script src="gemini-live.js?v=43"></script>
 <script>
   ;(function () {
     const input = document.getElementById('tickerInput')
@@ -753,6 +755,8 @@
     const out = []
     for (const raw of Array.isArray(c.keyFacts) ? c.keyFacts : []) {
       const fact = String(raw || "")
+      // The contract the customer asked about gets its own line above.
+      if (c.focus && /^Contract asked about:/i.test(fact)) continue
       const winner = fact.match(/^Winner:\s*(.+)$/i)
       if (winner && summary.includes(winner[1])) continue
       const resolved = fact.match(/^Resolved outcomes?:\s*(.+?)\s*\((\d+) of (\d+)\)$/i)
@@ -813,7 +817,8 @@
       const [, venue, id, code] = m
       const eventTicker = venue.toLowerCase() === "gemini" ? contractSymbolEvent(input) : ""
       if (eventTicker && code === "404") {
-        return { text: `This looks like a contract symbol — paste the event ticker (e.g. ${eventTicker}) instead.`, detail: raw }
+        // The desk already tried the event behind this symbol (${eventTicker}).
+        return { text: `We couldn't find the event for contract ${input.trim().toUpperCase()}. Check the symbol, or paste the event link from gemini.com.`, detail: raw }
       }
       if (code === "404") return { text: `We couldn't find a ${venue} market for ${id}. Check the ticker or paste the event link.`, detail: raw }
       return { text: `${venue} didn't return data for ${id} just now. Try again in a moment.`, detail: raw }
@@ -841,6 +846,15 @@
     }
     const plain = raw.replace(/\s*\(HTTP \d{3}\)/g, "")
     return { text: plain || "Something went wrong with this review. Try again.", detail: plain !== raw ? raw : "" }
+  }
+
+  // When a contract symbol was pasted, answer for that contract first —
+  // the customer holds one outcome, not the event.
+  function focusLine(c) {
+    const f = c.focus
+    if (!f || !f.label) return ""
+    const outcome = { won: "won", lost: "did not win", unsettled: "has no result yet" }[f.result] || "has no result yet"
+    return `<p class="case-focus case-focus-${esc(f.result)}">The contract you pasted, <strong>${esc(f.label)}</strong>, ${outcome}.</p>`
   }
 
   const CHEVRON = '<svg class="case-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -873,6 +887,7 @@
         : ""
       bodyHtml = `
         <div class="case-body" id="case-panel-${esc(c.id)}" role="region" aria-label="Settlement details"${expanded ? "" : " hidden"}>
+          ${focusLine(c)}
           <p class="case-summary">${esc(text)}</p>
           ${action}
           ${facts.length ? `<ul class="key-facts">${facts.map(f => `<li>${f.label ? `<span class="fact-label">${esc(f.label)}:</span> ` : ""}${esc(f.value)}</li>`).join("")}</ul>` : ""}
@@ -1005,6 +1020,7 @@
         title:          data.title || "",
         verdict:        data.needsKey ? "action_required" : (data.verdict || "error"),
         keyIssue:       data.needsKey ? (userKey ? "rejected" : "missing") : undefined,
+        focus:          data.focus || null,
         summary:        data.summary || "No summary returned.",
         keyFacts:       Array.isArray(data.keyFacts) ? data.keyFacts : [],
         recommendation: data.recommendation || "",
@@ -1052,6 +1068,7 @@
       summary: c.summary || "",
       keyFacts: Array.isArray(c.keyFacts) ? c.keyFacts : [],
       recommendation: c.recommendation || "",
+      contractAskedAbout: c.focus || null,
       input: c.input || "",
       ts: c.ts || "",
       exportedAt: new Date().toISOString(),

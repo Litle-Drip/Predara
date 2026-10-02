@@ -68,7 +68,9 @@ function monSpread(value) {
 // which the eight-slot categorical order passes on this page's surfaces. That
 // is why the palette is legitimate here and was not in the treemap, where any
 // block can touch any other.
-const MON_VOLUME_SLOTS = 8
+// Five named bands; smaller categories share one "Other" band so the legend
+// stays short.
+const MON_VOLUME_SLOTS = 5
 
 function monVolumeSeries(history) {
   const named = (history.categories || []).map((c) => c.name)
@@ -85,7 +87,7 @@ function monVolumeSeries(history) {
 }
 
 // Value of one series in one hour. "Other" is the sum of everything past the
-// eight slots, so the stack always adds up to the hour's real total.
+// named slots, so the stack always adds up to the hour's real total.
 function monSeriesValue(bucket, series) {
   const by = bucket.byCategory || {}
   if (!series.rest) return by[series.name] || 0
@@ -469,6 +471,8 @@ let _mon = null              // last successful snapshot
 let _monSort = { key: "spread", dir: "desc" }
 let _monLoading = false
 let _monResizeTimer = null
+let _monPage = 0             // contracts table page
+const MON_PAGE_SIZE = 50
 
 const MON_ESC = (v) => (typeof esc === "function" ? esc(v) : String(v == null ? "" : v))
 
@@ -540,7 +544,7 @@ async function monLoad() {
 }
 
 function monRefresh() { monLoad() }
-function monFilterChanged() { if (_mon) monRender() }
+function monFilterChanged() { _monPage = 0; if (_mon) monRender() }
 
 function monClearFilters() {
   ["fCategory", "fExpiry", "fQuote", "fSpread", "fSearch"].forEach((id) => {
@@ -647,9 +651,19 @@ function monKpi({ label, value, sub, tip, state }) {
   </div>`
 }
 
-// Overround needs its own tile builder because the honest answer is usually
+// Secondary figures: label, value and an (i) in one quiet line. A figure the
+// feed cannot support reads "Not enough data" here rather than taking a
+// headline card.
+function monKpiMini({ label, value, tip, state }) {
+  const na = value === null || value === undefined
+  return `<span class="kpi-mini">${MON_ESC(label)}
+    <span class="kpi-mini-value${na ? " na" : state ? ` ${state}` : ""}">${na ? "Not enough data" : MON_ESC(value)}</span>${
+    tip ? `<span class="info" title="${MON_ESC(tip)}" aria-label="${MON_ESC(tip)}">i</span>` : ""}</span>`
+}
+
+// Overround needs its own builder because the honest answer is usually
 // "not enough eligible events", and that has to be said rather than papered
-// over with an average of one.
+// over with an average of one. The eligibility detail lives in the (i).
 function monOverroundKpi(totals) {
   const excluded = totals.overroundExcluded || {}
   const why = [
@@ -659,38 +673,36 @@ function monOverroundKpi(totals) {
     [excluded.implausible, "outside ±100%"],
   ].filter(([n]) => n > 0).map(([n, label]) => `${monCount(n)} ${label}`)
 
-  const tip = "Sum of every outcome's ask, minus $1.00, averaged across events. " +
+  const method = "Sum of every outcome's ask, minus $1.00, averaged across events. " +
     "Only single-winner markets (template: categorical) with every leg offered are eligible — a multi-winner " +
     "market has no meaningful sum of asks, and a missing ask read as zero would invent a dutch book. " +
     "Values outside ±100% are set aside as mislabelled rather than averaged in. " +
     `Below ${MON_OVERROUND_MIN_SAMPLE} eligible events no average is shown: it would describe those few markets, not the platform. ` +
     "Read it with the field size in mind. On a large field the sum of asks is inflated by longshots resting at the minimum tick: " +
     "a runner whose real chance is a tenth of a cent still cannot be offered below one, so the basket costs more than a dollar " +
-    "without the venue charging anything for it. The share of the summed asks sitting on that floor is shown beneath the figure, " +
-    "and a high share means the margin is granularity rather than spread."
+    "without the venue charging anything for it."
 
   if (!totals.overroundRepresentative) {
-    return monKpi({
+    return monKpiMini({
       label: "Avg overround",
       value: null,
-      sub: `Only ${monCount(totals.overroundEligibleEvents)} of ${monCount(totals.events)} events eligible` +
-        (why.length ? ` — ${why.join(", ")}` : ""),
-      tip,
+      tip: `Only ${monCount(totals.overroundEligibleEvents)} of ${monCount(totals.events)} events eligible` +
+        (why.length ? ` (${why.join(", ")})` : "") + ". " + method,
     })
   }
 
   const floorShare = totals.overroundTickFloorShare
-  return monKpi({
+  const detail = `${monCount(totals.overroundEligibleEvents)} eligible events` +
+    (totals.overroundMaxLegs ? `, up to ${monCount(totals.overroundMaxLegs)} outcomes` : "") +
+    (totals.overroundImplausibleEvents ? `; ${monCount(totals.overroundImplausibleEvents)} set aside` : "") +
+    // Without this the figure reads as margin even when it is mostly the tick.
+    (floorShare !== null && floorShare !== undefined
+      ? `; ${monPct(floorShare)} of the summed asks rests on the minimum tick`
+      : "") + ". "
+  return monKpiMini({
     label: "Avg overround",
     value: monPct(totals.avgOverround, { digits: 1, signed: true }),
-    sub: `${monCount(totals.overroundEligibleEvents)} eligible` +
-      (totals.overroundMaxLegs ? `, up to ${monCount(totals.overroundMaxLegs)} outcomes` : "") +
-      (totals.overroundImplausibleEvents ? ` · ${monCount(totals.overroundImplausibleEvents)} set aside` : "") +
-      // Without this the figure reads as margin even when it is mostly the tick.
-      (floorShare !== null && floorShare !== undefined
-        ? ` · ${monPct(floorShare)} of the summed asks rests on the minimum tick`
-        : ""),
-    tip,
+    tip: detail + method,
   })
 }
 
@@ -699,59 +711,63 @@ function monRenderKpis(totals) {
   if (!grid) return
 
   const volumeLabel = totals.volumeField === "volume" ? "Cumulative volume" : "24h volume"
-  const volumeTip = totals.volumeField === "volume"
+  const volumeTip = (totals.volumeField === "volume"
     ? "Summed from each event's cumulative volume — the feed did not carry a 24-hour figure for every event, so this is not a 24-hour number."
-    : "Summed from each event's reported 24-hour traded notional."
+    : "Summed from each event's reported 24-hour traded notional.") +
+    ` ${monCount(totals.volumeEvents)} of ${monCount(totals.events)} events reported a figure.`
 
+  // Four headline figures. Everything else is a secondary line below.
   const tiles = [
     monKpi({
       label: volumeLabel,
       value: monMoney(totals.volume),
-      sub: `${monCount(totals.volumeEvents)} of ${monCount(totals.events)} events reported a figure`,
+      sub: `${monCount(totals.volumeEvents)} of ${monCount(totals.events)} events`,
       tip: volumeTip,
     }),
     monKpi({
       label: "Active events",
       value: monCount(totals.liveEvents),
-      sub: `${monCount(totals.events)} swept, ${monCount(totals.expiring24h)} expiring in 24h`,
-      tip: "An event with at least one contract that is not settled, closed or cancelled.",
-    }),
-    monKpi({
-      label: "Contracts listed",
-      value: monCount(totals.contractsListed),
-      sub: "Across every active event",
-      tip: "Unsettled contracts on the events swept. Settled legs are excluded so they cannot drag coverage down.",
+      sub: `${monCount(totals.expiring24h)} close within 24h`,
+      tip: `An event with at least one contract that is not settled, closed or cancelled. ${monCount(totals.events)} events swept.`,
     }),
     monKpi({
       label: "Quote coverage",
       value: monPct(totals.coverage),
-      sub: `${monCount(totals.contractsQuoted)} / ${monCount(totals.contractsListed)} with a live quote`,
+      sub: `${monCount(totals.contractsQuoted)} of ${monCount(totals.contractsListed)} quoted`,
       tip: "A contract counts as quoted when it carries a positive best bid or best ask. Depth is not available from the public feed, so this measures presence of a quote, not size behind it.",
     }),
     monKpi({
       label: "Avg spread",
       value: monSpread(totals.avgSpread),
-      sub: `Over ${monCount(totals.contractsTwoSided)} two-sided books`,
+      sub: `${monCount(totals.contractsTwoSided)} two-sided books`,
       tip: "Mean of (best ask − best bid) across contracts quoted on both sides. One-sided books have no spread a trader could cross and are excluded rather than counted as zero.",
     }),
-    monOverroundKpi(totals),
-    monKpi({
-      label: "Dutch books",
-      value: monCount(totals.dutchBooks),
-      sub: totals.dutchBooks ? "Outcomes offered for under $1.00 in total" : "None in the eligible events",
-      state: totals.dutchBooks > 0 ? "critical" : null,
-      tip: "Single-winner events whose asks sum to less than $1.00 — buying every outcome would lock in a profit. Counted only where every leg is quoted, so a missing quote can never be mistaken for one.",
-    }),
-    monKpi({
-      label: "Crossed books",
-      value: monCount(totals.crossed),
-      sub: totals.crossed ? "Contracts quoting a bid above the ask" : "None in the contracts swept",
-      state: totals.crossed > 0 ? "warning" : null,
-      tip: "A crossed top of book — the best bid sits above the best ask. Counted across every contract in the sweep, not just the rows loaded into the table below.",
-    }),
   ]
-
   grid.innerHTML = tiles.join("")
+
+  const secondary = document.getElementById("kpiSecondary")
+  if (secondary) {
+    secondary.innerHTML = [
+      monKpiMini({
+        label: "Contracts listed",
+        value: monCount(totals.contractsListed),
+        tip: "Unsettled contracts on the events swept. Settled legs are excluded so they cannot drag coverage down.",
+      }),
+      monOverroundKpi(totals),
+      monKpiMini({
+        label: "Dutch books",
+        value: monCount(totals.dutchBooks),
+        state: totals.dutchBooks > 0 ? "critical" : null,
+        tip: "Single-winner events whose asks sum to less than $1.00 — buying every outcome would lock in a profit. Counted only where every leg is quoted, so a missing quote can never be mistaken for one.",
+      }),
+      monKpiMini({
+        label: "Crossed books",
+        value: monCount(totals.crossed),
+        state: totals.crossed > 0 ? "warning" : null,
+        tip: "A crossed top of book — the best bid sits above the best ask. Counted across every contract in the sweep, not just the rows in the table below.",
+      }),
+    ].join("")
+  }
 }
 
 function monRenderHeat(events, totals) {
@@ -800,14 +816,18 @@ function monRenderHeat(events, totals) {
     const LINE = 14
     const PAD = 12
     const showValue = t.h >= PAD + LINE * 2
-    const labelLines = Math.floor((t.h - PAD - (showValue ? LINE : 0)) / LINE)
-    const showLabel = t.w > 58 && labelLines >= 1
+    const labelLines = Math.min(3, Math.floor((t.h - PAD - (showValue ? LINE : 0)) / LINE))
+    // A label that would be cut off is not shown at all — the block's name and
+    // figures are in its hover/tap tooltip and in the contracts table. ~6.6px
+    // per character is the 12px semibold label's average advance.
+    const charsPerLine = Math.floor((t.w - 16) / 6.6)
+    const showLabel = t.w > 58 && labelLines >= 1 && label.length <= charsPerLine * labelLines
 
     const coverageText = coverage === null ? "" : `, ${monPct(coverage)} quoted`
     return `<div class="tile" style="left:${t.x}px;top:${t.y}px;width:${t.w}px;height:${t.h}px;background:${monTileBg(coverage)}"
       data-tile="${i}" tabindex="0" role="img"
       aria-label="${MON_ESC(`${label}, ${t.category}, ${monMoney(t.value)}${coverageText}`)}">
-      ${showLabel ? `<div class="tile-label" style="-webkit-line-clamp:${Math.min(3, labelLines)}">${MON_ESC(label)}</div>` : ""}
+      ${showLabel ? `<div class="tile-label" style="-webkit-line-clamp:${labelLines}">${MON_ESC(label)}</div>` : ""}
       ${showLabel && showValue ? `<div class="tile-value">${MON_ESC(monMoney(t.value))}</div>` : ""}
     </div>`
   }).join("")
@@ -818,8 +838,7 @@ function monRenderHeat(events, totals) {
   if (legend) {
     // One sequential scale, not eight identities — so this is a scale legend.
     // Category names are printed on the blocks themselves.
-    legend.innerHTML = `<span class="legend-item">Area = traded volume · shading = quote coverage:</span>
-      <span class="legend-item">fully quoted</span>
+    legend.innerHTML = `<span class="legend-item">fully quoted</span>
       <span class="scale-steps">${[1, 0.75, 0.5, 0.25, 0].map((c) =>
         `<span class="scale-step" style="background:${monTileBg(c)}"></span>`).join("")}</span>
       <span class="legend-item">unquoted</span>`
@@ -878,7 +897,8 @@ function monRenderVolume() {
     meta.textContent = `${monCount(history.days.length)} completed UTC days · ${monMoney(history.total) || "—"} total`
   }
   if (desc) {
-    desc.textContent = `Completed UTC days, hourly. Today is excluded — the volume endpoint only publishes a day once it has closed.`
+    desc.textContent = "Hourly, completed UTC days."
+    desc.title = "Today is excluded — the volume endpoint only publishes a day once it has closed."
   }
 
   const width = Math.max(320, wrap.clientWidth)
@@ -1061,14 +1081,27 @@ function monRenderMatrix(categories, totals) {
     .filter((c) => c.overroundRepresentative)
     .map((c) => Math.abs(c.avgOverround || 0)), 0)
 
+  // Columns with nothing to show in any row are left out, with one note,
+  // rather than printed as a column of dashes.
+  const hasOverround = categories.some((c) => c.avgOverround !== null && c.avgOverround !== undefined)
+  const hasVolume = categories.some((c) => c.volume !== null && c.volume !== undefined)
+  const hasCoverage = categories.some((c) => c.coverage !== null && c.coverage !== undefined)
+  const hasSpread = categories.some((c) => c.avgSpread !== null && c.avgSpread !== undefined)
+  const hidden = [
+    !hasVolume && "volume",
+    !hasCoverage && "coverage",
+    !hasSpread && "spread",
+    !hasOverround && "overround",
+  ].filter(Boolean)
+
   const head = `<thead><tr>
     <th>Category</th>
     <th>Events</th>
     <th>Contracts</th>
-    <th>Volume</th>
-    <th>Coverage</th>
-    <th>Avg spread</th>
-    <th>Overround</th>
+    ${hasVolume ? "<th>Volume</th>" : ""}
+    ${hasCoverage ? "<th>Coverage</th>" : ""}
+    ${hasSpread ? "<th>Avg spread</th>" : ""}
+    ${hasOverround ? "<th>Overround</th>" : ""}
     <th>Dutch</th>
     <th>Expiring 24h</th>
   </tr></thead>`
@@ -1080,17 +1113,17 @@ function monRenderMatrix(categories, totals) {
       <td class="name">${MON_ESC(c.category)}</td>
       <td>${MON_ESC(monCount(c.events))}</td>
       <td>${MON_ESC(monCount(c.contractsListed))}</td>
-      <td>${c.volume === null ? `<span class="na-cell">—</span>` : `${MON_ESC(monMoney(c.volume))}
-        <div style="height:4px;margin-top:4px;border-radius:2px;background:var(--series-1);opacity:0.6;width:${Math.max(2, volumeShare * 100).toFixed(1)}%;margin-left:auto"></div>`}</td>
-      <td style="background:${monAttentionBg(coverageScale(coverageDeficit))}">${MON_ESC(monPct(c.coverage) || "—")}</td>
-      <td style="background:${monAttentionBg(spreadScale(c.avgSpread))}">${MON_ESC(monSpread(c.avgSpread) || "—")}</td>
-      <td style="background:${c.overroundRepresentative ? monDivergingBg(c.avgOverround, maxOverround) : "transparent"}">${
+      ${hasVolume ? `<td>${c.volume === null ? `<span class="na-cell">—</span>` : `${MON_ESC(monMoney(c.volume))}
+        <div style="height:4px;margin-top:4px;border-radius:2px;background:var(--muted);opacity:0.5;width:${Math.max(2, volumeShare * 100).toFixed(1)}%;margin-left:auto"></div>`}</td>` : ""}
+      ${hasCoverage ? `<td style="background:${monAttentionBg(coverageScale(coverageDeficit))}">${MON_ESC(monPct(c.coverage) || "—")}</td>` : ""}
+      ${hasSpread ? `<td style="background:${monAttentionBg(spreadScale(c.avgSpread))}">${MON_ESC(monSpread(c.avgSpread) || "—")}</td>` : ""}
+      ${hasOverround ? `<td style="background:${c.overroundRepresentative ? monDivergingBg(c.avgOverround, maxOverround) : "transparent"}">${
         c.avgOverround === null
           ? `<span class="na-cell" title="No single-winner event in this category had every leg quoted">—</span>`
           : c.overroundRepresentative
             ? MON_ESC(monPct(c.avgOverround, { digits: 1, signed: true }))
             : `<span class="na-cell" title="Too few eligible events to average — read the per-event values instead">(${MON_ESC(monPct(c.avgOverround, { digits: 1, signed: true }))})</span>`
-      }<div class="sub">${MON_ESC(monCount(c.overroundEligibleEvents))} elig.</div></td>
+      }<div class="sub">${MON_ESC(monCount(c.overroundEligibleEvents))} elig.</div></td>` : ""}
       <td>${c.dutchBooks ? `<span class="flag critical">⚠ ${MON_ESC(c.dutchBooks)}</span>` : `<span class="na-cell">0</span>`}</td>
       <td>${c.expiring24h ? MON_ESC(monCount(c.expiring24h)) : `<span class="na-cell">—</span>`}</td>
     </tr>`
@@ -1100,12 +1133,12 @@ function monRenderMatrix(categories, totals) {
     <td class="name"><strong>All visible</strong></td>
     <td>${MON_ESC(monCount(totals.events))}</td>
     <td>${MON_ESC(monCount(totals.contractsListed))}</td>
-    <td>${MON_ESC(monMoney(totals.volume) || "—")}</td>
-    <td>${MON_ESC(monPct(totals.coverage) || "—")}</td>
-    <td>${MON_ESC(monSpread(totals.avgSpread) || "—")}</td>
-    <td>${totals.overroundRepresentative
+    ${hasVolume ? `<td>${MON_ESC(monMoney(totals.volume) || "—")}</td>` : ""}
+    ${hasCoverage ? `<td>${MON_ESC(monPct(totals.coverage) || "—")}</td>` : ""}
+    ${hasSpread ? `<td>${MON_ESC(monSpread(totals.avgSpread) || "—")}</td>` : ""}
+    ${hasOverround ? `<td>${totals.overroundRepresentative
       ? MON_ESC(monPct(totals.avgOverround, { digits: 1, signed: true }) || "—")
-      : `<span class="na-cell">n/a</span>`}</td>
+      : `<span class="na-cell">n/a</span>`}</td>` : ""}
     <td>${MON_ESC(monCount(totals.dutchBooks))}</td>
     <td>${MON_ESC(monCount(totals.expiring24h))}</td>
   </tr></tfoot>`
@@ -1114,16 +1147,15 @@ function monRenderMatrix(categories, totals) {
 
   if (scale) {
     const steps = [0, 0.25, 0.5, 0.75, 1]
+    const shadingTip = "Coverage and spread are shaded within the range currently visible — stronger means more attention needed. " +
+      "Overround is red when negative (a dutch book) and blue when positive. Every shaded value is also printed, so no figure depends on colour."
     scale.innerHTML = `
-      <span>Coverage &amp; spread shading — stronger means more attention needed, placed within the range currently visible (the printed value is the absolute figure):</span>
+      <span>Shading: lighter</span>
       <span class="scale-steps">${steps.map((t) => `<span class="scale-step" style="background:${monAttentionBg(t)}"></span>`).join("")}</span>
-      <span>Overround:</span>
-      <span class="scale-steps">
-        <span class="scale-step" style="background:${monDivergingBg(-1, 1)}" title="negative — dutch book"></span>
-        <span class="scale-step" style="background:transparent" title="zero — a fair book"></span>
-        <span class="scale-step" style="background:${monDivergingBg(1, 1)}" title="positive margin"></span>
-      </span>
-      <span class="sub">negative ← 0 → positive. Every shaded value is also printed, so no figure here depends on colour.</span>`
+      <span>needs attention</span>
+      <span class="info" title="${MON_ESC(shadingTip)}" aria-label="${MON_ESC(shadingTip)}">i</span>
+      ${hidden.length ? `<span class="sub">· ${MON_ESC(hidden.map((h) => h[0].toUpperCase() + h.slice(1)).join(", "))} hidden — no data in this view${
+        !hasOverround ? " (no single-winner event has every leg quoted)" : ""}</span>` : ""}`
   }
 }
 
@@ -1217,8 +1249,11 @@ function monRenderContracts(rows, filters) {
   }
   if (note) {
     note.textContent = capped
+      ? `Top ${monCount(_mon.rowsShown)} of ${monCount(_mon.rowsTotal)} by spread.`
+      : ""
+    note.title = capped
       ? `Showing the ${monCount(_mon.rowsShown)} widest-spread contracts on the busiest events, out of ${monCount(_mon.rowsTotal)} listed. The totals and the matrix above cover all ${monCount(_mon.rowsTotal)}.`
-      : `All ${monCount(_mon.rowsTotal)} listed contracts.`
+      : ""
   }
 
   if (!sorted.length) {
@@ -1235,9 +1270,13 @@ function monRenderContracts(rows, filters) {
       >${MON_ESC(c.label)}<span class="arrow">${arrow}</span></th>`
   }).join("")}</tr></thead>`
 
-  // Rendering 1500 rows of innerHTML at once is faster than 1500 node builds
-  // and the table is replaced wholesale on every sort anyway.
-  const body = sorted.slice(0, 1500).map((r) => {
+  // One page at a time rather than all 1,500 rows at once. Sorting and
+  // filtering act on every row; a change to either returns to page one.
+  const pages = Math.max(1, Math.ceil(sorted.length / MON_PAGE_SIZE))
+  _monPage = Math.min(Math.max(0, _monPage), pages - 1)
+  const start = _monPage * MON_PAGE_SIZE
+  const pageRows = sorted.slice(start, start + MON_PAGE_SIZE)
+  const body = pageRows.map((r) => {
     const oneSided = (r.bid === null) !== (r.ask === null)
     const unquoted = r.bid === null && r.ask === null
     return `<tr>
@@ -1257,6 +1296,26 @@ function monRenderContracts(rows, filters) {
   }).join("")
 
   table.innerHTML = head + `<tbody>${body}</tbody>`
+  monRenderPager(sorted.length, start, pageRows.length, pages)
+}
+
+function monRenderPager(total, start, count, pages) {
+  const pager = document.getElementById("contractsPager")
+  if (!pager) return
+  if (pages <= 1) { pager.innerHTML = ""; return }
+  pager.innerHTML = `
+    <span>${MON_ESC(monCount(start + 1))}–${MON_ESC(monCount(start + count))} of ${MON_ESC(monCount(total))}</span>
+    <button type="button" onclick="monPageBy(-1)"${_monPage === 0 ? " disabled" : ""}>Previous</button>
+    <button type="button" onclick="monPageBy(1)"${_monPage >= pages - 1 ? " disabled" : ""}>Next</button>`
+}
+
+function monPageBy(delta) {
+  _monPage += delta
+  if (!_mon) return
+  monRenderContracts(monFilterRows(_mon.rows, monFilters()), monFilters())
+  const table = document.getElementById("contractsTable")
+  const scroller = table && table.parentElement
+  if (scroller) scroller.scrollTop = 0
 }
 
 function monExportCsv() {
